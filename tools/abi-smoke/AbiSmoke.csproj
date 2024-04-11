@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <RootNamespace>RustBridge.Smoke</RootNamespace>
+    <AssemblyName>abi-smoke</AssemblyName>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The bridge's marshaling and reflection layers have no game dependencies, so they can be
+         tested here. This is the regression guard for structured results (dictionaries, lists,
+         handles), for member lookup across base classes and for overload selection (argument
+         count, parameter type names, aliases). -->
+    <Compile Include="..\..\bridge\src\JsonUtil.cs" Link="JsonUtil.cs" />
+    <Compile Include="..\..\bridge\src\MemberAccess.cs" Link="MemberAccess.cs" />
+    <Compile Include="..\..\bridge\src\MethodSelection.cs" Link="MethodSelection.cs" />
+    <Compile Include="..\..\bridge\src\InstructionRewriting.cs" Link="InstructionRewriting.cs" />
+  </ItemGroup>
+
+</Project>

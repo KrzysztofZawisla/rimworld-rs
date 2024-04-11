@@ -1,0 +1,13 @@
+# The toolchain this repository is formatted and linted with. `rustfmt.toml` uses nightly options, so a
+# nightly is required; the exact date is pinned here (not left to whatever is default, and not left as a moving
+# `nightly`) so every machine and every day lints with the same rustfmt and clippy.
+#
+# Moving the pin is a deliberate change: a new nightly can add a lint, and with `clippy -D warnings` that lint
+# fails the suite. Bumping it means running `cargo xtask fmt --fix` and `cargo xtask test` in the same commit.
+#
+# The floor is not cosmetic: `typos-cli` and `cargo-nextest` - the extra gates `cargo xtask test` runs - need
+# rustc 1.95 or newer to install, which is why this pin moved from a January 1.94 nightly to this one.
+[toolchain]
+channel = "nightly-2026-10-17"
+components = ["rustfmt", "clippy", "rust-docs", "rust-analyzer"]
+profile = "minimal"

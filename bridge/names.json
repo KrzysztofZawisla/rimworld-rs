@@ -1,0 +1,21 @@
+{
+  "comment": "Every game def name the bridge looks up at runtime lives here. `cargo xtask test` verifies these names against the installed game's XML defs (abi-smoke --defs), so a rename in a game update fails the test instead of failing in game.",
+  "defsByClass": {
+    "LetterDef": {
+      "neutral": "NeutralEvent",
+      "positive": "PositiveEvent",
+      "negative": "NegativeEvent",
+      "threat": "ThreatBig",
+      "threatSmall": "ThreatSmall"
+    },
+    "MessageTypeDef": {
+      "neutral": "NeutralEvent",
+      "positive": "PositiveEvent",
+      "negative": "NegativeEvent"
+    },
+    "DamageDef": {
+      "blunt": "Blunt"
+    }
+  }
+}
+

@@ -1,0 +1,39 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/rimworld-rs",
+    "crates/rimworld-rs-testmod",
+    "crates/xtask",
+    "examples/api-test-mod",
+    "examples/hello-rust-mod",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/KrzysztofZawisla/rimworld-rs"
+
+[workspace.dependencies]
+rimworld-rs = { path = "crates/rimworld-rs" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# The shipping configuration: this is what every artifact meant for a player is built with (`cargo build
+# --release`, which is what `cargo xtask` builds and packages into a mod), so it is tuned for the best code
+# rather than for a short compile:
+#   - `lto = "fat"` optimises across every crate in the dependency graph, not just the local one;
+#   - `codegen-units = 1` gives the optimiser one unit per crate, so it sees all of it at once;
+#   - the rest are the release defaults, spelled out so a later edit cannot weaken them silently;
+#   - `panic = "unwind"` is deliberate and must stay: a mod's panic has to leave the game running, which is
+#     `rwrs_dispatch` catching it at the FFI boundary - `panic = "abort"` would replace that with a crash.
+# Only this manifest has an effect: cargo reads profiles from the workspace root alone, and a `[profile]` table
+# in `crates/*`, `examples/*` or `mods/*` would be ignored with a warning (they inherit this one).
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "unwind"
+incremental = false
+debug = false
+overflow-checks = false

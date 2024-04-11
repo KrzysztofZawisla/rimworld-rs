@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+	<name>Hello Rust Mod</name>
+	<author>rimworld-rs</author>
+	<packageId>rimworld.rs.hello</packageId>
+	<description>Example mod written in Rust with rimworld-rs. Requires the Harmony mod for the harmony_patch demo.</description>
+	<supportedVersions>
+		<li>1.7</li>
+	</supportedVersions>
+	<modDependencies>
+		<li>
+			<packageId>brrainz.harmony</packageId>
+			<displayName>Harmony</displayName>
+			<steamWorkshopUrl>steam://url/CommunityFilePage/2009463077</steamWorkshopUrl>
+		</li>
+	</modDependencies>
+</ModMetaData>

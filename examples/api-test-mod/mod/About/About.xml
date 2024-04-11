@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+	<name>Rust API Self-Test</name>
+	<author>rimworld-rs</author>
+	<packageId>rimworld.rs.apitest</packageId>
+	<description>Runs an in-game self-test of the rimworld-rs API surface and reports the results in the log and with a letter. Enable it together with Harmony, then load a save and read Player.log.</description>
+	<supportedVersions>
+		<li>1.7</li>
+	</supportedVersions>
+	<modDependencies>
+		<li>
+			<packageId>brrainz.harmony</packageId>
+			<displayName>Harmony</displayName>
+			<steamWorkshopUrl>steam://url/CommunityFilePage/2009463077</steamWorkshopUrl>
+		</li>
+	</modDependencies>
+</ModMetaData>

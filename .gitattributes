@@ -1,0 +1,8 @@
+# Every text file in this repository is LF, on every platform: the formatters (rustfmt, dotnet format) and
+# the game's own file writers must not fight git about line endings.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.dll binary
+*.zip binary
+*.pdb binary

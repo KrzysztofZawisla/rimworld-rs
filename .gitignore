@@ -1,0 +1,23 @@
+/target
+/build
+/dist
+bin/
+obj/
+/game-refs/
+.commandcode/
+generated_defs.rs
+MODLOG.md
+
+# Local secrets: an environment file or a key never belongs in this repository.
+.env
+.env.*
+*.pem
+*.key
+*.pfx
+*.p12
+*.jks
+.netrc
+.npmrc
+.htpasswd
+id_rsa*
+id_ed25519*

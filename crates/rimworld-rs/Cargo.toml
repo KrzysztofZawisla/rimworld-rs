@@ -1,0 +1,17 @@
+[package]
+name = "rimworld-rs"
+description = "Rust SDK for writing RimWorld mods"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+# Source only: the SDK is consumed from this repository (a path or git dependency), never from a registry.
+publish = false
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+proptest = "1.12.0"
+rand = "0.10.3"

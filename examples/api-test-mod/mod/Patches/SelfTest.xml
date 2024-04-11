@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Patch>
+	<!-- Attaches the companion's ThingComp, the bridge's gizmo component and the bridge's own thing
+	     component to Steel and Silver, so spawning them in the self-test proves that a managed type
+	     defined in the companion assembly runs inside the game — and that the bridge alone is enough
+	     when the mod only needs a comp. Two rules the game only tells you about in its log:
+	     - the value goes on the *def* and creates <comps>: a resource def has no <comps> node of its
+	       own, and adding to a node that does not exist only fails;
+	     - a <comps> entry names its *CompProperties* class, never the ThingComp itself. -->
+	<Operation Class="PatchOperationAdd">
+		<xpath>/Defs/ThingDef[defName="Steel"]</xpath>
+		<value>
+			<comps>
+				<li Class="ApiTestCompanion.OnSpawnCompProperties" />
+				<li Class="RustBridge.RustGizmoCompProperties_ApiTestMod" />
+				<li Class="RustBridge.RustThingCompProperties_ApiTestMod">
+					<key>Apitest</key>
+				</li>
+			</comps>
+		</value>
+	</Operation>
+	<Operation Class="PatchOperationAdd">
+		<xpath>/Defs/ThingDef[defName="Silver"]</xpath>
+		<value>
+			<comps>
+				<li Class="ApiTestCompanion.OnSpawnCompProperties" />
+				<li Class="RustBridge.RustGizmoCompProperties_ApiTestMod" />
+				<li Class="RustBridge.RustThingCompProperties_ApiTestMod">
+					<key>Apitest</key>
+				</li>
+			</comps>
+		</value>
+	</Operation>
+	<!-- The companion's inspector tab, filled from Rust. -->
+	<Operation Class="PatchOperationAdd">
+		<xpath>/Defs/ThingDef[defName="Steel"]</xpath>
+		<value>
+			<inspectorTabs>
+				<li>ApiTestCompanion.RustInfoTab</li>
+			</inspectorTabs>
+		</value>
+	</Operation>
+	<Operation Class="PatchOperationAdd">
+		<xpath>/Defs/ThingDef[defName="Silver"]</xpath>
+		<value>
+			<inspectorTabs>
+				<li>ApiTestCompanion.RustInfoTab</li>
+			</inspectorTabs>
+		</value>
+	</Operation>
+</Patch>

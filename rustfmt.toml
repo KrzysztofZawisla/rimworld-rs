@@ -1,0 +1,11 @@
+# How this repository formats Rust. The import options are nightly-only, so run it as
+# `cargo +nightly fmt --all` (or `cargo xtask fmt --fix`, which is what `cargo xtask test` checks).
+max_width = 120
+use_small_heuristics = "Max"
+newline_style = "Unix"
+imports_granularity = "Crate"
+group_imports = "StdExternalCrate"
+unstable_features = true
+# The def constants are generated from one installation (`cargo xtask gen-defs`) and never committed, so
+# formatting them would only make the check depend on which game build is installed.
+ignore = ["examples/*/src/generated_defs.rs", "mods/*/src/generated_defs.rs"]

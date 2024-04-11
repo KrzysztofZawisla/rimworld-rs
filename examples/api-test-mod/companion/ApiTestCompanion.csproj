@@ -1,0 +1,78 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <AssemblyName Condition="'$(AssemblyName)' == ''">ApiTestCompanion</AssemblyName>
+    <RootNamespace>ApiTestCompanion</RootNamespace>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <DebugType>none</DebugType>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <NoWarn>$(NoWarn);CS1701;CS1702;MSB3277;MSB3246;MSB3247</NoWarn>
+
+    <!-- Compiled against the game's own assemblies (see bridge/RimWorld.Rust.Bridge.csproj):
+         the game runs on .NET 10 while a local SDK may be 9.x. `cargo xtask build` passes the
+         game folder as -p:RimWorldDir; game assemblies are never part of this repository. -->
+    <!-- Both of these are what keeps a *build* from mixing the SDK's framework assemblies into the
+         game's own (that produces CS1705). `dotnet format` needs a framework reference to build a
+         compilation for its analyzer stages: without one it prints "Required references were not
+         loaded for project ...", exits 0, and checks nothing but whitespace. RimWorldAnalysisPass=1
+         re-enables them for that pass alone; `cargo xtask lint` sets it. -->
+    <DisableImplicitFrameworkReferences Condition="'$(RimWorldAnalysisPass)' != '1'">true</DisableImplicitFrameworkReferences>
+    <NoStdLib Condition="'$(RimWorldAnalysisPass)' != '1'">true</NoStdLib>
+    <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+
+    <RimWorldDir Condition="'$(RimWorldDir)' == '' AND Exists('$(MSBuildThisFileDirectory)..\..\..\game-refs\Assembly-CSharp.dll')">$(MSBuildThisFileDirectory)..\..\..\game-refs</RimWorldDir>
+  </PropertyGroup>
+
+  <Target Name="ValidateRimWorldReferences" BeforeTargets="BeforeCompile">
+    <Error Condition="'$(RimWorldDir)' == ''"
+           Text="RimWorld reference assemblies were not found. Run `cargo xtask setup` to copy them into game-refs/, or build with -p:RimWorldDir=&lt;game folder&gt;." />
+    <Error Condition="'$(RimWorldDir)' != '' AND !Exists('$(RimWorldDir)\Assembly-CSharp.dll')"
+           Text="'$(RimWorldDir)' does not contain Assembly-CSharp.dll; point RimWorldDir at the RimWorld installation folder (or re-run `cargo xtask setup`)." />
+  </Target>
+
+  <ItemDefinitionGroup>
+    <Reference>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
+    </Reference>
+  </ItemDefinitionGroup>
+
+  <ItemGroup Condition="'$(RimWorldDir)' != ''">
+    <Reference Include="$(RimWorldDir)\Assembly-CSharp.dll" />
+    <Reference Include="$(RimWorldDir)\UnityStubs.dll" />
+    <Reference Include="$(RimWorldDir)\RimWorld.dll" />
+    <Reference Include="$(RimWorldDir)\System.Private.CoreLib.dll" />
+    <Reference Include="$(RimWorldDir)\System.Runtime.dll" />
+    <Reference Include="$(RimWorldDir)\System.Runtime.Extensions.dll" />
+    <Reference Include="$(RimWorldDir)\System.Runtime.InteropServices.dll" />
+    <Reference Include="$(RimWorldDir)\System.Collections.dll" />
+    <Reference Include="$(RimWorldDir)\System.Collections.Concurrent.dll" />
+    <Reference Include="$(RimWorldDir)\System.Linq.dll" />
+    <Reference Include="$(RimWorldDir)\System.Memory.dll" />
+    <Reference Include="$(RimWorldDir)\System.ObjectModel.dll" />
+    <Reference Include="$(RimWorldDir)\System.Globalization.dll" />
+    <Reference Include="$(RimWorldDir)\System.Text.Json.dll" />
+    <Reference Include="$(RimWorldDir)\System.Threading.dll" />
+    <Reference Include="$(RimWorldDir)\System.Threading.Thread.dll" />
+    <Reference Include="$(RimWorldDir)\System.Reflection.dll" />
+    <Reference Include="$(RimWorldDir)\System.Reflection.Primitives.dll" />
+    <Reference Include="$(RimWorldDir)\System.IO.FileSystem.dll" />
+    <Reference Include="$(RimWorldDir)\System.Diagnostics.Debug.dll" />
+    <Reference Include="$(RimWorldDir)\Microsoft.CSharp.dll" />
+    <Reference Include="$(RimWorldDir)\netstandard.dll" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(BridgeAssembly)' != ''">
+    <Reference Include="$(BridgeAssembly)">
+      <HintPath>$(BridgePath)</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>

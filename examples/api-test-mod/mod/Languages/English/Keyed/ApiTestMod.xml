@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <!-- The self-test reads this key with `ctx.translate`; the game falls back to this file when the
+       active language has no entry, so the check holds in every language. -->
+  <ApiTestMod.Selftest.Greeting>a line the mod translated itself</ApiTestMod.Selftest.Greeting>
+</LanguageData>

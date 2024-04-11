@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <!-- Ta sama linia po polsku: self-test czyta ją przez `ctx.translate`. -->
+  <ApiTestMod.Selftest.Greeting>linia przetłumaczona przez mod</ApiTestMod.Selftest.Greeting>
+</LanguageData>

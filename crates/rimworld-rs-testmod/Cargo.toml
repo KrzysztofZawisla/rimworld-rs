@@ -1,0 +1,13 @@
+[package]
+name = "rimworld-rs-testmod"
+description = "Test fixture driven by tools/abi-smoke; not a real mod"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+rimworld-rs = { workspace = true }

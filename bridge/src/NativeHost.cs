@@ -85,6 +85,56 @@ internal sealed class RustHost
         }
     }
 
+    /// <summary>
+    /// The .NET runtime identifier of the running game (`win-x64`, `linux-x64`, `osx-arm64`, ...).
+    /// A Rust cdylib is native machine code, so it cannot be shared between operating systems or
+    /// architectures the way the managed bridge is; the build puts one library per identifier under
+    /// `Rust/` and this picks the one the game can load.
+    /// </summary>
+    private static string NativeRuntimeIdentifier(string modName)
+    {
+        string os;
+        if (OperatingSystem.IsWindows())
+        {
+            os = "win";
+        }
+        else if (OperatingSystem.IsLinux())
+        {
+            os = "linux";
+        }
+        else if (OperatingSystem.IsMacOS())
+        {
+            os = "osx";
+        }
+        else
+        {
+            Log.Error($"[Rust] {modName}: Rust mods run on Windows, Linux and macOS only");
+            return null;
+        }
+
+        string arch;
+        switch (RuntimeInformation.ProcessArchitecture)
+        {
+            case Architecture.X64:
+                arch = "x64";
+                break;
+            case Architecture.Arm64:
+                arch = "arm64";
+                break;
+            case Architecture.X86:
+                arch = "x86";
+                break;
+            case Architecture.Arm:
+                arch = "arm";
+                break;
+            default:
+                Log.Error($"[Rust] {modName}: unsupported processor architecture {RuntimeInformation.ProcessArchitecture}");
+                return null;
+        }
+
+        return $"{os}-{arch}";
+    }
+
     private static RustHost Create(string modName, string rootDir)
     {
         string rustDir = Path.Combine(rootDir, "Rust");
@@ -94,10 +144,31 @@ internal sealed class RustHost
             return null;
         }
 
-        string[] files = Directory.GetFiles(rustDir, "*.dll");
+        string rid = NativeRuntimeIdentifier(modName);
+        if (rid == null)
+        {
+            return null;
+        }
+
+        string platformDir = Path.Combine(rustDir, rid);
+        if (!Directory.Exists(platformDir))
+        {
+            string[] shipped = Directory.GetDirectories(rustDir);
+            for (int i = 0; i < shipped.Length; i++)
+            {
+                shipped[i] = Path.GetFileName(shipped[i]);
+            }
+
+            Array.Sort(shipped, StringComparer.Ordinal);
+            string also = shipped.Length == 0 ? "the mod ships no platform folders" : $"it ships: {string.Join(", ", shipped)}";
+            Log.Error($"[Rust] {modName}: no native library for this platform ({rid}); expected {platformDir}; {also}");
+            return null;
+        }
+
+        string[] files = Directory.GetFiles(platformDir);
         if (files.Length != 1)
         {
-            Log.Error($"[Rust] {modName}: expected exactly one native library in {rustDir}, found {files.Length}");
+            Log.Error($"[Rust] {modName}: expected exactly one native library in {platformDir}, found {files.Length}");
             return null;
         }
 

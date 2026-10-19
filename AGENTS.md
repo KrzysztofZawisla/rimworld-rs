@@ -118,9 +118,12 @@ cargo build --release            # builds the SDK, the fixture and the example m
 cargo test                       # Rust unit tests (event routing, protocol, outcomes, xtask)
 cargo xtask doctor               # checks game paths, tools and Harmony availability
 cargo xtask setup                # copies the game's reference assemblies into game-refs/
-cargo xtask build [<mod>]        # builds bridge + companion + mod into build/<ModName>
-cargo xtask install [<mod>]      # builds and copies the mod into the game's Mods folder
-cargo xtask package [<mod>]      # builds and zips the mod into dist/<ModName>-<version>.zip
+cargo xtask build [<mod>] [--target <triple>] [--all-targets]
+                                 # builds bridge + companion + one native library per target into build/<ModName>
+cargo xtask install [<mod>] [--target <triple>] [--all-targets]
+                                 # builds and copies the mod into the game's Mods folder
+cargo xtask package [<mod>] [--target <triple>] [--all-targets]
+                                 # builds and zips the mod into dist/<ModName>-<version>.zip
 cargo xtask new <Name> [--comp] [--job] [--itab]
                                  # scaffolds a mod (and the companion samples)
 cargo xtask remove <mod>         # deletes a scaffolded mod (folder + workspace entry)
@@ -135,8 +138,8 @@ cargo xtask coverage Verse.Pawn  # what has a typed operation behind it and what
 
 # individual checks, no game required:
 dotnet run --project tools/abi-smoke                                     # marshaling self-test
-dotnet run --project tools/abi-smoke -- build/ApiTestMod/Rust/api_test_mod.dll
-dotnet run --project tools/abi-smoke -- target/release/rimworld_rs_testmod.dll --fixture
+dotnet run --project tools/abi-smoke -- build/ApiTestMod/Rust/<rid>/api_test_mod.dll
+dotnet run --project tools/abi-smoke -- target/release/<host-native-library> --fixture
 dotnet run --project tools/abi-smoke -- --contract game-refs             # bridge contract check
 dotnet run --project tools/abi-smoke -- --op-parity .                    # SDK op names <-> HostOps, names.json keys <-> the SDK
 ```
@@ -276,6 +279,15 @@ of passing silently.
   generated `RustBridge.RustThingCompProperties_<Mod>`), with spawn/despawn/tick/gizmos/inspect
   callbacks and per-thing state (`comp_state_*`), so a mod that only needs per-thing behaviour stays
   Rust-only.
+- **The native library is per platform; the bridge is not.** A Rust cdylib is machine code, so
+  `cargo xtask build` writes `<mod>/Rust/<rid>/<lib>` (`win-x64`, `linux-x64`, `osx-x64`,
+  `osx-arm64`, ...) and `bridge/src/NativeHost.cs` selects the folder for the running game. One mod
+  folder (and one Steam Workshop item) therefore carries every platform. The C# bridge stays a
+  single managed assembly because the game loads `Assemblies/*.dll` flat — never split it per
+  platform. A new platform means a target in `SHIPPING_TARGETS`/`NativeTarget::for_triple` in
+  `crates/xtask`, the matching identifier in `NativeHost.cs`, and a doc row. Cross-OS targets use
+  `cargo zigbuild` automatically when `cargo-zigbuild` is installed; the MSVC Windows target is not
+  a zig target and stays with cargo.
 - **A type the XML or the save file names is generated per mod, never shared.** The bridge ships one copy per mod
   and the game resolves a patch's `Class` - and a save's component - across *every* loaded assembly by load order,
   so naming a shared bridge class (settings, `RustThingCompProperties`, `RustGizmoCompProperties`, the game and map

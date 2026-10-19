@@ -1,0 +1,16 @@
+//! Theme: map_terrain. Split from `subsystems.rs`.
+
+mod terrain_grid;
+pub use terrain_grid::*;
+mod map_roof;
+pub use map_roof::*;
+mod map_snow;
+pub use map_snow::*;
+mod map_gas;
+pub use map_gas::*;
+mod map_pollution;
+pub use map_pollution::*;
+mod map_temperature;
+pub use map_temperature::*;
+mod map_weather;
+pub use map_weather::*;

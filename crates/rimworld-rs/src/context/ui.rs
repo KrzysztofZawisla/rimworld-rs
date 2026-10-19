@@ -120,7 +120,7 @@ impl Context {
 }
 
 impl Context {
-    /// The alerts the game currently knows about ÔÇö useful to confirm this mod's own alert is up.
+    /// The alerts the game currently knows about — useful to confirm this mod's own alert is up.
     pub fn alerts(&self) -> Result<Vec<AlertInfo>> {
         read(host::call("alerts_list", json!({}))?)
     }

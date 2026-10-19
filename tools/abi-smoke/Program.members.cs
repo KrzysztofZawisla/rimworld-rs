@@ -136,7 +136,7 @@ internal static partial class Program
     /// authors do not have to guess names or parameter types.
     /// </summary>
     /// <summary>
-    /// Prints the members of the given types as JSON â€” the machine-readable half of `--targets`, for tooling
+    /// Prints the members of the given types as JSON — the machine-readable half of `--targets`, for tooling
     /// that writes code (`cargo xtask gen-subsystems`). Every member carries its kind (field, property,
     /// method), how many arguments a method takes, which type in the hierarchy declares it, whether it is
     /// static and how visible it is, so the caller never parses a layout meant for a human: a method that

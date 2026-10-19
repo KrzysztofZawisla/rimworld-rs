@@ -124,7 +124,7 @@ cargo xtask package [<mod>]      # builds and zips the mod into dist/<ModName>-<
 cargo xtask new <Name> [--comp] [--job] [--itab]
                                  # scaffolds a mod (and the companion samples)
 cargo xtask remove <mod>         # deletes a scaffolded mod (folder + workspace entry)
-cargo xtask gen-defs [<mod>]     # writes <mod>/src/generated_defs.rs from the installed game
+cargo xtask gen-defs [<mod>]     # writes <mod>/src/generated_defs/ from the installed game
 cargo xtask defs [--types T]     # lists the def names of the installation
 cargo xtask watch-log [--errors] [--grep <text>] [--tail <n>] [--once]
                                  # follows Player.log, filtered to [Rust]/[selftest] lines
@@ -144,7 +144,7 @@ dotnet run --project tools/abi-smoke -- --op-parity .                    # SDK o
 `cargo xtask test` also runs on a machine **without** RimWorld: stages that need game files print a SKIP with the
 reason and the rest runs normally, including the ABI smoke tests (they drive the native library with the mock
 host). The one thing such a run cannot simply skip is a mod that compiles against generated def names: rustfmt
-*reads* `<mod>/src/generated_defs.rs` to resolve `mod defs;` (it never compiles it), so without that file even
+*reads* `<mod>/src/generated_defs/mod.rs` to resolve `mod defs;` (it never compiles it), so without that file even
 `cargo fmt --check` fails. `cargo xtask fmt` writes the gitignored stub there first when no game is installed - a
 `compile_error!` naming `cargo xtask gen-defs`, which is what a hand-run `cargo build` then shows - and `cargo
 xtask lint`/`test` leave that package out of every command that would compile it. Plain `cargo fmt --all` and
@@ -168,24 +168,29 @@ warning.
 it becomes a path segment, and the tool refuses a path that would leave the root it belongs to. `copy_tree`
 never follows a symlink, so a build output or a release zip contains the mod's own files only.
 `cargo xtask setup` writes only inside the gitignored `game-refs/` folder.
-`cargo xtask gen-defs` writes only `<mod>/src/generated_defs.rs` (also gitignored: it is derived
-from one installation); the gates write that same path when they must, with the stub described above.
+`cargo xtask gen-defs` writes only `<mod>/src/generated_defs/` (also gitignored: it is derived
+from one installation); the gates write that same directory when they must, with the stub described above.
 When a new host operation or event is added, extend `tools/abi-smoke` (and the fixture when the
 behaviour is patch-related) so the change is covered by `cargo xtask test`.
 
 ## File layout
 
-- **A file holds at most 800 lines and at most 40 items.** A file that outgrows either is split along **thematic**
-  lines by hand - `context/pawn.rs`, `context/map.rs`, `types/pawn.rs`, `subsystems/combat.rs`, `bridge/src/PawnOps.cs` -
-  never item by item. A mechanical split moves code without knowing what belongs together, and pays for it with
-  `#[path]` attributes, `pub(crate)` on private fields, and modules that no longer agree with their own name.
-  An `impl` block is not an item (it defines no name): holding a type's body is what it is for, and its size is
-  the line limit's business. Generated files (`subsystems_extra.rs`, `generated_defs.rs`, anything a tool writes)
-  and the roots cargo looks for (`lib.rs`, `main.rs`, `mod.rs`) are exempt: a tool or the crate decides their
-  contents, not this rule. `cargo xtask layout --check` measures both numbers for Rust and the line count for C#.
-  A file that has to be split is split by hand, one theme per module, and the module's header says which theme it
-  holds. The split helpers this repository once carried (`cargo xtask layout --split`, `tools/splits/*.txt`) are
-  gone: every file is inside the rule, and the decision belongs to the person reading the code, not to a spec.
+- **A hand-written file holds at most 500 lines and at most 40 items.** A file that outgrows either is split
+  along **thematic** lines by hand - `context/pawn.rs`, `context/map.rs`, `types/pawn.rs`,
+  `subsystems/combat.rs`, `bridge/src/PawnOps.cs` - never item by item. A mechanical split moves code without
+  knowing what belongs together, and pays for it with `#[path]` attributes, `pub(crate)` on private fields, and
+  modules that no longer agree with their own name. An `impl` block is not an item (it defines no name): holding
+  a type's body is what it is for, and its size is the line limit's business.
+  The roots cargo looks for (`lib.rs`, `main.rs`, `mod.rs`) hold at most **300 lines** and are measured by lines
+  alone: a root declares modules and re-exports, it does not hold the code. Generated files
+  (`subsystems_extra/`, `generated_defs/`, anything a tool writes) are measured by lines too, at the same 500
+  limit, but their item count is not counted: a generated constant is not an item the rule is meant to count,
+  and a generator that emits one huge file is exactly the defect this rule catches. `cargo xtask layout --check`
+  measures both numbers for hand-written Rust, the line count for roots and generated files, and the line count
+  for C#. A file that has to be split is split by hand, one theme per module, and the module's header says which
+  theme it holds. The split helpers this repository once carried (`cargo xtask layout --split`,
+  `tools/splits/*.txt`) are gone: every file is inside the rule, and the decision belongs to the person reading
+  the code, not to a spec.
 - **This is enforced, not a preference.** The check belongs in `cargo xtask test`, so an oversized file fails the gate
   the same way an unformatted file does.
 
@@ -204,8 +209,9 @@ behaviour is patch-related) so the change is covered by `cargo xtask test`.
 
 `cargo xtask test` runs the gates first: `cargo fmt --all -- --check` (nightly, see `rustfmt.toml`), `cargo
 clippy --workspace --all-targets -- -D warnings`, a documentation pass (`cargo doc --workspace --no-deps`,
-which lists unresolved intra-doc links and missing doc comments), `cargo xtask layout --check` (no file over
-800 lines or 40 items), and `dotnet format --verify-no-changes` for the bridge where the game's reference
+which lists unresolved intra-doc links and missing doc comments), `cargo xtask layout --check` (no hand-written
+file over 500 lines or 40 items, no root over 300 lines, no generated file over 500 lines), and
+`dotnet format --verify-no-changes` for the bridge where the game's reference
 assemblies are (a SKIP with the reason otherwise). That last one runs the project with `RimWorldAnalysisPass=1`,
 which is what hands the tool's analyzer stages a framework reference to build a compilation from: without it
 they load no references, print "Required references were not loaded ..." (localized) and still exit 0, so the
@@ -231,7 +237,8 @@ of passing silently.
 - **Generated wrappers come from the game, never from memory**: names from the game's XML and assembly metadata
   reach the generated Rust as *data* - every literal is escaped and every identifier sanitized - so a name that
   carries a quote or a dot can never become source. `cargo xtask gen-subsystems` reads the assembly through
-  `tools/abi-smoke --members-json` and writes `crates/rimworld-rs/src/subsystems_extra.rs`.
+  `tools/abi-smoke --members-json` and writes `crates/rimworld-rs/src/subsystems_extra/` (one file per wrapper,
+  re-exported by its `mod.rs`).
 
 ## Conventions for changes
 

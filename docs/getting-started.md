@@ -46,18 +46,18 @@ name (`hello-rust-mod`) or package name.
 ## Where the def names come from
 
 `cargo xtask gen-defs MyFirstMod` reads every `Data/**/Defs/**/*.xml` of your installation (DLCs and
-all loaded mods included) and writes `mods/MyFirstMod/src/generated_defs.rs` with one Rust module
+all loaded mods included) and writes `mods/MyFirstMod/src/generated_defs/` with one Rust file
 per def type, so a mod can write
 
 ```rust
-#[path = "generated_defs.rs"]
+#[path = "generated_defs/mod.rs"]
 mod defs;
 
 ctx.spawn_thing(defs::thing_def::STEEL, map_id, x, z)?;
 ```
 
 instead of `"Steel"` — a renamed or missing def then fails the build instead of silently doing
-nothing. The file is derived from *your* installation, so it is gitignored and never committed;
+nothing. The directory is derived from *your* installation, so it is gitignored and never committed;
 `cargo xtask test` regenerates it. A machine that has never seen the game has no
 copy of it: the gates write the gitignored stub there and leave the mod's package out of every command
 that would compile it, so the rest of the suite still runs.

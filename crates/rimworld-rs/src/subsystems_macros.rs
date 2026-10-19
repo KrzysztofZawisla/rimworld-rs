@@ -1,7 +1,7 @@
 //! The reader macros and the small converters both wrapper modules share.
 //!
 //! They live here, apart from the wrappers themselves, so `cargo xtask gen-subsystems` can rewrite
-//! `subsystems_extra.rs` without carrying code of its own: the generated module only names members, and the
+//! `subsystems_extra/` without carrying code of its own: the generated module only names members, and the
 //! macros turn a name into a typed read.
 
 #![deny(unsafe_code)]

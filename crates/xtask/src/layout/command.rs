@@ -33,7 +33,7 @@ pub fn run(fix: bool, file: Option<PathBuf>) -> Result<()> {
 
     let mut measured = Vec::new();
     for file in files {
-        if exempt(&file) || only.as_ref().is_some_and(|wanted| !file.ends_with(wanted)) {
+        if only.as_ref().is_some_and(|wanted| !file.ends_with(wanted)) {
             continue;
         }
 
@@ -42,7 +42,7 @@ pub fn run(fix: bool, file: Option<PathBuf>) -> Result<()> {
 
     let counted: usize = measured.iter().filter_map(|file| file.items).sum();
     println!(
-        "{} Rust file(s) within {MAX_LINES} lines and {MAX_ITEMS} items, {counted} item(s) counted",
+        "{} Rust file(s) within {MAX_LINES} lines ({MAX_ROOT_LINES} for roots) and {MAX_ITEMS} items, {counted} item(s) counted",
         measured.iter().filter(|file| file.verdict().is_none()).count()
     );
 

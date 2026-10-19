@@ -42,7 +42,7 @@ struct travels by value across the Rust/C# ABI.
 | `setup` | Copy the game's reference assemblies into the gitignored `game-refs/` (the bridge compiles without the game) |
 | `new <Name> [--comp --job --itab]` | Scaffold `mods/<Name>` plus optional companion samples |
 | `remove <mod>` | Delete a scaffolded mod again (folder + workspace entry) |
-| `build [<mod>]` / `install [<mod>]` / `package [<mod>]` | Build into `build/<ModName>`, copy into `<game>/Mods`, zip into `dist/` |
+| `build [<mod>] [--target <triple>] [--all-targets]` / `install …` / `package …` | Build into `build/<ModName>`, copy into `<game>/Mods`, zip into `dist/`; each target adds one `Rust/<rid>/` folder |
 | `gen-defs [<mod>]` / `defs` | Rust constants for def names (`<mod>/src/generated_defs.rs`, gitignored) / list the installation's defs |
 | `watch-log [--errors --grep <text> --tail <n> --once]` | Follow `Player.log`, filtered to `[Rust]`/`[selftest]` lines |
 | `run -- <args>` | Start the game (dev loop), e.g. `cargo xtask run -- -quicktest` |
@@ -56,8 +56,8 @@ api-test-mod`, not the `mod-name` from the manifest (`find_mod` matches `package
 ## The game, and running things offline
 
 - Find the installation before setting anything: `HKLM\SOFTWARE\WOW6432Node\Valve\Steam` → `InstallPath` →
-  `steamapps\common\RimWorld` (extra libraries are listed in `steamapps\libraryfolders.vdf`). The tooling only
-  tries the two default Steam paths, so on a non-default library **set `RIMWORLD_DIR`** or every game stage skips.
+  `steamapps\common\RimWorld` (extra libraries are listed in `steamapps\libraryfolders.vdf`). The tooling tries
+  the usual Steam paths on Windows, Linux and macOS; anywhere else **set `RIMWORLD_DIR`** or every game stage skips.
 - `cargo xtask doctor` says exactly what is missing; `cargo xtask test` prints a SKIP **with the reason** for
   every stage that needs the game, so it is safe to run on a machine without RimWorld.
 - Reference assemblies: `cargo xtask setup` (gitignored `game-refs/`); the bridge and the contract check work
@@ -108,6 +108,11 @@ when the tool is missing; a stage that cannot run says so instead of passing sil
 
 ## Traps that have cost time in this repository
 
+- **The native library is per platform.** A Rust cdylib is machine code: `cargo xtask build` writes
+  `build/<ModName>/Rust/<rid>/<lib>` (`win-x64`, `linux-x64`, `osx-x64`, `osx-arm64`) and the bridge picks the
+  folder for the running game. `--all-targets` builds the shipping matrix; cross-OS targets use `cargo zigbuild`
+  automatically when `cargo-zigbuild` is installed, and the C# bridge stays one managed assembly because the game
+  loads `Assemblies/*.dll` flat.
 - **Cargo profiles are read from the workspace root only.** A `[profile.release]` in a member is ignored with a
   warning. The root profile is the shipping configuration (fat LTO, one codegen unit, `panic = "unwind"`) — and
   `panic = "abort"` must never be set, because the SDK catches a mod's panic at the FFI boundary so the game

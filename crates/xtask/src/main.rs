@@ -24,8 +24,12 @@ const DEFAULT_MOD: &str = "hello-rust-mod";
 const BRIDGE_PROJECT: &str = "bridge/RimWorld.Rust.Bridge.csproj";
 const BRIDGE_ASSEMBLY_PREFIX: &str = "RimWorldRustBridge";
 const WORKSHOP_APP_ID: &str = "294100";
-const DEFAULT_GAME_DIRS: &[&str] =
-    &[r"C:\Program Files (x86)\Steam\steamapps\common\RimWorld", r"C:\Program Files\Steam\steamapps\common\RimWorld"];
+
+/// The native targets a release carries by default: the 64-bit builds of the game. A Rust cdylib is
+/// machine code, so one file cannot serve several operating systems; each target lands in its own
+/// `Rust/<rid>/` folder inside the single mod, and the bridge picks the one the running game needs.
+const SHIPPING_TARGETS: &[&str] =
+    &["x86_64-pc-windows-msvc", "x86_64-unknown-linux-gnu", "x86_64-apple-darwin", "aarch64-apple-darwin"];
 
 /// Assemblies the C# bridge compiles against; keep in sync with bridge/RimWorld.Rust.Bridge.csproj.
 ///
@@ -156,7 +160,7 @@ enum Task {
         #[arg(long)]
         filter: Option<String>,
     },
-    /// write <mod>/src/generated_defs.rs from the installed defs
+    /// write `<mod>/src/generated_defs.rs` from the installed defs
     GenDefs {
         /// only these def types, e.g. `ThingDef,HediffDef`
         #[arg(long)]
@@ -165,13 +169,37 @@ enum Task {
     },
     /// regenerate crates/rimworld-rs/src/subsystems_extra.rs from the installed game
     GenSubsystems,
-    /// build a Rust mod into build/<ModName>/
-    Build { mod_name: Option<String> },
+    /// build a Rust mod into `build/<ModName>/`
+    Build {
+        mod_name: Option<String>,
+        /// build the native library for this target triple too (repeatable), e.g. `aarch64-apple-darwin`
+        #[arg(long, value_name = "TRIPLE")]
+        target: Vec<String>,
+        /// build every platform the game ships on: Windows x64, Linux x64 and macOS (Intel and Apple Silicon)
+        #[arg(long)]
+        all_targets: bool,
+    },
     /// build and copy the mod into the game's Mods folder
-    Install { mod_name: Option<String> },
-    /// build and zip the mod into dist/<ModName>-<version>.zip
-    Package { mod_name: Option<String> },
-    /// scaffold a new Rust mod under mods/<Name>/
+    Install {
+        mod_name: Option<String>,
+        /// build the native library for this target triple too (repeatable)
+        #[arg(long, value_name = "TRIPLE")]
+        target: Vec<String>,
+        /// build every platform the game ships on
+        #[arg(long)]
+        all_targets: bool,
+    },
+    /// build and zip the mod into `dist/<ModName>-<version>.zip`
+    Package {
+        mod_name: Option<String>,
+        /// build the native library for this target triple too (repeatable)
+        #[arg(long, value_name = "TRIPLE")]
+        target: Vec<String>,
+        /// build every platform the game ships on
+        #[arg(long)]
+        all_targets: bool,
+    },
+    /// scaffold a new Rust mod under `mods/<Name>/`
     New {
         name: String,
         /// also write the companion C# project
@@ -251,9 +279,11 @@ fn main() -> ExitCode {
         Task::Defs { types, filter } => list_defs(types.as_deref(), filter.as_deref()),
         Task::GenDefs { types, mod_name } => gen_defs(mod_name.as_deref(), types),
         Task::GenSubsystems => gen_subsystems(),
-        Task::Build { mod_name } => build(mod_name.as_deref(), Mode::Build),
-        Task::Install { mod_name } => build(mod_name.as_deref(), Mode::Install),
-        Task::Package { mod_name } => package(mod_name.as_deref()),
+        Task::Build { mod_name, target, all_targets } => build(mod_name.as_deref(), Mode::Build, &target, all_targets),
+        Task::Install { mod_name, target, all_targets } => {
+            build(mod_name.as_deref(), Mode::Install, &target, all_targets)
+        }
+        Task::Package { mod_name, target, all_targets } => package(mod_name.as_deref(), &target, all_targets),
         Task::New { name, comp, job, itab } => scaffold(&name, comp, job, itab),
         Task::Remove { mod_name } => remove(&mod_name),
         Task::WatchLog { all, errors, grep, tail, once, no_color } => {
@@ -290,14 +320,58 @@ fn game_dir() -> Result<PathBuf> {
         return Err(missing(format!("RIMWORLD_DIR points to {}, but Assembly-CSharp.dll is not there", dir.display())));
     }
 
-    for candidate in DEFAULT_GAME_DIRS {
-        let dir = PathBuf::from(candidate);
+    for dir in default_game_dirs() {
         if dir.join("Assembly-CSharp.dll").exists() {
             return Ok(dir);
         }
     }
 
     Err(missing("RimWorld was not found; set the RIMWORLD_DIR environment variable to the game folder"))
+}
+
+/// The player's home directory: `USERPROFILE` on Windows, `HOME` elsewhere.
+fn home_dir() -> Option<PathBuf> {
+    #[cfg(windows)]
+    {
+        env::var_os("USERPROFILE").map(PathBuf::from)
+    }
+
+    #[cfg(not(windows))]
+    {
+        env::var_os("HOME").map(PathBuf::from)
+    }
+}
+
+/// The usual Steam locations of the game on the platforms it runs on. `RIMWORLD_DIR` is the escape
+/// hatch for every other layout.
+fn default_game_dirs() -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+
+    #[cfg(windows)]
+    {
+        dirs.push(PathBuf::from(r"C:\Program Files (x86)\Steam\steamapps\common\RimWorld"));
+        dirs.push(PathBuf::from(r"C:\Program Files\Steam\steamapps\common\RimWorld"));
+    }
+
+    #[cfg(target_os = "linux")]
+    if let Some(home) = home_dir() {
+        dirs.push(home.join(".steam").join("steam").join("steamapps").join("common").join("RimWorld"));
+        dirs.push(home.join(".local").join("share").join("Steam").join("steamapps").join("common").join("RimWorld"));
+    }
+
+    #[cfg(target_os = "macos")]
+    if let Some(home) = home_dir() {
+        dirs.push(
+            home.join("Library")
+                .join("Application Support")
+                .join("Steam")
+                .join("steamapps")
+                .join("common")
+                .join("RimWorld"),
+        );
+    }
+
+    dirs
 }
 
 fn mods_folder(game: &Path) -> PathBuf {
@@ -453,9 +527,175 @@ fn find_mod(query: Option<&str>) -> Result<ModInfo> {
         .ok_or_else(|| missing(format!("no Rust mod matching '{query}' (try `cargo xtask list`)")))
 }
 
+// ------------------------------------------------------------------- native targets
+
+/// One native library a build produces: the target triple (the host when `None`), the runtime
+/// identifier of the mod folder it belongs in, and the file name cargo gives it.
+struct NativeTarget {
+    triple: Option<String>,
+    rid: String,
+    file_name: String,
+}
+
+impl NativeTarget {
+    /// The library cargo builds for the machine running the command. Cargo puts it in
+    /// `target/release/` without `--target`, which is why that case keeps `triple: None`.
+    fn host(library: &str) -> Self {
+        Self {
+            triple: None,
+            rid: host_rid(),
+            file_name: format!("{}{}{}", env::consts::DLL_PREFIX, library, env::consts::DLL_SUFFIX),
+        }
+    }
+
+    /// A library for an explicit triple. The runtime identifier must be one the bridge looks for:
+    /// `win-x64`, `linux-x64`, `osx-x64`, `osx-arm64`, ...
+    fn for_triple(triple: &str, library: &str) -> Result<Self> {
+        let os = target_os(triple);
+        let (prefix, suffix) = match os {
+            "win" => ("", ".dll"),
+            "osx" => ("lib", ".dylib"),
+            "linux" => ("lib", ".so"),
+            _ => {
+                return Err(missing(format!(
+                    "target '{triple}' is not Windows, Linux or macOS; the game runs on those only"
+                )));
+            }
+        };
+
+        let arch = if triple.starts_with("x86_64-") {
+            "x64"
+        } else if triple.starts_with("aarch64-") {
+            "arm64"
+        } else if triple.starts_with("i686-") {
+            "x86"
+        } else if triple.starts_with("armv7") || triple.starts_with("arm-") {
+            "arm"
+        } else {
+            return Err(missing(format!("target '{triple}' has an architecture the game does not run on")));
+        };
+
+        Ok(Self {
+            triple: Some(triple.to_string()),
+            rid: format!("{os}-{arch}"),
+            file_name: format!("{prefix}{library}{suffix}"),
+        })
+    }
+
+    /// Whether this target needs a cross linker. `cargo-zigbuild` supplies one for Linux and
+    /// macOS (zig carries libc and a Mach-O linker); the MSVC Windows target is not a zig target,
+    /// so it is left to cargo and needs a Windows machine or `cargo-xwin`.
+    fn uses_zigbuild(&self) -> bool {
+        let Some(triple) = &self.triple else {
+            return false;
+        };
+
+        target_os(triple) != host_os() && !triple.contains("windows") && which::which("cargo-zigbuild").is_ok()
+    }
+
+    fn output_dir(&self, root: &Path) -> PathBuf {
+        match &self.triple {
+            Some(triple) => root.join("target").join(triple).join("release"),
+            None => root.join("target").join("release"),
+        }
+    }
+}
+
+/// The operating-system family of a target triple, in the same words the bridge uses.
+fn target_os(triple: &str) -> &'static str {
+    if triple.contains("windows") {
+        "win"
+    } else if triple.contains("apple-darwin") {
+        "osx"
+    } else if triple.contains("linux") {
+        "linux"
+    } else {
+        ""
+    }
+}
+
+fn host_os() -> &'static str {
+    match env::consts::OS {
+        "windows" => "win",
+        "macos" => "osx",
+        "linux" => "linux",
+        other => other,
+    }
+}
+
+fn host_arch() -> &'static str {
+    match env::consts::ARCH {
+        "x86_64" => "x64",
+        "aarch64" => "arm64",
+        "x86" => "x86",
+        "arm" => "arm",
+        other => other,
+    }
+}
+
+fn host_rid() -> String {
+    format!("{}-{}", host_os(), host_arch())
+}
+
+fn host_native_name(library: &str) -> String {
+    format!("{}{}{}", env::consts::DLL_PREFIX, library, env::consts::DLL_SUFFIX)
+}
+
+/// The native library inside a built mod folder, for the machine running the command.
+fn built_native_path(root: &Path, mod_name: &str, library: &str) -> PathBuf {
+    root.join("build").join(mod_name).join("Rust").join(host_rid()).join(host_native_name(library))
+}
+
+/// The set a command builds: the host when nothing was asked for, otherwise every requested triple.
+fn native_targets(explicit: &[String], all: bool, library: &str) -> Result<Vec<NativeTarget>> {
+    let mut triples: Vec<String> = Vec::new();
+    if all {
+        triples.extend(SHIPPING_TARGETS.iter().map(|target| target.to_string()));
+    }
+    triples.extend(explicit.iter().cloned());
+
+    // The same triple twice would build the same file twice and copy it over itself.
+    triples.sort();
+    triples.dedup();
+
+    if triples.is_empty() {
+        return Ok(vec![NativeTarget::host(library)]);
+    }
+
+    // Two triples can name the same game platform (msvc and gnu Windows, for example). They would
+    // write the same file into the same `Rust/<rid>/` folder, so only the first one is built.
+    let mut targets: Vec<NativeTarget> = Vec::new();
+    for triple in triples {
+        let target = NativeTarget::for_triple(&triple, library)?;
+        if !targets.iter().any(|existing| existing.rid == target.rid) {
+            targets.push(target);
+        }
+    }
+
+    Ok(targets)
+}
+
+/// A friendly answer before cargo fails: a triple that is not installed cannot be built, and the
+/// message should say which command installs it. Without rustup the toolchain answers for itself.
+fn ensure_target_installed(triple: &str) -> Result<()> {
+    let Ok(output) = Command::new("rustup").args(["target", "list", "--installed"]).output() else {
+        return Ok(());
+    };
+    if !output.status.success() {
+        return Ok(());
+    }
+
+    let installed = String::from_utf8_lossy(&output.stdout);
+    if installed.lines().any(|line| line.trim() == triple) {
+        return Ok(());
+    }
+
+    Err(missing(format!("target {triple} is not installed; run `rustup target add {triple}`")))
+}
+
 // ------------------------------------------------------------------- commands
 
-fn build(query: Option<&str>, mode: Mode) -> Result<()> {
+fn build(query: Option<&str>, mode: Mode, targets: &[String], all_targets: bool) -> Result<()> {
     let info = find_mod(query)?;
     let root = repo_root();
 
@@ -467,12 +707,30 @@ fn build(query: Option<&str>, mode: Mode) -> Result<()> {
 
     println!("==> building {} (package {})", info.mod_name, info.package);
 
-    run(Command::new("cargo").args(["build", "--release", "-p", &info.package]).current_dir(&root))?;
-
     let library = info.package.replace('-', "_");
-    let native = root.join("target").join("release").join(format!("{library}.dll"));
-    if !native.exists() {
-        return Err(missing(format!("{} was not produced; is the crate a cdylib?", native.display())));
+    let natives = native_targets(targets, all_targets, &library)?;
+    for native in &natives {
+        let zigbuild = native.uses_zigbuild();
+        let mut command = Command::new("cargo");
+        command.arg(if zigbuild { "zigbuild" } else { "build" });
+        command.args(["--release", "-p", &info.package]);
+        if let Some(triple) = &native.triple {
+            ensure_target_installed(triple)?;
+            command.args(["--target", triple]);
+        }
+
+        println!(
+            "==> compiling the native library for {}{}",
+            native.rid,
+            if zigbuild { " (cargo zigbuild)" } else { "" }
+        );
+        run(command.current_dir(&root))?;
+
+        let path = native.output_dir(&root).join(&native.file_name);
+        if !path.exists() {
+            let target = native.triple.as_deref().unwrap_or("the host");
+            return Err(missing(format!("{} was not produced for {target}; is the crate a cdylib?", path.display())));
+        }
     }
 
     let output = joined_within(&root.join("build"), &info.mod_name)?;
@@ -553,8 +811,11 @@ fn build(query: Option<&str>, mode: Mode) -> Result<()> {
     }
 
     let rust_dir = output.join("Rust");
-    fs::create_dir_all(&rust_dir)?;
-    fs::copy(&native, rust_dir.join(format!("{library}.dll")))?;
+    for native in &natives {
+        let platform_dir = rust_dir.join(&native.rid);
+        fs::create_dir_all(&platform_dir)?;
+        fs::copy(native.output_dir(&root).join(&native.file_name), platform_dir.join(&native.file_name))?;
+    }
 
     println!("==> built {}", output.display());
 
@@ -696,12 +957,12 @@ fn test_all() -> Result<()> {
     println!("==> building the test fixture");
     run(Command::new("cargo").args(["build", "--release", "-p", "rimworld-rs-testmod"]).current_dir(&root))?;
 
-    let mut example = root.join("target").join("release").join("hello_rust_mod.dll");
+    let mut example = root.join("target").join("release").join(host_native_name("hello_rust_mod"));
     match reference_source() {
         Ok(references) => {
             println!("==> building the example mod (with the C# bridge, references: {})", references.display());
-            build(None, Mode::Build)?;
-            example = root.join("build").join("HelloRustMod").join("Rust").join("hello_rust_mod.dll");
+            build(None, Mode::Build, &[], false)?;
+            example = built_native_path(&root, "HelloRustMod", "hello_rust_mod");
         }
         Err(error) => println!("    skipping the C# bridge build: {error}"),
     }
@@ -724,7 +985,7 @@ fn test_all() -> Result<()> {
     println!("==> ABI smoke test against the example mod");
     run(Command::new("dotnet").args(["run", "--project", "tools/abi-smoke", "--"]).arg(&example).current_dir(&root))?;
 
-    let fixture = root.join("target").join("release").join("rimworld_rs_testmod.dll");
+    let fixture = root.join("target").join("release").join(host_native_name("rimworld_rs_testmod"));
     println!("==> ABI smoke test against the fixture (patch outcomes, panic recovery)");
     run(Command::new("dotnet")
         .args(["run", "--project", "tools/abi-smoke", "--"])
@@ -738,13 +999,13 @@ fn test_all() -> Result<()> {
         let self_test = match reference_source() {
             Ok(_) => {
                 println!("==> building the in-game self-test mod (with the C# bridge and its companion)");
-                build(Some("api-test-mod"), Mode::Build)?;
-                root.join("build").join("ApiTestMod").join("Rust").join("api_test_mod.dll")
+                build(Some("api-test-mod"), Mode::Build, &[], false)?;
+                built_native_path(&root, "ApiTestMod", "api_test_mod")
             }
             Err(_) => {
                 println!("==> building the in-game self-test mod (native only)");
                 run(Command::new("cargo").args(["build", "--release", "-p", "api-test-mod"]).current_dir(&root))?;
-                root.join("target").join("release").join("api_test_mod.dll")
+                root.join("target").join("release").join(host_native_name("api_test_mod"))
             }
         };
 
@@ -1155,10 +1416,12 @@ fn excluding(packages: &[String]) -> Vec<String> {
 
 // ---------------------------------------------------------------- packaging
 
-/// Builds a mod and zips it for distribution (Steam Workshop or a manual install).
-fn package(query: Option<&str>) -> Result<()> {
+/// Builds a mod and zips it for distribution (Steam Workshop or a manual install). One archive
+/// carries every native target that was built: Steam Workshop items are platform-neutral, so the
+/// mod folder itself is what decides which library the running game loads.
+fn package(query: Option<&str>, targets: &[String], all_targets: bool) -> Result<()> {
     let info = find_mod(query)?;
-    build(query, Mode::Build)?;
+    build(query, Mode::Build, targets, all_targets)?;
 
     let root = repo_root();
     let output = joined_within(&root.join("build"), &info.mod_name)?;
@@ -1171,7 +1434,7 @@ fn package(query: Option<&str>) -> Result<()> {
     write_zip(&zip, &entries)?;
 
     println!("==> packaged {} ({} files, {} KB)", zip.display(), entries.len(), file_size(&zip)? / 1024);
-    println!("    the zip contains only the mod: About/, Assemblies/, Rust/ and the mod's XML");
+    println!("    the zip contains only the mod: About/, Assemblies/, Rust/<platform>/ and the mod's XML");
     Ok(())
 }
 
@@ -1306,18 +1569,38 @@ fn newest_log(candidates: Vec<PathBuf>) -> Option<PathBuf> {
 
 fn log_paths() -> Vec<PathBuf> {
     let mut paths = Vec::new();
-    if let Ok(profile) = env::var("USERPROFILE") {
-        let base = PathBuf::from(profile)
-            .join("AppData")
-            .join("LocalLow")
-            .join("Ludeon Studios")
-            .join("RimWorld by Ludeon Studios");
-        paths.push(base.join("Player.log"));
-        paths.push(base.join("Logs").join("Player.log"));
-        paths.push(base.join("Player-prev.log"));
+    let Some(home) = home_dir() else {
+        return paths;
+    };
+
+    #[cfg(windows)]
+    {
+        let base = home.join("AppData").join("LocalLow").join("Ludeon Studios").join("RimWorld by Ludeon Studios");
+        push_log_paths(&mut paths, &base);
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let config = env::var_os("XDG_CONFIG_HOME").map(PathBuf::from).unwrap_or_else(|| home.join(".config"));
+        push_log_paths(&mut paths, &config.join("unity3d").join("Ludeon Studios").join("RimWorld by Ludeon Studios"));
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        // Unity and RimWorld have used more than one log location on macOS; the newest existing
+        // candidate wins, so listing them all is safer than picking one.
+        push_log_paths(&mut paths, &home.join("Library").join("Logs").join("RimWorld"));
+        push_log_paths(&mut paths, &home.join("Library").join("Logs").join("Unity"));
+        push_log_paths(&mut paths, &home.join("Library").join("Application Support").join("RimWorld"));
     }
 
     paths
+}
+
+fn push_log_paths(paths: &mut Vec<PathBuf>, base: &Path) {
+    paths.push(base.join("Player.log"));
+    paths.push(base.join("Logs").join("Player.log"));
+    paths.push(base.join("Player-prev.log"));
 }
 
 /// Reads from `position` and returns the matching lines, with a tail window applied.
@@ -1463,6 +1746,11 @@ fn setup(directory: Option<PathBuf>) -> Result<()> {
 fn doctor() -> Result<()> {
     let root = repo_root();
     println!("repository : {}", root.display());
+    println!("platform   : {}", host_rid());
+    match which::which("cargo-zigbuild") {
+        Ok(path) => println!("zigbuild   : {} (cross-OS targets link with zig)", path.display()),
+        Err(_) => println!("zigbuild   : not found (cross-OS targets need cargo-zigbuild or a linker)"),
+    }
 
     match game_dir() {
         Ok(game) => {
@@ -1729,20 +2017,54 @@ fn list() -> Result<()> {
 
 fn run_game(extra: &[String]) -> Result<()> {
     let game = game_dir()?;
-    let executable = game.join("RimWorld.exe");
-    if !executable.exists() {
-        return Err(missing(format!("{} was not found", executable.display())));
-    }
-
-    let mut command = Command::new(&executable);
+    let mut command = game_command(&game, extra)?;
     command.current_dir(&game);
-    for arg in extra.iter().filter(|arg| arg.as_str() != "--") {
-        command.arg(arg);
-    }
 
-    println!("==> launching {}", executable.display());
+    println!("==> launching the game from {}", game.display());
     command.spawn()?;
     Ok(())
+}
+
+/// The game's own launcher on this platform. Windows and Linux run an executable in the install
+/// folder; macOS runs the `.app` through `open`, and `--args` is what forwards the game arguments.
+fn game_command(game: &Path, extra: &[String]) -> Result<Command> {
+    let arguments: Vec<&str> = extra.iter().map(String::as_str).filter(|argument| *argument != "--").collect();
+
+    #[cfg(windows)]
+    {
+        let executable = game.join("RimWorld.exe");
+        if executable.exists() {
+            let mut command = Command::new(executable);
+            command.args(&arguments);
+            return Ok(command);
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let executable = game.join("RimWorldLinux");
+        if executable.exists() {
+            let mut command = Command::new(executable);
+            command.args(&arguments);
+            return Ok(command);
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let app = game.join("RimWorldMac.app");
+        if app.exists() {
+            let mut command = Command::new("open");
+            command.arg(&app);
+            if !arguments.is_empty() {
+                command.arg("--args");
+                command.args(&arguments);
+            }
+            return Ok(command);
+        }
+    }
+
+    Err(missing(format!("no RimWorld executable was found in {}", game.display())))
 }
 
 fn clean() -> Result<()> {
@@ -2713,6 +3035,59 @@ mod tests {
     }
 
     #[test]
+    fn maps_target_triples_to_the_platform_folders_the_bridge_loads() {
+        let windows = NativeTarget::for_triple("x86_64-pc-windows-msvc", "my_mod").expect("windows");
+        assert_eq!(windows.rid, "win-x64");
+        assert_eq!(windows.file_name, "my_mod.dll");
+
+        let linux = NativeTarget::for_triple("x86_64-unknown-linux-gnu", "my_mod").expect("linux");
+        assert_eq!(linux.rid, "linux-x64");
+        assert_eq!(linux.file_name, "libmy_mod.so");
+
+        let intel_mac = NativeTarget::for_triple("x86_64-apple-darwin", "my_mod").expect("intel mac");
+        assert_eq!(intel_mac.rid, "osx-x64");
+        assert_eq!(intel_mac.file_name, "libmy_mod.dylib");
+
+        let apple_silicon = NativeTarget::for_triple("aarch64-apple-darwin", "my_mod").expect("apple silicon");
+        assert_eq!(apple_silicon.rid, "osx-arm64");
+
+        assert!(NativeTarget::for_triple("wasm32-unknown-unknown", "my_mod").is_err());
+        assert!(NativeTarget::for_triple("riscv64-unknown-linux-gnu", "my_mod").is_err());
+    }
+
+    #[test]
+    fn the_host_target_uses_the_running_platform() {
+        let host = NativeTarget::host("my_mod");
+        assert_eq!(host.rid, host_rid());
+        assert_eq!(host.file_name, host_native_name("my_mod"));
+        assert!(host.output_dir(Path::new("root")).ends_with(Path::new("target").join("release")));
+    }
+
+    #[test]
+    fn the_shipping_matrix_covers_every_platform_the_game_runs_on() {
+        let targets = native_targets(&[], true, "my_mod").expect("matrix");
+        let mut rids: Vec<&str> = targets.iter().map(|target| target.rid.as_str()).collect();
+        rids.sort();
+        assert_eq!(rids, vec!["linux-x64", "osx-arm64", "osx-x64", "win-x64"]);
+
+        let duplicate = native_targets(
+            &["x86_64-unknown-linux-gnu".to_string(), "x86_64-unknown-linux-gnu".to_string()],
+            false,
+            "my_mod",
+        )
+        .expect("one target");
+        assert_eq!(duplicate.len(), 1, "a triple named twice is built once");
+
+        let same_platform = native_targets(
+            &["x86_64-pc-windows-gnu".to_string(), "x86_64-pc-windows-msvc".to_string()],
+            false,
+            "my_mod",
+        )
+        .expect("one platform");
+        assert_eq!(same_platform.len(), 1, "two triples for one runtime identifier produce one folder");
+    }
+
+    #[test]
     fn converts_mod_names() {
         assert_eq!("HelloWorld".to_snake_case(), "hello_world");
         assert_eq!("already_snake".to_snake_case(), "already_snake");
@@ -2800,7 +3175,7 @@ mod tests {
         let archive = directory.path().join("mod.zip");
         let entries = vec![
             ("About/About.xml".to_string(), b"<ModMetaData/>".to_vec()),
-            ("Rust/lib.dll".to_string(), vec![1u8, 2, 3, 4]),
+            ("Rust/win-x64/lib.dll".to_string(), vec![1u8, 2, 3, 4]),
         ];
 
         write_zip(&archive, &entries).expect("zip");
@@ -2812,7 +3187,7 @@ mod tests {
         let mut about = String::new();
         reader.by_name("About/About.xml").expect("About/About.xml").read_to_string(&mut about).expect("read");
         assert_eq!(about, "<ModMetaData/>");
-        assert_eq!(reader.by_name("Rust/lib.dll").expect("Rust/lib.dll").size(), 4);
+        assert_eq!(reader.by_name("Rust/win-x64/lib.dll").expect("Rust/win-x64/lib.dll").size(), 4);
 
         drop(reader);
         let bytes = fs::read(&archive).expect("read");

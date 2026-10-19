@@ -2,11 +2,16 @@
 
 ## What you need
 
-- **RimWorld 1.7.** The default lookup checks a couple of standard Steam paths; anywhere else,
-  set `RIMWORLD_DIR`:
+- **RimWorld 1.7.** The default lookup checks the usual Steam paths on Windows, Linux and macOS;
+  anywhere else, set `RIMWORLD_DIR`:
 
   ```powershell
   $env:RIMWORLD_DIR = "D:\Steam\steamapps\common\RimWorld"
+  cargo xtask doctor
+  ```
+
+  ```bash
+  export RIMWORLD_DIR="$HOME/.steam/steam/steamapps/common/RimWorld"
   cargo xtask doctor
   ```
 
@@ -20,6 +25,9 @@
   (`Assembly-CSharp.dll`, `UnityStubs.dll`, the .NET 10 framework facades) into the gitignored
   `game-refs/` folder; without that step the build reads them directly from your installation.
   These files belong to the game: they are local-only and must never be committed or redistributed.
+- **For cross-platform libraries**: `rustup target add <triple>` for each target, and
+  `cargo install cargo-zigbuild` with `zig` on `PATH`. `cargo xtask build` uses it automatically
+  when compiling for an operating system other than the host.
 
 ## The commands
 
@@ -27,11 +35,12 @@
 cargo xtask setup [<game dir>] # copy the game's reference assemblies into game-refs/ (local only)
 cargo xtask doctor            # game folder, version, toolchain, Harmony, mods folder
 cargo xtask build  [<mod>]    # build a mod into build/<ModName>/
+cargo xtask build  [<mod>] --all-targets   # ...with a native library per platform
 cargo xtask install[<mod>]    # build, then copy into <game>/Mods/<ModName>/
 cargo xtask new <Name> [--comp] [--job] [--itab]
                               # scaffold mods/<Name>/ (and the companion samples)
 cargo xtask remove <mod>      # delete a scaffolded mod (folder + workspace entry)
-cargo xtask package [<mod>]   # build and zip into dist/<ModName>-<version>.zip
+cargo xtask package [<mod>] [--all-targets]  # build and zip into dist/<ModName>-<version>.zip
 cargo xtask gen-defs [<mod>]  # write Rust constants for every def name of your installation
 cargo xtask gen-defs [<mod>] --types ThingDef,HediffDef   # ... or only the def types you use
 cargo xtask defs [--types T]  # list the installation's def names, without writing anything
@@ -89,10 +98,14 @@ build/MyFirstMod/
   About/About.xml
   Assemblies/RimWorldRustBridge.MyFirstMod.dll   # the C# bridge (unique assembly name per mod)
   Assemblies/MyFirstModCompanion.dll             # your companion classes (when the project exists)
-  Rust/my_first_mod.dll                          # your compiled Rust code
+  Rust/<rid>/<lib>                               # your compiled Rust code, one folder per platform
 ```
 
-and `cargo xtask install` copies exactly that tree into `<game>/Mods/MyFirstMod/`.
+`<rid>` is the .NET runtime identifier of the platform (`win-x64`, `linux-x64`, `osx-x64`,
+`osx-arm64`). A plain `cargo xtask build` writes the host's folder; `--all-targets` writes all
+four, and the bridge loads the one that matches the running game. Cross-OS targets use
+`cargo-zigbuild` automatically when it is installed. `cargo xtask install` copies exactly the
+built tree into `<game>/Mods/MyFirstMod/`.
 
 ## What a mod gets out of the box
 
@@ -114,10 +127,11 @@ and `cargo xtask install` copies exactly that tree into `<game>/Mods/MyFirstMod/
 2. `cargo xtask install MyFirstMod`.
 3. Start RimWorld, make sure the mod is enabled in the mod list, load a save (or `cargo xtask run
    -- -quicktest`).
-4. Watch the log: the game writes `Player.log` in its save-data folder
-   (`%USERPROFILE%\AppData\LocalLow\Ludeon Studios\RimWorld by Ludeon Studios`, possibly in a
-   `Logs` subfolder on 1.7). Every Rust log line goes through the game's own logger, so errors are
-   attributed with a `[Rust]` prefix.
+4. Watch the log: the game writes `Player.log` in its save-data folder (on Windows
+   `%USERPROFILE%\AppData\LocalLow\Ludeon Studios\RimWorld by Ludeon Studios`, potentially in a
+   `Logs` subfolder on 1.7; `cargo xtask watch-log` finds the right place on Windows, Linux and
+   macOS). Every Rust log line goes through the game's own logger, so errors are attributed with a
+   `[Rust]` prefix.
 
 The mod is a native library that RimWorld loads once per launch: **restart the game after
 `install`**. Saves do not need to be recreated — only code changes require a restart.
@@ -136,7 +150,8 @@ The mod is a native library that RimWorld loads once per launch: **restart the g
   real problem.
 - Common causes of "nothing happens":
   - the mod is installed but not enabled in the in-game mod list;
-  - the native library is not in `Rust/` (exactly one `.dll` is expected there);
+  - the native library is not in `Rust/<rid>/` for the platform the game runs on (exactly one
+    library is expected there);
   - the ABI version of the SDK and the bridge differ (logged as "native library ABI ... does not
     match");
   - Harmony is missing while the mod registers patches (logged as a warning).
@@ -146,6 +161,9 @@ The mod is a native library that RimWorld loads once per launch: **restart the g
 ## Shipping a mod
 
 Copy `build/<ModName>/` (or the game's `Mods/<ModName>` folder) into a ZIP for Steam Workshop or a
-local distribution. The result is a normal RimWorld mod folder: `About/`, `Assemblies/`, `Rust/`
-and whatever XML content the mod adds. Dependencies on Harmony or other mods are declared the
-usual way in `About.xml`; the scaffold already includes an example dependency block.
+local distribution. The result is a normal RimWorld mod folder: `About/`, `Assemblies/`,
+`Rust/<rid>/` and whatever XML content the mod adds. `cargo xtask package --all-targets` builds the
+whole platform matrix first, so the same Workshop item runs on Windows, Linux and macOS; the C#
+bridge stays one managed assembly, because the game loads `Assemblies/*.dll` flat and only the
+Rust library is per platform. Dependencies on Harmony or other mods are declared the usual way in
+`About.xml`; the scaffold already includes an example dependency block.

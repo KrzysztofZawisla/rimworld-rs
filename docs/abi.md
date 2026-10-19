@@ -124,9 +124,9 @@ Each wrapper declares the game's type it wraps, the type it hangs off, that type
 names, and `cargo xtask test` verifies all of it against the assembly
 (`142 subsystem wrapper(s), 3257 member name(s), 0 wrong`, plus the shape rule: a member read with `ref_get` is a
 field, a property or a zero-argument method; a method that takes arguments must be called, and a def argument
-travels as a handle). `crates/rimworld-rs/src/subsystems_extra.rs` is **generated** from the installation's own
-metadata — `cargo xtask gen-subsystems` reads every member of every type it wraps and writes the wrappers from
-those names, so nothing there can be guessed wrong and a game update is one command.
+travels as a handle). `crates/rimworld-rs/src/subsystems_extra/` is **generated** from the installation's own
+metadata — `cargo xtask gen-subsystems` reads every member of every type it wraps and writes one file per
+wrapper, so nothing there can be guessed wrong and a game update is one command.
 `ctx.member_scan()` + `cargo xtask coverage <Type>` say what is left to the generic route.
 
 The in-game self-test reads through every wrapper family once (`examples/api-test-mod`: "the typed subsystem

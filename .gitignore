@@ -6,6 +6,7 @@ obj/
 /game-refs/
 .commandcode/
 generated_defs.rs
+generated_defs/
 MODLOG.md
 
 # Local secrets: an environment file or a key never belongs in this repository.

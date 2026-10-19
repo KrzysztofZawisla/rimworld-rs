@@ -43,7 +43,7 @@ struct travels by value across the Rust/C# ABI.
 | `new <Name> [--comp --job --itab]` | Scaffold `mods/<Name>` plus optional companion samples |
 | `remove <mod>` | Delete a scaffolded mod again (folder + workspace entry) |
 | `build [<mod>]` / `install [<mod>]` / `package [<mod>]` | Build into `build/<ModName>`, copy into `<game>/Mods`, zip into `dist/` |
-| `gen-defs [<mod>]` / `defs` | Rust constants for def names (`<mod>/src/generated_defs.rs`, gitignored) / list the installation's defs |
+| `gen-defs [<mod>]` / `defs` | Rust constants for def names (`<mod>/src/generated_defs/`, gitignored) / list the installation's defs |
 | `watch-log [--errors --grep <text> --tail <n> --once]` | Follow `Player.log`, filtered to `[Rust]`/`[selftest]` lines |
 | `run -- <args>` | Start the game (dev loop), e.g. `cargo xtask run -- -quicktest` |
 | `targets <Type> [--members <M>]` / `types <prefix>` / `coverage <Type>` | Reverse-engineering help: patch targets with ready-to-paste lines, type search, what has a typed wrapper |
@@ -72,8 +72,9 @@ api-test-mod`, not the `mod-name` from the manifest (`find_mod` matches `package
 ## Gates (what to run before saying "done")
 
 `cargo xtask test` runs, in order: `cargo fmt --all -- --check`, `clippy --workspace --all-targets -- -D
-warnings`, `cargo doc` (broken doc links are a defect), `cargo xtask layout --check` (≤800 lines and ≤40 items
-per Rust file; roots, `mod.rs` and generated files are exempt; C# is measured by lines), `dotnet format
+warnings`, `cargo doc` (broken doc links are a defect), `cargo xtask layout --check` (≤500 lines and ≤40 items
+for hand-written Rust, ≤300 lines for roots, ≤500 lines for generated files; C# is measured by lines),
+`dotnet format
 --verify-no-changes` for the bridge where the reference assemblies are, the Rust tests, the abi-smoke
 self-test, `--op-parity`, the patch-file check, the per-mod component check, and — with a game or `game-refs/` —
 `--contract`, `--defs`, `--patches`. The optional gates (`typos`, `cargo-machete`, `cargo-nextest`) print a SKIP

@@ -107,7 +107,7 @@ impl Context {
     /// not set.
     ///
     /// The data is keyed by the thing's load id and lives in the mod's own save data (game scope),
-    /// so it survives save/load cycles, travels with the save file and works for any thing handle ÔÇö
+    /// so it survives save/load cycles, travels with the save file and works for any thing handle —
     /// with or without the bridge's `RustThingComp` attached.
     pub fn comp_state_get(&self, thing: &ObjRef, key: &str) -> Result<Option<String>> {
         let value = host::call("comp_state_get", json!({ "ref": thing.id, "key": key }))?;
@@ -117,7 +117,7 @@ impl Context {
 
 impl Context {
     /// Stores a string for one thing; `None` removes the key. Nothing cleans up after a thing is
-    /// destroyed ÔÇö use [`Context::comp_state_clear`] when the mod is done with it.
+    /// destroyed — use [`Context::comp_state_clear`] when the mod is done with it.
     pub fn comp_state_set(&self, thing: &ObjRef, key: &str, value: Option<&str>) -> Result<()> {
         host::call("comp_state_set", json!({ "ref": thing.id, "key": key, "value": value })).map(|_| ())
     }

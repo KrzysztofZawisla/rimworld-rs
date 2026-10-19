@@ -52,15 +52,15 @@ impl Context {
 }
 
 impl Context {
-    /// The world's own components, by type name ÔÇö the game's and a companion mod's alike.
+    /// The world's own components, by type name — the game's and a companion mod's alike.
     pub fn world_components(&self) -> Result<Vec<String>> {
         read(host::call("world_components", json!({}))?)
     }
 }
 
 impl Context {
-    /// Starts a project through the game's own `ResearchManager.SetCurrentProject` ÔÇö the same call the
-    /// player's click makes ÔÇö and answers with the same facts the `research_started` event carries. A def the
+    /// Starts a project through the game's own `ResearchManager.SetCurrentProject` — the same call the
+    /// player's click makes — and answers with the same facts the `research_started` event carries. A def the
     /// game does not have is refused by name.
     pub fn research_set_current(&self, project: &str) -> Result<ResearchStarted> {
         read(host::call("research_set_current", json!({ "project": project }))?)
@@ -68,7 +68,7 @@ impl Context {
 }
 
 impl Context {
-    /// The parts a quest is made of, by type name ÔÇö rewards, raids, spawned things, dialogues and the rest ÔÇö
+    /// The parts a quest is made of, by type name — rewards, raids, spawned things, dialogues and the rest —
     /// the same shape [`Context::map_components`] answers with. A read, so it is allowed while the game saves.
     pub fn quest_parts(&self, quest: &ObjRef) -> Result<Vec<String>> {
         read(host::call("quest_parts", json!({ "ref": quest.id }))?)
@@ -235,8 +235,8 @@ impl Context {
 impl Context {
     /// Asks the game whether a ritual of the pawn's ideoligion could start, the way the game's own gizmo
     /// does: the assignment set the game builds and its own `CanStartRitualNow` verdict, in its own words.
-    /// The *start* itself is not reachable ÔÇö this build keeps `RitualBehaviorWorker.CreateLordJob`
-    /// non-public ÔÇö so the answer's `blocked` says so whenever the game would have allowed it.
+    /// The *start* itself is not reachable — this build keeps `RitualBehaviorWorker.CreateLordJob`
+    /// non-public — so the answer's `blocked` says so whenever the game would have allowed it.
     pub fn ideo_start_ritual(
         &self,
         pawn: &ObjRef,

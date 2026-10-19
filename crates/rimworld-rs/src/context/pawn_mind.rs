@@ -124,7 +124,7 @@ impl Context {
 }
 
 impl Context {
-    /// Replaces the pawn's xenotype ÔÇö the label the game shows and the genes that come with it.
+    /// Replaces the pawn's xenotype — the label the game shows and the genes that come with it.
     pub fn pawn_set_xenotype(&self, pawn: &ObjRef, xenotype: &str) -> Result<XenotypeChange> {
         self.pawn_read("pawn_set_xenotype", pawn, json!({ "xenotype": xenotype }))
     }
@@ -145,7 +145,7 @@ impl Context {
 }
 
 impl Context {
-    /// Sets a need directly, clamped to 0..1 ÔÇö mood is the `Mood` need, so this is also how a mod
+    /// Sets a need directly, clamped to 0..1 — mood is the `Mood` need, so this is also how a mod
     /// moves a pawn's mood without inventing a memory for it.
     pub fn pawn_set_need(&self, pawn: &ObjRef, need: &str, level: f32) -> Result<NeedChange> {
         self.pawn_read("pawn_set_need", pawn, json!({ "need": need, "level": level }))

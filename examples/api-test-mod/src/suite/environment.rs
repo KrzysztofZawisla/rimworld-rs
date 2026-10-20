@@ -46,28 +46,43 @@ impl ApiTest {
             }
         }
 
+        // The temperature grid moves outdoors; the room route is the other half. Try a cell in the
+        // colony's own room as well as the outdoor probe, so a map where the centre is a sealed cave
+        // still exercises the room path.
+        let room_probe = colony_anchor(ctx, map_id).ok().and_then(|(rx, rz)| {
+            ctx.map_cell_info(map_id, rx, rz).ok().filter(|info| info.room_id >= 0).map(|_| (rx, rz))
+        });
+        let mut probes = Vec::new();
+        if let Some((rx, rz)) = room_probe {
+            probes.push((rx, rz, format!("the colony room at {rx},{rz}")));
+        }
+        probes.push((probe.0, probe.1, probe_note.clone()));
+        probes.dedup_by(|left, right| left.0 == right.0 && left.1 == right.1);
+
         // Heat: the game takes it — into the cell's grid outdoors, into its room indoors — and answers with
         // both temperatures. A cell where nothing moves says so with its own numbers, so the check tries a
         // small energy first and then a big one before reporting the game's own answer.
         let mut heat_moved = false;
         let mut heat_error = None;
         let mut heat_refusal = String::new();
-        for energy in [500.0, 200_000.0] {
-            match ctx.map_push_heat(map_id, probe.0, probe.1, energy) {
-                Ok(answer) if answer.accepted => {
-                    ctx.log(format!(
-                        "[selftest] the game took {energy:.0} energy at {probe_note} ({}): cell {:.1} °C{}",
-                        if answer.room { "into the room" } else { "into the cell's grid" },
-                        answer.temperature,
-                        answer.room_temperature.map(|room| format!(", room {room:.1} °C")).unwrap_or_default()
-                    ));
-                    heat_moved = true;
-                    break;
-                }
-                Ok(answer) => heat_refusal = format!("{answer:?}"),
-                Err(error) => {
-                    heat_error = Some(error.to_string());
-                    break;
+        'heat: for (px, pz, note) in &probes {
+            for energy in [500.0, 200_000.0] {
+                match ctx.map_push_heat(map_id, *px, *pz, energy) {
+                    Ok(answer) if answer.accepted => {
+                        ctx.log(format!(
+                            "[selftest] the game took {energy:.0} energy at {note} ({}): cell {:.1} °C{}",
+                            if answer.room { "into the room" } else { "into the cell's grid" },
+                            answer.temperature,
+                            answer.room_temperature.map(|room| format!(", room {room:.1} °C")).unwrap_or_default()
+                        ));
+                        heat_moved = true;
+                        break 'heat;
+                    }
+                    Ok(answer) => heat_refusal = format!("{answer:?}"),
+                    Err(error) => {
+                        heat_error = Some(error.to_string());
+                        break;
+                    }
                 }
             }
         }
@@ -92,32 +107,34 @@ impl ApiTest {
         let mut cell_moved = false;
         let mut cell_error = None;
         let mut cell_refusal = String::new();
-        for limit in [2000.0, 200_000.0] {
-            match ctx.map_set_cell_temperature(map_id, probe.0, probe.1, 30.0, limit) {
-                Ok(state) => {
-                    let toward_target = (state.target - state.before).signum() * state.controller > 0.0;
-                    let room_moved = state.room && state.room_temperature != state.room_before;
-                    if toward_target || room_moved || state.after != state.before || state.reached {
-                        ctx.log(format!(
-                            "[selftest] the controller applied {:.3} at {probe_note} toward {:.1} °C with a limit of {limit:.0} (cell {:.1} -> {:.1} °C{})",
-                            state.controller,
-                            state.target,
-                            state.before,
-                            state.after,
-                            state
-                                .room_temperature
-                                .map(|room| format!(", room {room:.1} °C"))
-                                .unwrap_or_default()
-                        ));
-                        cell_moved = true;
+        'cell: for (px, pz, note) in &probes {
+            for limit in [2000.0, 200_000.0] {
+                match ctx.map_set_cell_temperature(map_id, *px, *pz, 30.0, limit) {
+                    Ok(state) => {
+                        let toward_target = (state.target - state.before).signum() * state.controller > 0.0;
+                        let room_moved = state.room && state.room_temperature != state.room_before;
+                        if toward_target || room_moved || state.after != state.before || state.reached {
+                            ctx.log(format!(
+                                "[selftest] the controller applied {:.3} at {note} toward {:.1} °C with a limit of {limit:.0} (cell {:.1} -> {:.1} °C{})",
+                                state.controller,
+                                state.target,
+                                state.before,
+                                state.after,
+                                state
+                                    .room_temperature
+                                    .map(|room| format!(", room {room:.1} °C"))
+                                    .unwrap_or_default()
+                            ));
+                            cell_moved = true;
+                            break 'cell;
+                        }
+
+                        cell_refusal = format!("{state:?}");
+                    }
+                    Err(error) => {
+                        cell_error = Some(error.to_string());
                         break;
                     }
-
-                    cell_refusal = format!("{state:?}");
-                }
-                Err(error) => {
-                    cell_error = Some(error.to_string());
-                    break;
                 }
             }
         }
@@ -216,7 +233,12 @@ impl ApiTest {
         // the check lays a constructed floor (`Concrete`, the game's own def) at a cell and makes filth
         // there, then walks a few cells without a floor. Every refusal is reported with its cell.
         let filth_def = thing_def::FILTH_DIRT;
-        let mut filth_plan: Vec<((i32, i32), bool)> = vec![((x, z), true), ((x + 3, z + 3), true)];
+        let mut filth_plan: Vec<((i32, i32), bool)> = Vec::new();
+        if let Ok((fx, fz)) = colony_cell(ctx, map_id) {
+            filth_plan.push(((fx, fz), false));
+        }
+        filth_plan.push(((x, z), true));
+        filth_plan.push(((x + 3, z + 3), true));
         for (dx, dz) in [(1, 1), (-1, -1), (2, 0), (0, 2), (-2, 0), (0, -2), (3, 3)] {
             filth_plan.push(((x + dx, z + dz), false));
         }
@@ -250,13 +272,13 @@ impl ApiTest {
 
         match (filth_placed, filth_error) {
             (Some((cx, cz, lay_floor)), _) => {
-                let found =
-                    ctx.map_filth(map_id, cx, cz, 0.5).map_err(|error| error.to_string()).and_then(|found| match found
-                        .first()
-                    {
-                        Some(first) if first.def_name.as_deref() == Some(filth_def) => Ok(()),
-                        other => Err(format!("map_filth reports {other:?}")),
-                    });
+                let found = ctx.map_filth(map_id, cx, cz, 0.5).map_err(|error| error.to_string()).and_then(|found| {
+                    if found.iter().any(|filth| filth.def_name.as_deref() == Some(filth_def)) {
+                        Ok(())
+                    } else {
+                        Err(format!("map_filth reports {found:?}"))
+                    }
+                });
                 ctx.log(format!(
                     "[selftest] the game put {filth_def} down at {cx},{cz}{} (it refused {} other cell(s)) and map_filth finds it",
                     if lay_floor { " on the laid floor" } else { "" },

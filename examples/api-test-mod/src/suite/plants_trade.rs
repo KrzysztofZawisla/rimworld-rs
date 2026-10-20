@@ -52,14 +52,17 @@ impl ApiTest {
         // Training belongs to the animals the game gives a training tracker to: the check asks the game's
         // own kinds until one answers, and a build whose animals all come back without a tracker says so
         // (the game's own words are reported either way).
+        let player_faction = ctx.factions().ok().and_then(|factions| {
+            factions.iter().find(|faction| faction.player).and_then(|faction| faction.def_name.clone())
+        });
         let mut training_refusals = Vec::new();
         let mut trained = None;
         for kind in
             [pawn_kind_def::LABRADOR_RETRIEVER, pawn_kind_def::HUSKY, pawn_kind_def::MUFFALO, pawn_kind_def::ELEPHANT]
         {
-            let pawn = match colony_cell(ctx, map_id)
-                .and_then(|(x, z)| ctx.spawn_pawn(kind, None, map_id, x, z).map_err(|error| error.to_string()))
-            {
+            let pawn = match colony_cell(ctx, map_id).and_then(|(x, z)| {
+                ctx.spawn_pawn(kind, player_faction.as_deref(), map_id, x, z).map_err(|error| error.to_string())
+            }) {
                 Ok(pawn) => pawn,
                 Err(error) => {
                     training_refusals.push(format!("{kind}: {error}"));

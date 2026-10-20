@@ -56,8 +56,11 @@ impl ApiTest {
             }
         }
 
-        // The game only draws gizmos and the inspect line for a selected thing.
+        // The game only draws gizmos and the inspect line for a selected thing, and the suite's later
+        // checks select other things too: keep this one selected through the window.
+        self.comp_frontend_handle = Some(thing.handle().clone());
         let _ = ctx.select(thing.handle(), false);
+        let _ = ctx.companion_call("ApiTestCompanion.Bridge", "OpenTestTab", &[]);
         self.comp_frontend_start = ctx.game_info().ok().map(|info| info.tick);
     }
 }

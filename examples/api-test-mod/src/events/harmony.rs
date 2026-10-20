@@ -34,6 +34,29 @@ impl ApiTest {
                 if self.probe_result.is_none() {
                     self.probe_result = Some(call.result_i64());
                 }
+
+                // This patch is an instance method on a Thing, and the game calls it while drawing the
+                // selected thing's inspect line: a real deferred patch call, outside the Rust tick.
+                if !self.map_instance_reported {
+                    if let Some(instance) = call.instance_obj() {
+                        let def = instance
+                            .get("def")
+                            .ok()
+                            .and_then(|value| ObjRef::from_value(&value))
+                            .and_then(|def| def.get("defName").ok())
+                            .and_then(|value| value.as_str().map(str::to_string));
+                        self.map_instance_checked = true;
+                        self.map_instance_reported = true;
+                        self.report.check(
+                            ctx,
+                            "patch instance handles reach the real object",
+                            match def {
+                                Some(name) if !name.is_empty() => Ok(()),
+                                other => Err(format!("instance def reads as {other:?}")),
+                            },
+                        );
+                    }
+                }
             }
             "map_update_ordered" => {
                 // A second postfix on the same method, installed with an explicit priority.

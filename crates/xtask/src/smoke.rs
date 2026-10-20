@@ -8,9 +8,9 @@ use std::{
 
 use crate::*;
 
-/// The self-test has deferred checks (bill events) that can report after the summary line, so a run is
-/// only successful once this window has passed without a `FAIL`.
-const SETTLE: Duration = Duration::from_secs(15);
+/// The self-test has a deferred bill check that reports after the summary line. The check gives the
+/// colony up to about a minute of game time; this is the outer limit for seeing its PASS/FAIL.
+const BILL_TIMEOUT: Duration = Duration::from_secs(180);
 
 /// Runs the repeatable in-game smoke test: install both example mods, launch RimWorld with
 /// `-quicktest`, and wait for the selftest summary in the new part of `Player.log`.
@@ -33,7 +33,7 @@ pub(crate) fn smoke() -> Result<()> {
 
     let deadline = Instant::now() + Duration::from_secs(180);
     let mut summary_seen = false;
-    let mut settle_until: Option<Instant> = None;
+    let mut bill_deadline: Option<Instant> = None;
     while Instant::now() < deadline || summary_seen {
         if let Some(current) = newest_log(log_paths()) {
             if path.as_ref() != Some(&current) {
@@ -68,16 +68,20 @@ pub(crate) fn smoke() -> Result<()> {
                             return Err(missing(format!("{failed} selftest check(s) failed")));
                         }
                         summary_seen = true;
-                        settle_until = Some(Instant::now() + SETTLE);
+                        bill_deadline = Some(Instant::now() + BILL_TIMEOUT);
+                    }
+
+                    if line.contains("bill_completed and bill_started arrive") {
+                        println!("RimWorld is still running; close it when you are done.");
+                        return Ok(());
                     }
                 }
             }
         }
 
-        if let Some(until) = settle_until {
-            if Instant::now() >= until {
-                println!("RimWorld is still running; close it when you are done.");
-                return Ok(());
+        if let Some(deadline) = bill_deadline {
+            if Instant::now() >= deadline {
+                return Err(missing("timed out waiting for the deferred bill event check after the summary"));
             }
         }
 

@@ -2,10 +2,6 @@ use crate::*;
 
 impl ApiTest {
     pub(crate) fn check_handle_members_and_health(&mut self, ctx: &mut Context, map: &MapInfo) {
-        let center_x = map.size_x / 2;
-        let center_z = map.size_z / 2;
-        let _ = (center_x, center_z);
-
         self.report.check(
             ctx,
             "members read through the handles the accessors hand back (apparel, areas, weather, ideos, equipment)",
@@ -154,8 +150,9 @@ impl ApiTest {
             ctx,
             "the game says what a hediff would do to a pawn, and the pawn then does it",
             (|| -> Result<(), String> {
+                let (x, z) = colony_cell(ctx, map.id)?;
                 let pawn = ctx
-                    .spawn_pawn(pawn_kind_def::COLONIST, None, map.id, 7, 22)
+                    .spawn_pawn(pawn_kind_def::COLONIST, None, map.id, x, z)
                     .map_err(|error| error.to_string())?;
                 let pawn = pawn.handle();
 
@@ -204,8 +201,9 @@ impl ApiTest {
             ctx,
             "a surgery the game works as surgery is queued on a pawn, and the stack empties again",
             (|| -> Result<(), String> {
+                let (x, z) = colony_cell(ctx, map.id)?;
                 let pawn = ctx
-                    .spawn_pawn(pawn_kind_def::COLONIST, None, map.id, 8, 22)
+                    .spawn_pawn(pawn_kind_def::COLONIST, None, map.id, x, z)
                     .map_err(|error| error.to_string())?;
                 let pawn = pawn.handle();
 
@@ -319,8 +317,9 @@ impl ApiTest {
             (|| -> Result<(), String> {
                 // A meal rots, so it carries `CompRottable` with a settable `RotProgress` — the same member
                 // the bridge's own rot op writes, reached here through the component handle instead.
+                let (x, z) = colony_cell(ctx, map.id)?;
                 let meal = ctx
-                    .spawn_thing("MealSimple", map.id, 10, 20)
+                    .spawn_thing("MealSimple", map.id, x, z)
                     .map_err(|error| error.to_string())?;
                 let comp = ctx
                     .thing_comp(&meal, "CompRottable")
@@ -347,8 +346,9 @@ impl ApiTest {
             ctx,
             "thing_comp hands back the same component the list named, and refuses a name the thing lacks",
             (|| -> Result<(), String> {
+                let (x, z) = colony_cell(ctx, map.id)?;
                 let thing = ctx
-                    .spawn_thing(thing_def::STEEL, map.id, 10, 18)
+                    .spawn_thing(thing_def::STEEL, map.id, x, z)
                     .map_err(|error| error.to_string())?;
 
                 let comps = ctx.thing_components(&thing).map_err(|error| error.to_string())?;

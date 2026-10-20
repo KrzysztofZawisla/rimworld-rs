@@ -8,6 +8,10 @@ use std::{
 
 use crate::*;
 
+/// The self-test has deferred checks (bill events) that can report after the summary line, so a run is
+/// only successful once this window has passed without a `FAIL`.
+const SETTLE: Duration = Duration::from_secs(15);
+
 /// Runs the repeatable in-game smoke test: install both example mods, launch RimWorld with
 /// `-quicktest`, and wait for the selftest summary in the new part of `Player.log`.
 pub(crate) fn smoke() -> Result<()> {
@@ -28,7 +32,9 @@ pub(crate) fn smoke() -> Result<()> {
     println!("==> waiting for the selftest summary (up to 180 s)");
 
     let deadline = Instant::now() + Duration::from_secs(180);
-    while Instant::now() < deadline {
+    let mut summary_seen = false;
+    let mut settle_until: Option<Instant> = None;
+    while Instant::now() < deadline || summary_seen {
         if let Some(current) = newest_log(log_paths()) {
             if path.as_ref() != Some(&current) {
                 path = Some(current);
@@ -61,10 +67,17 @@ pub(crate) fn smoke() -> Result<()> {
                         if failed > 0 {
                             return Err(missing(format!("{failed} selftest check(s) failed")));
                         }
-                        println!("RimWorld is still running; close it when you are done.");
-                        return Ok(());
+                        summary_seen = true;
+                        settle_until = Some(Instant::now() + SETTLE);
                     }
                 }
+            }
+        }
+
+        if let Some(until) = settle_until {
+            if Instant::now() >= until {
+                println!("RimWorld is still running; close it when you are done.");
+                return Ok(());
             }
         }
 

@@ -9,7 +9,6 @@ impl ApiTest {
         self.combat_checked = true;
 
         let map_id = self.map_id;
-        let (x, z) = (self.map_width / 2, self.map_depth / 2);
 
         // A pawn the mock also knows, so reading equipment and verbs is proven offline too.
         let carried = ctx.map_colonists(map_id).map_err(|error| error.to_string()).and_then(|pawns| {
@@ -39,8 +38,12 @@ impl ApiTest {
             },
         );
 
-        let test_pawn = ctx.spawn_pawn(pawn_kind_def::COLONIST, None, map_id, x + 2, z + 2);
-        let steel = ctx.spawn_thing(thing_def::STEEL, map_id, x + 1, z + 2).map(|handle| Thing::new(ctx, handle));
+        let test_pawn = colony_cell(ctx, map_id).and_then(|(x, z)| {
+            ctx.spawn_pawn(pawn_kind_def::COLONIST, None, map_id, x, z).map_err(|error| error.to_string())
+        });
+        let steel = colony_cell(ctx, map_id)
+            .and_then(|(x, z)| ctx.spawn_thing(thing_def::STEEL, map_id, x, z).map_err(|error| error.to_string()))
+            .map(|handle| Thing::new(ctx, handle));
         let (pawn, steel) = match (test_pawn, steel) {
             (Ok(pawn), Ok(steel)) => (pawn, steel),
             (Err(error), _) | (_, Err(error)) => {

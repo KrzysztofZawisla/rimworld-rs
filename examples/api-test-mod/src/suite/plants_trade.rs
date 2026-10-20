@@ -9,12 +9,12 @@ impl ApiTest {
         self.nature_checked = true;
 
         let map_id = self.map_id;
-        let (x, z) = (self.map_width / 2, self.map_depth / 2);
 
         // A plant: read it, then set its growth and read that back.
-        let plant = ctx
-            .spawn_thing(thing_def::PLANT_POTATO, map_id, x + 1, z + 1)
-            .map_err(|error| error.to_string())
+        let plant = colony_cell(ctx, map_id)
+            .and_then(|(x, z)| {
+                ctx.spawn_thing(thing_def::PLANT_POTATO, map_id, x, z).map_err(|error| error.to_string())
+            })
             .and_then(|handle| {
                 let before = ctx.plant_info(&handle).map_err(|error| error.to_string())?;
                 ctx.log(format!(
@@ -54,12 +54,12 @@ impl ApiTest {
         // (the game's own words are reported either way).
         let mut training_refusals = Vec::new();
         let mut trained = None;
-        for (index, kind) in
+        for kind in
             [pawn_kind_def::LABRADOR_RETRIEVER, pawn_kind_def::HUSKY, pawn_kind_def::MUFFALO, pawn_kind_def::ELEPHANT]
-                .iter()
-                .enumerate()
         {
-            let pawn = match ctx.spawn_pawn(kind, None, map_id, x + 3 + index as i32, z + 3) {
+            let pawn = match colony_cell(ctx, map_id)
+                .and_then(|(x, z)| ctx.spawn_pawn(kind, None, map_id, x, z).map_err(|error| error.to_string()))
+            {
                 Ok(pawn) => pawn,
                 Err(error) => {
                     training_refusals.push(format!("{kind}: {error}"));
@@ -68,7 +68,7 @@ impl ApiTest {
             };
             match ctx.pawn_training(pawn.handle()) {
                 Ok(info) => {
-                    trained = Some((*kind, info));
+                    trained = Some((kind, info));
                     break;
                 }
                 Err(error) => training_refusals.push(format!("{kind}: {error}")),
@@ -110,7 +110,9 @@ impl ApiTest {
 
         // A wild animal and a taming order, if the game lets this squirrel be tamed.
         let tamer = ctx.map_colonists(map_id).ok().and_then(|pawns| pawns.first().map(|pawn| pawn.handle().clone()));
-        let squirrel = ctx.spawn_pawn(pawn_kind_def::SQUIRREL, None, map_id, x + 3, z + 3);
+        let squirrel = colony_cell(ctx, map_id).and_then(|(x, z)| {
+            ctx.spawn_pawn(pawn_kind_def::SQUIRREL, None, map_id, x, z).map_err(|error| error.to_string())
+        });
         match (tamer, squirrel) {
             (Some(tamer), Ok(animal)) => {
                 let outcome = match ctx.pawn_tame_order(&tamer, animal.handle()) {
@@ -158,9 +160,8 @@ impl ApiTest {
         self.report.check(ctx, "pawn_trader refuses a pawn that is not a trader", trader);
 
         // The game's own prices: buying is never cheaper than selling.
-        let prices = ctx
-            .spawn_thing(thing_def::STEEL, map_id, x + 1, z + 2)
-            .map_err(|error| error.to_string())
+        let prices = colony_cell(ctx, map_id)
+            .and_then(|(x, z)| ctx.spawn_thing(thing_def::STEEL, map_id, x, z).map_err(|error| error.to_string()))
             .and_then(|handle| {
                 let prices = ctx.thing_prices(&handle).map_err(|error| error.to_string())?;
                 ctx.log(format!(

@@ -233,8 +233,9 @@ impl ApiTest {
 
         // ---- typed wrappers: things ---------------------------------------------------
         let thing_wrappers = (|| -> Result<(), String> {
+            let (steel_x, steel_z) = colony_cell(ctx, map.id)?;
             let steel =
-                ctx.spawn_thing(thing_def::STEEL, map.id, center_x + 2, center_z).map_err(|error| error.to_string())?;
+                ctx.spawn_thing(thing_def::STEEL, map.id, steel_x, steel_z).map_err(|error| error.to_string())?;
             let thing = Thing::new(ctx, steel);
 
             if thing.def_name().map_err(|error| error.to_string())?.as_deref() != Some("Steel") {
@@ -254,10 +255,11 @@ impl ApiTest {
             }
 
             // A vec3 handle used as an argument of a write.
-            let target = ctx.vec3(center_x + 3, 0, center_z + 1).map_err(|error| error.to_string())?;
+            let (target_x, target_z) = colony_cell(ctx, map.id)?;
+            let target = ctx.vec3(target_x, 0, target_z).map_err(|error| error.to_string())?;
             thing.set_position(&target).map_err(|error| error.to_string())?;
             let moved = thing.position().map_err(|error| error.to_string())?;
-            if moved.to_tuple().map_err(|error| error.to_string())? != (center_x + 3, 0, center_z + 1) {
+            if moved.to_tuple().map_err(|error| error.to_string())? != (target_x, 0, target_z) {
                 return Err(format!("position is {:?}", moved.to_tuple().unwrap_or_default()));
             }
 

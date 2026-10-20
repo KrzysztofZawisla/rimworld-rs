@@ -131,7 +131,8 @@ impl ApiTest {
         }
 
         if handle.is_none() {
-            match ctx.map_zone_create_stockpile(map_id, x, z, None) {
+            let (zone_x, zone_z) = colony_cell(ctx, map_id).unwrap_or((x, z));
+            match ctx.map_zone_create_stockpile(map_id, zone_x, zone_z, None) {
                 Ok(zone) => {
                     let zone_handle = zone
                         .handle
@@ -144,7 +145,9 @@ impl ApiTest {
                     ctx.log(format!(
                         "[selftest] the map has no storage zone and the check could not make one ({error}); trying a shelf"
                     ));
-                    handle = Some(ctx.spawn_thing(thing_def::SHELF, map_id, x, z).map_err(|error| error.to_string())?);
+                    handle = Some(
+                        ctx.spawn_thing(thing_def::SHELF, map_id, zone_x, zone_z).map_err(|error| error.to_string())?,
+                    );
                 }
             }
         }

@@ -2,14 +2,10 @@ use crate::*;
 
 impl ApiTest {
     pub(crate) fn check_construction_planet_and_diagnostics(&mut self, ctx: &mut Context, map: &MapInfo) {
-        let center_x = map.size_x / 2;
-        let center_z = map.size_z / 2;
-        let _ = (center_x, center_z);
-
         let blueprint = (|| -> Result<(), String> {
-            let thing = ctx
-                .blueprint_place(thing_def::WALL, map.id, center_x + 7, center_z + 7, None, None)
-                .map_err(|error| error.to_string())?;
+            let (x, z) = colony_cell(ctx, map.id)?;
+            let thing =
+                ctx.blueprint_place(thing_def::WALL, map.id, x, z, None, None).map_err(|error| error.to_string())?;
             let def = thing.def_name().map_err(|error| error.to_string())?;
             let _ = thing.destroy();
 
@@ -21,7 +17,7 @@ impl ApiTest {
         self.report.check(ctx, "a blueprint can be placed and removed again", blueprint);
 
         let construction = (|| -> Result<(), String> {
-            let cell = (center_x + 11, center_z + 11);
+            let cell = colony_cell(ctx, map.id)?;
             let blueprint = ctx
                 .blueprint_place(thing_def::WALL, map.id, cell.0, cell.1, None, None)
                 .map_err(|error| error.to_string())?;
@@ -34,8 +30,9 @@ impl ApiTest {
             }
 
             // A thing that is neither a frame nor a blueprint is refused by name.
+            let (steel_x, steel_z) = colony_cell(ctx, map.id)?;
             let steel =
-                ctx.spawn_thing(thing_def::STEEL, map.id, cell.0, cell.1 + 1).map_err(|error| error.to_string())?;
+                ctx.spawn_thing(thing_def::STEEL, map.id, steel_x, steel_z).map_err(|error| error.to_string())?;
             let refused = ctx.thing_construction_cost(&steel);
             let _ = Thing::new(ctx, steel).destroy();
             match refused {
@@ -78,7 +75,7 @@ impl ApiTest {
             // The other half of the story, through the generic route: `Blueprint_Build.MakeSolidThing(ref
             // bool)` is the game's own blueprint-to-frame step, and it hands back an *unspawned* frame —
             // the by-ref argument is exactly why `ref_call` had to learn one.
-            let other = (center_x + 12, center_z + 11);
+            let other = colony_cell(ctx, map.id)?;
             let second = ctx
                 .blueprint_place(thing_def::WALL, map.id, other.0, other.1, None, None)
                 .map_err(|error| error.to_string())?;
@@ -141,9 +138,9 @@ impl ApiTest {
         self.report.check(ctx, "a blueprint becomes a frame the game prices and finishes", construction);
 
         let selection = (|| -> Result<(), String> {
-            let silver = ctx
-                .spawn_thing(thing_def::SILVER, map.id, center_x + 8, center_z)
-                .map_err(|error| error.to_string())?;
+            let (silver_x, silver_z) = colony_cell(ctx, map.id)?;
+            let silver =
+                ctx.spawn_thing(thing_def::SILVER, map.id, silver_x, silver_z).map_err(|error| error.to_string())?;
             let thing = Thing::new(ctx, silver);
 
             ctx.select(thing.handle(), false).map_err(|error| error.to_string())?;
@@ -307,20 +304,24 @@ impl ApiTest {
 
         // ---- patches ----------------------------------------------------------------
         if self.harmony_ready {
-            match ctx.spawn_thing(thing_def::STEEL, map.id, center_x + 1, center_z) {
-                Ok(steel) => {
-                    self.report.check(
-                        ctx,
-                        "nested patch calls are deferred instead of applied (spawn stays unmodified)",
-                        match thing_def_name(&steel) {
-                            Ok(Some(name)) if name == "Steel" => Ok(()),
-                            Ok(other) => Err(format!("expected Steel, got {other:?}")),
-                            Err(error) => Err(error),
-                        },
-                    );
-                    let _ = steel.call("Destroy", Vec::new());
-                }
-                Err(error) => self.report.fail(ctx, "spawning with patches registered", &error.to_string()),
+            let cell = colony_cell(ctx, map.id);
+            match cell {
+                Err(error) => self.report.fail(ctx, "spawning with patches registered", &error),
+                Ok((x, z)) => match ctx.spawn_thing(thing_def::STEEL, map.id, x, z) {
+                    Ok(steel) => {
+                        self.report.check(
+                            ctx,
+                            "nested patch calls are deferred instead of applied (spawn stays unmodified)",
+                            match thing_def_name(&steel) {
+                                Ok(Some(name)) if name == "Steel" => Ok(()),
+                                Ok(other) => Err(format!("expected Steel, got {other:?}")),
+                                Err(error) => Err(error),
+                            },
+                        );
+                        let _ = steel.call("Destroy", Vec::new());
+                    }
+                    Err(error) => self.report.fail(ctx, "spawning with patches registered", &error.to_string()),
+                },
             }
         }
     }

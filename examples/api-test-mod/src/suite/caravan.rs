@@ -2,9 +2,6 @@ use crate::*;
 
 impl ApiTest {
     pub(crate) fn check_caravan_details(&mut self, ctx: &mut Context, map: &MapInfo) {
-        let center_x = map.size_x / 2;
-        let center_z = map.size_z / 2;
-
         let caravan = (|| -> Result<(), String> {
             // A caravan to work with: the game's own (if the run has one) or one the check sends with a
             // fresh pawn — that pawn leaves the map, so no colonist does.
@@ -14,9 +11,8 @@ impl ApiTest {
             if caravan.is_none() {
                 let kinds = ctx.def_names("PawnKindDef").map_err(|error| error.to_string())?;
                 let kind = kinds.first().cloned().ok_or("the installation has no pawn kinds")?;
-                let traveller = ctx
-                    .spawn_pawn(&kind, None, map.id, center_x + 26, center_z + 26)
-                    .map_err(|error| error.to_string())?;
+                let (x, z) = colony_cell(ctx, map.id)?;
+                let traveller = ctx.spawn_pawn(&kind, None, map.id, x, z).map_err(|error| error.to_string())?;
                 let sent = ctx.caravan_send(&[traveller.handle()], 0).map_err(|error| error.to_string())?;
                 ctx.log(format!(
                     "[selftest] this run had no caravan, so the check sent '{}' with {} pawn(s) (tile {})",
@@ -33,9 +29,8 @@ impl ApiTest {
                     // A fresh pawn joins, so no colonist leaves the map for the rest of the suite.
                     let kinds = ctx.def_names("PawnKindDef").map_err(|error| error.to_string())?;
                     let kind = kinds.first().cloned().ok_or("the installation has no pawn kinds")?;
-                    let fresh = ctx
-                        .spawn_pawn(&kind, None, map.id, center_x + 24, center_z + 24)
-                        .map_err(|error| error.to_string())?;
+                    let (x, z) = colony_cell(ctx, map.id)?;
+                    let fresh = ctx.spawn_pawn(&kind, None, map.id, x, z).map_err(|error| error.to_string())?;
                     let joined = ctx.caravan_add_pawn(&handle, fresh.handle()).map_err(|error| error.to_string())?;
                     if joined.count < 1 || joined.pawn.is_empty() {
                         return Err(format!("a fresh pawn joined a caravan and it answered {joined:?}"));

@@ -2,10 +2,6 @@ use crate::*;
 
 impl ApiTest {
     pub(crate) fn check_typed_subsystems(&mut self, ctx: &mut Context, map: &MapInfo) {
-        let center_x = map.size_x / 2;
-        let center_z = map.size_z / 2;
-        let _ = (center_x, center_z);
-
         self.report.check(
             ctx,
             "the typed subsystem wrappers read the game's own members",
@@ -15,9 +11,9 @@ impl ApiTest {
 
                 // Methods that take a `Def` need the def itself: the route carries it as a handle, so this
                 // asks a spawned thing for its def first — what a mod does for the same reason.
-                let steel_def = ctx
-                    .spawn_thing("Steel", map.id, 5, 5)
+                let steel_def = colony_cell(ctx, map.id)
                     .ok()
+                    .and_then(|(x, z)| ctx.spawn_thing("Steel", map.id, x, z).ok())
                     .and_then(|thing| thing.get("def").ok())
                     .and_then(|value| ObjRef::from_value(&value));
                 let mut answered: Vec<&str> = Vec::new();

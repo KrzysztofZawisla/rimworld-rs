@@ -244,7 +244,7 @@ impl ApiTest {
             self.report.fail(
                 ctx,
                 "bill_completed and bill_started arrive",
-                "no bill started within 3000 ticks: check the work table, its ingredients, a free colonist and whether the bill is paused",
+                "no bill started within 3000 ticks: check that the workbench is reachable, its ingredient is available and a colonist has the work type free",
             );
         }
     }

@@ -44,6 +44,12 @@ internal static partial class HostOps
     }
     private static object Execute(string op, JsonElement request)
     {
+        if (!RefContext.IsDispatching)
+        {
+            throw new BridgeException(
+                $"host operation '{op}' was called outside a Rust dispatch (for example from a background thread); the game is single-threaded");
+        }
+
         if (RustHost.Current?.InsideScribe == true && ChangesTheGame(op))
         {
             throw new BridgeException(

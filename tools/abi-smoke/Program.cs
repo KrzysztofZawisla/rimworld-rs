@@ -31,7 +31,7 @@ namespace RustBridge.Smoke;
 internal struct NativeBuf
 {
     public IntPtr Ptr;
-    public int Len;
+    public uint Len;
 }
 
 [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -47,7 +47,7 @@ internal delegate uint InitFn(IntPtr hostApi);
 internal delegate uint DispatchFn(IntPtr eventPtr, int eventLen, IntPtr payloadPtr, int payloadLen, IntPtr responseOut);
 
 [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-internal delegate void FreeBufFn(IntPtr ptr, int len);
+internal delegate void FreeBufFn(IntPtr ptr, uint len);
 
 [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
 internal delegate uint HostCallFn(IntPtr userData, IntPtr requestPtr, int requestLen, IntPtr responseOut);

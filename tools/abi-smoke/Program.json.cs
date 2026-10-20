@@ -431,12 +431,50 @@ internal static partial class Program
 
         // A deferred patch call is dispatched after the outer event, with its own handle table.
         var queuedTable = new RefTable();
-        queuedTable.Add("payload object");
+        int queuedId = queuedTable.Add("payload object");
         using (RefContext.Enter(queuedTable))
         {
             Expect(ReferenceEquals(RefContext.Current, queuedTable), "a queued patch installs its own handle table");
-            Expect(Equals(RefContext.Current.Get(0), "payload object"), "the queued table keeps its objects alive");
+            Expect(Equals(RefContext.Current.Get(queuedId), "payload object"), "the queued table keeps its objects alive");
         }
+
+        // A handle from an earlier dispatch must not resolve against a later table's objects.
+        var earlierTable = new RefTable();
+        int earlierId = earlierTable.Add("earlier object");
+        var laterTable = new RefTable();
+        laterTable.Add("later object");
+        bool staleRefused = false;
+        try
+        {
+            laterTable.Get(earlierId);
+        }
+        catch (BridgeException)
+        {
+            staleRefused = true;
+        }
+
+        Expect(staleRefused, "a handle from another dispatch is refused");
+        Expect(Equals(laterTable.Get(laterTable.Add("later object")), "later object"), "a fresh handle stays valid");
+
+        // A nested dispatch that brings its own table would resolve its $refs against the outer
+        // table; the bridge must refuse it instead of reaching the wrong objects.
+        bool nestedTableRefused = false;
+        using (RefContext.Enter())
+        {
+            try
+            {
+                using (RefContext.Enter(new RefTable()))
+                {
+                    Expect(false, "a handle-carrying nested dispatch was accepted");
+                }
+            }
+            catch (BridgeException)
+            {
+                nestedTableRefused = true;
+            }
+        }
+
+        Expect(nestedTableRefused, "a handle-carrying nested dispatch is refused");
 
         Console.WriteLine();
         Console.WriteLine($"{checks - failures}/{checks} marshaling checks passed");

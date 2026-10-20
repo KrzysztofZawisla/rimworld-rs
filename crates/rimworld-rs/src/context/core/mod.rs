@@ -12,14 +12,25 @@ use crate::{
 };
 
 /// Access to the game, valid for the duration of one callback.
+///
+/// The context is deliberately `!Send + !Sync`: the game is single-threaded, and a context that
+/// could move to another thread would let safe code call into the game from a background thread.
 pub struct Context {
     _private: (),
+    _not_send_or_sync: core::marker::PhantomData<*mut ()>,
 }
 
 impl Context {
     pub(crate) fn new() -> Context {
-        Context { _private: () }
+        Context { _private: (), _not_send_or_sync: core::marker::PhantomData }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Context;
+
+    static_assertions::assert_not_impl_any!(Context: Send, Sync);
 }
 
 mod basic;

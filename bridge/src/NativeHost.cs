@@ -12,7 +12,7 @@ namespace RustBridge;
 internal struct NativeBuf
 {
     public IntPtr Ptr;
-    public int Len;
+    public uint Len;
 }
 
 [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -28,7 +28,7 @@ internal delegate uint InitFn(IntPtr hostApi);
 internal delegate uint DispatchFn(IntPtr eventPtr, int eventLen, IntPtr payloadPtr, int payloadLen, IntPtr responseOut);
 
 [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-internal delegate void FreeBufFn(IntPtr ptr, int len);
+internal delegate void FreeBufFn(IntPtr ptr, uint len);
 
 [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
 internal delegate uint HostCallFn(IntPtr userData, IntPtr requestPtr, int requestLen, IntPtr responseOut);
@@ -135,23 +135,42 @@ internal sealed class RustHost
         var dispatch = Marshal.GetDelegateForFunctionPointer<DispatchFn>(NativeLibrary.GetExport(library, "rwrs_dispatch"));
         var freeBuf = Marshal.GetDelegateForFunctionPointer<FreeBufFn>(NativeLibrary.GetExport(library, "rwrs_free_buf"));
 
+        IntPtr hostCall = Marshal.GetFunctionPointerForDelegate(HostCallThunk);
         IntPtr hostApi = Marshal.AllocHGlobal(2 * IntPtr.Size);
-        Marshal.WriteIntPtr(hostApi, IntPtr.Zero);
-        Marshal.WriteIntPtr(hostApi + IntPtr.Size, Marshal.GetFunctionPointerForDelegate(HostCallThunk));
-
-        uint initResult = init(hostApi);
-        HostCallBuffers.Flush();
-        if (initResult != 0)
+        bool keepLibrary = false;
+        bool keepHostApi = false;
+        try
         {
-            Log.Error($"[Rust] {modName}: rwrs_init failed with code {initResult}");
-            NativeLibrary.Free(library);
-            return null;
-        }
+            Marshal.WriteIntPtr(hostApi, IntPtr.Zero);
+            Marshal.WriteIntPtr(hostApi + IntPtr.Size, hostCall);
 
-        var host = new RustHost(modName, dispatch, freeBuf);
-        Current = host;
-        Log.Message($"[Rust] {modName}: loaded {Path.GetFileName(nativePath)}");
-        return host;
+            uint initResult = init(hostApi);
+            HostCallBuffers.Flush();
+            if (initResult != 0)
+            {
+                Log.Error($"[Rust] {modName}: rwrs_init failed with code {initResult}");
+                return null;
+            }
+
+            var host = new RustHost(modName, dispatch, freeBuf);
+            Current = host;
+            Log.Message($"[Rust] {modName}: loaded {Path.GetFileName(nativePath)}");
+            keepLibrary = true;
+            keepHostApi = true;
+            return host;
+        }
+        finally
+        {
+            if (!keepHostApi)
+            {
+                Marshal.FreeHGlobal(hostApi);
+            }
+
+            if (!keepLibrary)
+            {
+                NativeLibrary.Free(library);
+            }
+        }
     }
 
     public bool ShouldDispatchTick()
@@ -307,7 +326,7 @@ internal sealed class RustHost
                 var buffer = new NativeBuf
                 {
                     Ptr = Marshal.ReadIntPtr(slot),
-                    Len = Marshal.ReadInt32(slot + IntPtr.Size),
+                    Len = (uint)Marshal.ReadInt32(slot + IntPtr.Size),
                 };
                 json = CopyAndFree(buffer);
             }
@@ -467,15 +486,39 @@ internal sealed class RustHost
 
     private string CopyAndFree(NativeBuf buffer)
     {
-        if (buffer.Ptr == IntPtr.Zero || buffer.Len <= 0)
+        if (buffer.Ptr == IntPtr.Zero)
         {
+            if (buffer.Len != 0)
+            {
+                Log.Error($"[Rust] the native response buffer has length {buffer.Len} but no pointer");
+                return "{\"ok\":false,\"error\":\"native response buffer has no pointer\"}";
+            }
+
             return "{\"ok\":true}";
         }
 
-        var bytes = new byte[buffer.Len];
-        Marshal.Copy(buffer.Ptr, bytes, 0, buffer.Len);
-        freeBufFn(buffer.Ptr, buffer.Len);
-        return Encoding.UTF8.GetString(bytes);
+        try
+        {
+            if (buffer.Len == 0)
+            {
+                return "{\"ok\":true}";
+            }
+
+            if (buffer.Len > int.MaxValue)
+            {
+                Log.Error(
+                    $"[Rust] the native response buffer is {buffer.Len} bytes, larger than the bridge can copy");
+                return "{\"ok\":false,\"error\":\"native response buffer too large\"}";
+            }
+
+            var bytes = new byte[(int)buffer.Len];
+            Marshal.Copy(buffer.Ptr, bytes, 0, bytes.Length);
+            return Encoding.UTF8.GetString(bytes);
+        }
+        finally
+        {
+            freeBufFn(buffer.Ptr, buffer.Len);
+        }
     }
 
     private static IntPtr ToNative(byte[] bytes)
@@ -517,8 +560,16 @@ internal sealed class RustHost
             response = Encoding.UTF8.GetBytes($"{{\"ok\":false,\"error\":{escaped}}}");
         }
 
-        HostCallBuffers.Publish(responseOut, response);
-        return 0;
+        try
+        {
+            HostCallBuffers.Publish(responseOut, response);
+            return 0;
+        }
+        catch (Exception error)
+        {
+            Log.Error($"[Rust] could not publish a host response: {error}");
+            return 1;
+        }
     }
 
     private static byte[] Read(IntPtr pointer, int length)
@@ -542,10 +593,18 @@ internal static class HostCallBuffers
     {
         Flush();
         IntPtr memory = Marshal.AllocHGlobal(response.Length);
-        Marshal.Copy(response, 0, memory, response.Length);
-        Marshal.WriteIntPtr(responseOut, memory);
-        Marshal.WriteInt32(responseOut + IntPtr.Size, response.Length);
-        latest = memory;
+        try
+        {
+            Marshal.Copy(response, 0, memory, response.Length);
+            Marshal.WriteIntPtr(responseOut, memory);
+            Marshal.WriteInt32(responseOut + IntPtr.Size, response.Length);
+            latest = memory;
+        }
+        catch
+        {
+            Marshal.FreeHGlobal(memory);
+            throw;
+        }
     }
 
     public static void Flush()

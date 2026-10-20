@@ -155,9 +155,8 @@ impl ApiTest {
 
         // ---- bills --------------------------------------------------------------------------
         let bills = (|| -> Result<(), String> {
-            let table = ctx
-                .spawn_thing(thing_def::TABLE_BUTCHER, map_id, center_x + 6, center_z + 6)
-                .map_err(|error| error.to_string())?;
+            let (x, z) = colony_cell(ctx, map_id)?;
+            let table = ctx.spawn_thing(thing_def::TABLE_BUTCHER, map_id, x, z).map_err(|error| error.to_string())?;
             let thing = Thing::new(ctx, table);
 
             if !thing.bills().map_err(|error| error.to_string())?.is_empty() {
@@ -186,9 +185,9 @@ impl ApiTest {
 
         // ---- genes --------------------------------------------------------------------------
         let genes = (|| -> Result<(), String> {
-            let pawn = ctx
-                .spawn_pawn(pawn_kind_def::COLONIST, None, map_id, center_x, center_z + 6)
-                .map_err(|error| error.to_string())?;
+            let (x, z) = colony_cell(ctx, map_id)?;
+            let pawn =
+                ctx.spawn_pawn(pawn_kind_def::COLONIST, None, map_id, x, z).map_err(|error| error.to_string())?;
 
             let added = pawn.add_gene(gene_def::MOVE_SPEED_QUICK, true).map_err(|error| error.to_string())?;
             if !added.has {
@@ -221,9 +220,9 @@ impl ApiTest {
 
         // ---- thoughts and needs --------------------------------------------------------------
         let mood = (|| -> Result<(), String> {
-            let pawn = ctx
-                .spawn_pawn(pawn_kind_def::COLONIST, None, map_id, center_x + 3, center_z + 6)
-                .map_err(|error| error.to_string())?;
+            let (x, z) = colony_cell(ctx, map_id)?;
+            let pawn =
+                ctx.spawn_pawn(pawn_kind_def::COLONIST, None, map_id, x, z).map_err(|error| error.to_string())?;
 
             let thought = pawn.add_thought(thought_def::ATE_WITHOUT_TABLE).map_err(|error| error.to_string())?;
             if !thought.has {
@@ -245,9 +244,9 @@ impl ApiTest {
         let caravans = (|| -> Result<(), String> {
             ctx.caravans().map_err(|error| error.to_string())?;
 
-            let pawn = ctx
-                .spawn_pawn(pawn_kind_def::COLONIST, None, map_id, center_x - 6, center_z + 6)
-                .map_err(|error| error.to_string())?;
+            let (x, z) = colony_cell(ctx, map_id)?;
+            let pawn =
+                ctx.spawn_pawn(pawn_kind_def::COLONIST, None, map_id, x, z).map_err(|error| error.to_string())?;
             let sent = ctx.caravan_send(&[pawn.handle()], tile).map_err(|error| error.to_string())?;
             if sent.tile != tile {
                 return Err(format!("the caravan reports tile {} instead of {tile}", sent.tile));
@@ -317,9 +316,9 @@ impl ApiTest {
 
         // ---- expansion trackers --------------------------------------------------------------
         let trackers = (|| -> Result<(), String> {
-            let pawn = ctx
-                .spawn_pawn(pawn_kind_def::COLONIST, None, map_id, center_x - 3, center_z - 6)
-                .map_err(|error| error.to_string())?;
+            let (x, z) = colony_cell(ctx, map_id)?;
+            let pawn =
+                ctx.spawn_pawn(pawn_kind_def::COLONIST, None, map_id, x, z).map_err(|error| error.to_string())?;
 
             let titles = pawn.titles().map_err(|error| error.to_string())?;
             if !titles.has_royalty {

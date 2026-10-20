@@ -2,15 +2,12 @@ use crate::*;
 
 impl ApiTest {
     pub(crate) fn check_health_and_world_rules(&mut self, ctx: &mut Context, map: &MapInfo) {
-        let center_x = map.size_x / 2;
-        let center_z = map.size_z / 2;
-        let _ = (center_x, center_z);
-
         self.report.check(
             ctx,
             "battery and rot refuse a thing that has neither, by name, and a hediff takes a severity",
             (|| -> Result<(), String> {
-                let silver = ctx.spawn_thing(thing_def::SILVER, map.id, 10, 11).map_err(|error| error.to_string())?;
+                let (x, z) = colony_cell(ctx, map.id)?;
+                let silver = ctx.spawn_thing(thing_def::SILVER, map.id, x, z).map_err(|error| error.to_string())?;
                 match ctx.thing_set_battery(&silver, 0.5) {
                     Ok(state) => return Err(format!("a stack of silver charged up: {state:?}")),
                     Err(error) if error.to_string().contains("stores no power") => {}

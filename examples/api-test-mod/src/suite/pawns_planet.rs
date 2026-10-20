@@ -2,10 +2,6 @@ use crate::*;
 
 impl ApiTest {
     pub(crate) fn check_pawns_planet(&mut self, ctx: &mut Context, map: &MapInfo) {
-        let center_x = map.size_x / 2;
-        let center_z = map.size_z / 2;
-        let _ = (center_x, center_z);
-
         // ---- pawns --------------------------------------------------------------------
         let pawn_details = (|| -> Result<(), String> {
             let colonists = ctx.map_colonists(map.id).map_err(|error| error.to_string())?;
@@ -57,11 +53,12 @@ impl ApiTest {
         // in game — the value came back as the default), so it would prove nothing here.
 
         let jobs = (|| -> Result<(), String> {
-            let spawned = ctx
-                .spawn_pawn(pawn_kind_def::COLONIST, None, map.id, center_x + 4, center_z + 4)
-                .map_err(|error| error.to_string())?;
+            let (x, z) = colony_cell(ctx, map.id)?;
+            let spawned =
+                ctx.spawn_pawn(pawn_kind_def::COLONIST, None, map.id, x, z).map_err(|error| error.to_string())?;
 
-            let job = ctx.job_make(job_def::WAIT, (center_x + 5, center_z + 5)).map_err(|error| error.to_string())?;
+            let (job_x, job_z) = colony_cell(ctx, map.id)?;
+            let job = ctx.job_make(job_def::WAIT, (job_x, job_z)).map_err(|error| error.to_string())?;
             let accepted = spawned.take_job(&job, false).map_err(|error| error.to_string())?;
             let current = spawned.info().map_err(|error| error.to_string())?.current_job_def_name;
 
@@ -84,9 +81,9 @@ impl ApiTest {
         self.report.check(ctx, "a spawned pawn takes a job and reports it", jobs);
 
         let harm = (|| -> Result<(), String> {
-            let spawned = ctx
-                .spawn_pawn(pawn_kind_def::COLONIST, None, map.id, center_x - 4, center_z - 4)
-                .map_err(|error| error.to_string())?;
+            let (x, z) = colony_cell(ctx, map.id)?;
+            let spawned =
+                ctx.spawn_pawn(pawn_kind_def::COLONIST, None, map.id, x, z).map_err(|error| error.to_string())?;
 
             let before = spawned.health().map_err(|error| error.to_string())?.hediffs.len();
             spawned.apply_damage(5.0, None).map_err(|error| error.to_string())?;
@@ -100,9 +97,10 @@ impl ApiTest {
 
             ctx.log(format!("[selftest] the damage landed: hediffs went from {before} to {}", after.hediffs.len()));
 
-            spawned.teleport(center_x - 3, center_z - 3).map_err(|error| error.to_string())?;
+            let (teleport_x, teleport_z) = colony_cell(ctx, map.id)?;
+            spawned.teleport(teleport_x, teleport_z).map_err(|error| error.to_string())?;
             let info = spawned.info().map_err(|error| error.to_string())?;
-            if info.position.first() != Some(&(center_x - 3)) {
+            if info.position.first() != Some(&teleport_x) {
                 return Err(format!("the pawn stayed at {:?}", info.position));
             }
 

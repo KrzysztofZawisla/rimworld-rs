@@ -3,7 +3,7 @@ use crate::*;
 impl ApiTest {
     pub(crate) fn check_environment_power(&mut self, ctx: &mut Context) {
         let map_id = self.map_id;
-        let (x, z) = (self.map_width / 2, self.map_depth / 2);
+        let (x, z) = colony_anchor(ctx, map_id).unwrap_or((self.map_width / 2, self.map_depth / 2));
 
         match ctx.map_power(map_id) {
             Ok(power) => {
@@ -20,21 +20,12 @@ impl ApiTest {
         }
 
         // A thing with no power component must say so instead of answering with nonsense.
-        let negative = ctx
-            .map_things_in_radius(map_id, x, z, 6.0, Some(thing_def::STEEL))
-            .map_err(|error| error.to_string())
-            .and_then(|found| {
-                let handle = found
-                    .things
-                    .into_iter()
-                    .filter_map(|thing| thing.handle)
-                    .next()
-                    .ok_or_else(|| "no steel within 6 cells of the map centre".to_string())?;
-                match ctx.thing_power(&handle) {
-                    Err(error) if error.to_string().contains("no power component") => Ok(()),
-                    Err(error) => Err(format!("unexpected error: {error}")),
-                    Ok(power) => Err(format!("steel reported a power state: {power:?}")),
-                }
+        let negative = colony_cell(ctx, map_id)
+            .and_then(|(x, z)| ctx.spawn_thing(thing_def::STEEL, map_id, x, z).map_err(|error| error.to_string()))
+            .and_then(|handle| match ctx.thing_power(&handle) {
+                Err(error) if error.to_string().contains("no power component") => Ok(()),
+                Err(error) => Err(format!("unexpected error: {error}")),
+                Ok(power) => Err(format!("steel reported a power state: {power:?}")),
             });
         self.report.check(ctx, "thing_power refuses a thing without a power component", negative);
 
@@ -44,12 +35,12 @@ impl ApiTest {
         let mut flickable = None;
         let mut spawned_flickable = None;
         let mut flickable_notes = Vec::new();
-        for (index, def) in
+        for def in
             [thing_def::STANDING_LAMP, thing_def::TORCH_LAMP, thing_def::AUTODOOR, thing_def::COOLER, thing_def::HEATER]
-                .iter()
-                .enumerate()
         {
-            let spawned = match ctx.spawn_thing(def, map_id, x + 4, z + 4 + index as i32) {
+            let spawned = match colony_cell(ctx, map_id)
+                .and_then(|(x, z)| ctx.spawn_thing(def, map_id, x, z).map_err(|error| error.to_string()))
+            {
                 Ok(handle) => handle,
                 Err(error) => {
                     flickable_notes.push(format!("{def}: {error}"));

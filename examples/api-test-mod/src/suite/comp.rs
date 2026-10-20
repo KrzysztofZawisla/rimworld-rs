@@ -4,10 +4,12 @@ impl ApiTest {
     pub(crate) fn start_comp_checks(&mut self, ctx: &mut Context) {
         self.comp_state_checked = true;
 
-        let handle = match ctx.spawn_thing(thing_def::STEEL, self.map_id, self.map_width / 4, self.map_depth / 4) {
+        let handle = match colony_cell(ctx, self.map_id)
+            .and_then(|(x, z)| ctx.spawn_thing(thing_def::STEEL, self.map_id, x, z).map_err(|error| error.to_string()))
+        {
             Ok(handle) => handle,
             Err(error) => {
-                self.report.check(ctx, "per-thing state set, list, read, remove and clear", Err(error.to_string()));
+                self.report.check(ctx, "per-thing state set, list, read, remove and clear", Err(error));
                 return;
             }
         };

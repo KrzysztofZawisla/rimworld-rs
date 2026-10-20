@@ -178,16 +178,15 @@ impl ApiTest {
         }
 
         // ---- handles -----------------------------------------------------------------
-        let center_x = map.size_x / 2;
-        let center_z = map.size_z / 2;
-        let _ = (center_x, center_z);
-        let silver = match ctx.spawn_thing(thing_def::SILVER, map.id, center_x, center_z) {
+        let silver = match colony_cell(ctx, map.id)
+            .and_then(|(x, z)| ctx.spawn_thing(thing_def::SILVER, map.id, x, z).map_err(|error| error.to_string()))
+        {
             Ok(thing) => {
                 self.report.pass(ctx, "spawn_thing returns an object handle");
                 thing
             }
             Err(error) => {
-                self.report.fail(ctx, "spawn_thing returns an object handle", &error.to_string());
+                self.report.fail(ctx, "spawn_thing returns an object handle", &error);
                 return;
             }
         };

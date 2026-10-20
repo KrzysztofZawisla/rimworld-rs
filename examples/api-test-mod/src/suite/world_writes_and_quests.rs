@@ -7,9 +7,9 @@ impl ApiTest {
         let _ = (center_x, center_z);
 
         let thing_writes = (|| -> Result<(), String> {
-            let steel = ctx
-                .spawn_thing(thing_def::STEEL, map.id, center_x + 11, center_z + 11)
-                .map_err(|error| error.to_string())?;
+            let (steel_x, steel_z) = colony_cell(ctx, map.id)?;
+            let steel =
+                ctx.spawn_thing(thing_def::STEEL, map.id, steel_x, steel_z).map_err(|error| error.to_string())?;
             let stack = ctx.thing_set_stack_count(&steel, 5).map_err(|error| error.to_string())?;
             if stack.stack_count != 5 {
                 return Err(format!("asking for a stack of 5 answered {stack:?}"));
@@ -26,9 +26,9 @@ impl ApiTest {
                 Ok(state) => return Err(format!("a stack without quality took one: {state:?}")),
             }
 
-            let stool = ctx
-                .spawn_thing(thing_def::STOOL, map.id, center_x + 12, center_z + 12)
-                .map_err(|error| error.to_string())?;
+            let (stool_x, stool_z) = colony_cell(ctx, map.id)?;
+            let stool =
+                ctx.spawn_thing(thing_def::STOOL, map.id, stool_x, stool_z).map_err(|error| error.to_string())?;
             let minified = ctx.thing_uninstall(&stool).map_err(|error| error.to_string())?;
             if minified.label.is_empty() || minified.handle.is_none() {
                 return Err(format!("uninstalling a stool answered {minified:?}"));
@@ -44,8 +44,9 @@ impl ApiTest {
                 Err(error) => return Err(format!("the refusal does not say why: {error}")),
             }
 
+            let (hat_x, hat_z) = colony_cell(ctx, map.id)?;
             let hat = ctx
-                .spawn_thing(thing_def::APPAREL_COWBOY_HAT, map.id, center_x + 13, center_z + 13)
+                .spawn_thing(thing_def::APPAREL_COWBOY_HAT, map.id, hat_x, hat_z)
                 .map_err(|error| error.to_string())?;
             let quality = ctx.thing_set_quality(&hat, "legendary").map_err(|error| error.to_string())?;
             if quality.quality != "Legendary" {

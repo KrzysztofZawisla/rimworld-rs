@@ -10,9 +10,9 @@ impl ApiTest {
         let things_and_maps = (|| -> Result<(), String> {
             let map_handle = ctx.map(map.id).map_err(|error| error.to_string())?;
 
-            let silver = ctx
-                .spawn_thing(thing_def::SILVER, map.id, center_x + 6, center_z)
-                .map_err(|error| error.to_string())?;
+            let (silver_x, silver_z) = colony_cell(ctx, map.id)?;
+            let silver =
+                ctx.spawn_thing(thing_def::SILVER, map.id, silver_x, silver_z).map_err(|error| error.to_string())?;
             let thing = Thing::new(ctx, silver);
             let _ = thing.components().map_err(|error| error.to_string())?;
             let _ = thing.quality().map_err(|error| error.to_string())?;
@@ -52,9 +52,9 @@ impl ApiTest {
         self.report.check(ctx, "thing components, stacks, cells, weather and radius queries work", things_and_maps);
 
         let thing_state = (|| -> Result<(), String> {
-            let thing = ctx
-                .spawn_thing(thing_def::STEEL, map.id, center_x + 8, center_z + 8)
-                .map_err(|error| error.to_string())?;
+            let (steel_x, steel_z) = colony_cell(ctx, map.id)?;
+            let thing =
+                ctx.spawn_thing(thing_def::STEEL, map.id, steel_x, steel_z).map_err(|error| error.to_string())?;
 
             let forbidden = ctx.thing_set_forbidden(&thing, true).map_err(|error| error.to_string())?;
             if !forbidden.forbidden {
@@ -132,8 +132,9 @@ impl ApiTest {
                 let _ = ctx.pawn_set_name(pawn, &kept_name);
             }
 
+            let (terrain_x, terrain_z) = colony_cell(ctx, map.id)?;
             let terrain = ctx
-                .map_set_terrain(map.id, center_x + 9, center_z + 9, terrain_def::SOIL)
+                .map_set_terrain(map.id, terrain_x, terrain_z, terrain_def::SOIL)
                 .map_err(|error| error.to_string())?;
             if terrain.terrain != terrain_def::SOIL {
                 return Err(format!(

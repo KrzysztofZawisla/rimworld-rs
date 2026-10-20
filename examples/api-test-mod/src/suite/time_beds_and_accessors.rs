@@ -2,10 +2,6 @@ use crate::*;
 
 impl ApiTest {
     pub(crate) fn check_time_beds_and_accessors(&mut self, ctx: &mut Context, map: &MapInfo) {
-        let center_x = map.size_x / 2;
-        let center_z = map.size_z / 2;
-        let _ = (center_x, center_z);
-
         self.report.check(
             ctx,
             "the game's own time speed is set, an unknown one is refused with the game's list, and a save is written",
@@ -76,8 +72,9 @@ impl ApiTest {
             ctx,
             "a bed takes its settings, and a thing that is no bed is refused by name",
             (|| -> Result<(), String> {
+                let (x, z) = colony_cell(ctx, map.id)?;
                 let steel = ctx
-                    .spawn_thing(thing_def::STEEL, map.id, 10, 22)
+                    .spawn_thing(thing_def::STEEL, map.id, x, z)
                     .map_err(|error| error.to_string())?;
                 match ctx.thing_set_bed_settings(&steel, Some(true), None, None) {
                     Ok(state) => return Err(format!("steel became a hospital bed: {state:?}")),
@@ -86,7 +83,8 @@ impl ApiTest {
                 }
 
                 for def in ["Bed", "DoubleBed", "Bedroll"] {
-                    let bed = match ctx.spawn_thing(def, map.id, 10, 24) {
+                    let (x, z) = colony_cell(ctx, map.id)?;
+                    let bed = match ctx.spawn_thing(def, map.id, x, z) {
                         Ok(bed) => bed,
                         Err(_) => continue,
                     };

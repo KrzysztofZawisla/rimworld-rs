@@ -2,16 +2,13 @@ use crate::*;
 
 impl ApiTest {
     pub(crate) fn check_health_items_and_policies(&mut self, ctx: &mut Context, map: &MapInfo) {
-        let center_x = map.size_x / 2;
-        let center_z = map.size_z / 2;
-        let _ = (center_x, center_z);
-
         self.report.check(
             ctx,
             "fuel: a thing that burns none is refused by name, and a campfire takes a target",
             (|| -> Result<(), String> {
+                let (fuel_x, fuel_z) = colony_cell(ctx, map.id)?;
                 let silver = ctx
-                    .spawn_thing(thing_def::SILVER, map.id, 10, 13)
+                    .spawn_thing(thing_def::SILVER, map.id, fuel_x, fuel_z)
                     .map_err(|error| error.to_string())?;
                 match ctx.thing_set_fuel_target(&silver, 10.0) {
                     Ok(state) => return Err(format!("a stack of silver took a fuel target: {state:?}")),
@@ -21,7 +18,8 @@ impl ApiTest {
 
                 // A campfire does burn fuel; an installation without one says so instead of pretending.
                 for def in ["Campfire", "TorchLamp", "FueledStove"] {
-                    let thing = match ctx.spawn_thing(def, map.id, 10, 14) {
+                    let (x, z) = colony_cell(ctx, map.id)?;
+                    let thing = match ctx.spawn_thing(def, map.id, x, z) {
                         Ok(thing) => thing,
                         Err(_) => continue,
                     };
@@ -81,8 +79,9 @@ impl ApiTest {
             ctx,
             "an ingredient is registered on a meal, and a thing that carries none is refused by name",
             (|| -> Result<(), String> {
+                let (silver_x, silver_z) = colony_cell(ctx, map.id)?;
                 let silver = ctx
-                    .spawn_thing(thing_def::SILVER, map.id, 10, 12)
+                    .spawn_thing(thing_def::SILVER, map.id, silver_x, silver_z)
                     .map_err(|error| error.to_string())?;
                 // A stack of steel has no ingredients at all: the op must say so by naming its type.
                 match ctx.thing_add_ingredient(&silver, thing_def::STEEL) {
@@ -94,7 +93,8 @@ impl ApiTest {
                 // A meal does carry that comp; the defs are tried by name, and an installation without
                 // them says so instead of pretending the op was exercised.
                 for meal in ["MealSimple", "MealFine", "MealNutrientPaste"] {
-                    let thing = match ctx.spawn_thing(meal, map.id, 10, 12) {
+                    let (x, z) = colony_cell(ctx, map.id)?;
+                    let thing = match ctx.spawn_thing(meal, map.id, x, z) {
                         Ok(thing) => thing,
                         Err(_) => continue,
                     };
@@ -237,9 +237,10 @@ impl ApiTest {
             (|| -> Result<(), String> {
                 // A thing of this check's own: earlier checks destroy theirs, and the op is right to refuse
                 // a thing that is no longer on a map.
-                let thing = ctx.spawn_thing(thing_def::STEEL, map.id, 10, 10).map_err(|error| error.to_string())?;
-                let target_x = (map.size_x / 2) + 2;
-                let target_z = (map.size_z / 2) + 2;
+                let (thing_x, thing_z) = colony_cell(ctx, map.id)?;
+                let thing =
+                    ctx.spawn_thing(thing_def::STEEL, map.id, thing_x, thing_z).map_err(|error| error.to_string())?;
+                let (target_x, target_z) = colony_cell(ctx, map.id)?;
                 let moved = ctx.thing_set_position(&thing, target_x, target_z).map_err(|error| error.to_string())?;
                 if moved.x != target_x || moved.z != target_z {
                     return Err(format!(

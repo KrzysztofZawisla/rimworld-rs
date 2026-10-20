@@ -2,10 +2,6 @@ use crate::*;
 
 impl ApiTest {
     pub(crate) fn check_lords_training_and_records(&mut self, ctx: &mut Context, map: &MapInfo) {
-        let center_x = map.size_x / 2;
-        let center_z = map.size_z / 2;
-        let _ = (center_x, center_z);
-
         // A real lord, with both ends of its story: `AddLord` and `RemoveLord` are exactly the moments
         // `raid_started` and `lord_destroyed` hook, so this is what makes those two events arrive in a run
         // that has no raid of its own. The game decides which of its own job classes can start on a lord
@@ -15,8 +11,9 @@ impl ApiTest {
             ctx,
             "a lord is built and taken off again, so both ends of its story arrive",
             (|| -> Result<(), String> {
+                let (x, z) = colony_cell(ctx, map.id)?;
                 let pawn = ctx
-                    .spawn_pawn(pawn_kind_def::COLONIST, None, map.id, 9, 22)
+                    .spawn_pawn(pawn_kind_def::COLONIST, None, map.id, x, z)
                     .map_err(|error| error.to_string())?;
 
                 let mut refusals = Vec::new();

@@ -22,3 +22,126 @@ pub(crate) fn read_position(thing: &ObjRef) -> Result<Option<(i64, i64)>, String
     let z = position.get("z").map_err(|error| error.to_string())?.as_i64();
     Ok(Some((x.unwrap_or(-1), z.unwrap_or(-1))))
 }
+
+/// Cells around the first colonist, nearest first. The suite spawns its fixtures there instead of
+/// around the map centre: the centre is not the colony and can sit inside a sealed mountain room.
+const OPEN_OFFSETS: [(i32, i32); 80] = [
+    (1, 0),
+    (0, 1),
+    (-1, 0),
+    (0, -1),
+    (1, 1),
+    (-1, 1),
+    (1, -1),
+    (-1, -1),
+    (2, 0),
+    (0, 2),
+    (-2, 0),
+    (0, -2),
+    (2, 1),
+    (-2, 1),
+    (2, -1),
+    (-2, -1),
+    (1, 2),
+    (-1, 2),
+    (1, -2),
+    (-1, -2),
+    (2, 2),
+    (-2, 2),
+    (2, -2),
+    (-2, -2),
+    (3, 0),
+    (0, 3),
+    (-3, 0),
+    (0, -3),
+    (3, 1),
+    (-3, 1),
+    (3, -1),
+    (-3, -1),
+    (1, 3),
+    (-1, 3),
+    (1, -3),
+    (-1, -3),
+    (3, 2),
+    (-3, 2),
+    (3, -2),
+    (-3, -2),
+    (2, 3),
+    (-2, 3),
+    (2, -3),
+    (-2, -3),
+    (3, 3),
+    (-3, 3),
+    (3, -3),
+    (-3, -3),
+    (4, 0),
+    (0, 4),
+    (-4, 0),
+    (0, -4),
+    (4, 1),
+    (-4, 1),
+    (4, -1),
+    (-4, -1),
+    (1, 4),
+    (-1, 4),
+    (1, -4),
+    (-1, -4),
+    (4, 2),
+    (-4, 2),
+    (4, -2),
+    (-4, -2),
+    (2, 4),
+    (-2, 4),
+    (2, -4),
+    (-2, -4),
+    (4, 3),
+    (-4, 3),
+    (4, -3),
+    (-4, -3),
+    (3, 4),
+    (-3, 4),
+    (3, -4),
+    (-3, -4),
+    (4, 4),
+    (-4, 4),
+    (4, -4),
+    (-4, -4),
+];
+
+/// The first colonist's cell: the suite's anchor next to the colony.
+pub(crate) fn colony_anchor(ctx: &Context, map_id: i32) -> Result<(i32, i32), String> {
+    let colonists = ctx.map_colonists(map_id).map_err(|error| error.to_string())?;
+    let colonist = colonists.first().ok_or("the map has no colonists")?;
+    let (x, _, z) =
+        colonist.position().map_err(|error| error.to_string())?.to_tuple().map_err(|error| error.to_string())?;
+    Ok((x, z))
+}
+
+/// A free, open cell near `(x, z)`: no edifice, no water, and no thing already on it.
+pub(crate) fn open_cell_near(ctx: &Context, map_id: i32, x: i32, z: i32) -> Result<(i32, i32), String> {
+    for (dx, dz) in OPEN_OFFSETS {
+        let (cx, cz) = (x + dx, z + dz);
+        let Ok(cell) = ctx.map_cell_info(map_id, cx, cz) else {
+            continue;
+        };
+        if cell.edifice_def_name.is_some()
+            || cell.terrain_def_name.as_deref().is_some_and(|name| name.contains("Water"))
+        {
+            continue;
+        }
+        let occupied = ctx
+            .map_things_in_radius(map_id, cx, cz, 0.5, None)
+            .map(|found| found.things.iter().any(|thing| thing.handle.is_some()))
+            .unwrap_or(false);
+        if !occupied {
+            return Ok((cx, cz));
+        }
+    }
+    Err(format!("no free open cell near ({x}, {z})"))
+}
+
+/// A free, open cell next to the colony.
+pub(crate) fn colony_cell(ctx: &Context, map_id: i32) -> Result<(i32, i32), String> {
+    let (x, z) = colony_anchor(ctx, map_id)?;
+    open_cell_near(ctx, map_id, x, z)
+}

@@ -2,25 +2,70 @@ use crate::*;
 
 impl ApiTest {
     pub(crate) fn check_thing_details(&mut self, ctx: &mut Context, map: &MapInfo) {
-        let center_x = map.size_x / 2;
-        let center_z = map.size_z / 2;
-        let _ = (center_x, center_z);
-
         let thing_details = (|| -> Result<(), String> {
-            let colonists = ctx.map_colonists(map.id).map_err(|error| error.to_string())?;
-            let pawn = colonists.first().ok_or("the map has no colonists")?.handle().clone();
+            let (pawn, px, pz) = {
+                let colonists = ctx.map_colonists(map.id).map_err(|error| error.to_string())?;
+                let colonist = colonists.first().ok_or("the map has no colonists")?;
+                let (x, _, z) = colonist
+                    .position()
+                    .map_err(|error| error.to_string())?
+                    .to_tuple()
+                    .map_err(|error| error.to_string())?;
+                (colonist.handle().clone(), x, z)
+            };
 
-            // A bill, on a workbench that takes one.
+            // The bench has to stand where the colony can reach it: the map centre is not the colony, and a
+            // bench spawned there can sit in a sealed mountain room. Keep it next to the first colonist and
+            // put the ingredient on an open cell beside it.
+            let open = |ctx: &mut Context, x: i32, z: i32| -> Result<bool, String> {
+                let cell = ctx.map_cell_info(map.id, x, z).map_err(|error| error.to_string())?;
+                Ok(cell.edifice_def_name.is_none()
+                    && !cell.terrain_def_name.as_deref().is_some_and(|name| name.contains("Water")))
+            };
+
+            let offsets = [
+                (1, 0),
+                (0, 1),
+                (-1, 0),
+                (0, -1),
+                (2, 0),
+                (0, 2),
+                (-2, 0),
+                (0, -2),
+                (2, 2),
+                (-2, 2),
+                (2, -2),
+                (-2, -2),
+                (3, 0),
+                (0, 3),
+                (-3, 0),
+                (0, -3),
+            ];
+            let mut table_cell = None;
+            for (dx, dz) in offsets {
+                let (x, z) = (px + dx, pz + dz);
+                if open(ctx, x, z)? {
+                    table_cell = Some((x, z));
+                    break;
+                }
+            }
+            let (table_x, table_z) = table_cell.ok_or("no open cell near the first colonist for the workbench")?;
             let table = ctx
-                .spawn_thing(thing_def::TABLE_STONECUTTER, map.id, center_x + 22, center_z + 22)
+                .spawn_thing(thing_def::TABLE_STONECUTTER, map.id, table_x, table_z)
                 .map_err(|error| error.to_string())?;
 
-            // A bill needs its ingredient within the bench's reach, and the quicktest colony does not keep stone
-            // chunks next to this stonecutter: the check puts one there itself, which is what makes the bill
-            // workable in the ticks the event phase waits for. The name comes from the generated constants, never
-            // from a string.
-            ctx.spawn_thing(thing_def::CHUNK_SANDSTONE, map.id, center_x + 21, center_z + 22)
-                .map_err(|error| error.to_string())?;
+            // The ingredient must be within the bench's reach; it goes on an open cell beside the bench.
+            let mut chunk_cell = None;
+            for (x, z) in
+                [(table_x + 1, table_z), (table_x - 1, table_z), (table_x, table_z + 1), (table_x, table_z - 1)]
+            {
+                if open(ctx, x, z)? {
+                    chunk_cell = Some((x, z));
+                    break;
+                }
+            }
+            let (chunk_x, chunk_z) = chunk_cell.ok_or("no open cell next to the workbench for the ingredient")?;
+            ctx.spawn_thing(thing_def::CHUNK_SANDSTONE, map.id, chunk_x, chunk_z).map_err(|error| error.to_string())?;
             let recipes = ctx.def_names("RecipeDef").map_err(|error| error.to_string())?;
             // A recipe the game accepts is not a recipe this bench can work: the first version of this check
             // left a surgery bill on a stonecutter, which the game accepted and never ran, so the events this
@@ -119,9 +164,9 @@ impl ApiTest {
                 ),
             }
 
-            let stool = ctx
-                .spawn_thing(thing_def::STOOL, map.id, center_x + 23, center_z + 23)
-                .map_err(|error| error.to_string())?;
+            let (stool_x, stool_z) = colony_cell(ctx, map.id)?;
+            let stool =
+                ctx.spawn_thing(thing_def::STOOL, map.id, stool_x, stool_z).map_err(|error| error.to_string())?;
             let things = ctx.def_names("ThingDef").map_err(|error| error.to_string())?;
             if things.iter().any(|name| name == "WoodLog") {
                 let restuffed = ctx.thing_set_stuff(&stool, Some("WoodLog")).map_err(|error| error.to_string())?;
@@ -185,7 +230,8 @@ impl ApiTest {
             }
 
             // A stockpile is not a `IPlantToGrowSettable`, and the refusal names that.
-            match ctx.map_zone_create_stockpile(map.id, center_x + 26, center_z + 26, None) {
+            let (zone_x, zone_z) = colony_cell(ctx, map.id)?;
+            match ctx.map_zone_create_stockpile(map.id, zone_x, zone_z, None) {
                 Ok(stockpile) => match stockpile.handle.clone() {
                     Some(stock) => match ctx.map_zone_set_plant(&stock, thing_def::PLANT_POTATO) {
                         Err(error) if error.to_string().contains("IPlantToGrowSettable") => {}

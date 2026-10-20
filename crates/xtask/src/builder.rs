@@ -10,8 +10,8 @@ pub(crate) const BRIDGE_PROJECT: &str = "bridge/RimWorld.Rust.Bridge.csproj";
 
 pub(crate) const BRIDGE_ASSEMBLY_PREFIX: &str = "RimWorldRustBridge";
 
-pub(crate) fn build(query: Option<&str>, mode: Mode) -> Result<()> {
-    let info = find_mod(query)?;
+pub(crate) fn build(query: Option<&str>, path: Option<&Path>, mode: Mode) -> Result<()> {
+    let info = find_mod(query, path)?;
     let root = repo_root();
 
     if uses_generated_defs(&info) {
@@ -21,16 +21,21 @@ pub(crate) fn build(query: Option<&str>, mode: Mode) -> Result<()> {
     }
 
     println!("==> building {} (package {})", info.mod_name, info.package);
+    println!("    source: {}", info.dir.display());
 
-    run(Command::new("cargo").args(["build", "--release", "-p", &info.package]).current_dir(&root))?;
+    run(Command::new("cargo")
+        .args(["build", "--release", "--manifest-path"])
+        .arg(info.dir.join("Cargo.toml"))
+        .args(["-p", &info.package])
+        .current_dir(&info.workspace_root))?;
 
     let library = info.package.replace('-', "_");
-    let native = root.join("target").join("release").join(format!("{library}.dll"));
+    let native = info.target_dir.join("release").join(format!("{library}.dll"));
     if !native.exists() {
         return Err(missing(format!("{} was not produced; is the crate a cdylib?", native.display())));
     }
 
-    let output = joined_within(&root.join("build"), &info.mod_name)?;
+    let output = joined_within(&info.output_root.join("build"), &info.mod_name)?;
     if output.exists() {
         fs::remove_dir_all(&output)?;
     }
@@ -175,7 +180,36 @@ pub(crate) fn run_game(extra: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn clean() -> Result<()> {
+pub(crate) fn clean(path: Option<&Path>) -> Result<()> {
+    if let Some(path) = path {
+        let info = find_mod(None, Some(path))?;
+        let mut removed = false;
+        for folder in ["build", "dist"] {
+            let path = info.output_root.join(folder);
+            if path.exists() {
+                fs::remove_dir_all(&path)?;
+                println!("==> removed {}", path.display());
+                removed = true;
+            }
+        }
+
+        let generated = info.dir.join("src").join(GENERATED_DEFS);
+        if generated.is_dir() {
+            fs::remove_dir_all(&generated)?;
+            println!("==> removed {}", generated.display());
+            removed = true;
+        } else if generated.exists() {
+            fs::remove_file(&generated)?;
+            println!("==> removed {}", generated.display());
+            removed = true;
+        }
+
+        if !removed {
+            println!("==> nothing to clean");
+        }
+        return Ok(());
+    }
+
     let root = repo_root();
     let mut removed = false;
     for folder in ["build", "dist"] {

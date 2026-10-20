@@ -124,27 +124,67 @@ fn package_writes_a_readable_zip_archive() {
 }
 
 #[test]
-fn reads_the_mod_version() {
-    // The version comes from cargo, so the manifest's `version.workspace = true` is already resolved by the
-    // time this reads it, and the lookup key is the package name.
+fn reads_the_mod_version_from_cargo_metadata() {
+    // The version comes from cargo, so a workspace-inherited `version.workspace = true` is already resolved.
     let info = ModInfo {
         package: "xtask".to_string(),
         mod_name: "Xtask".to_string(),
         dir: repo_root().join("crates").join("xtask"),
+        version: "0.1.0".to_string(),
+        workspace_root: repo_root(),
+        target_dir: repo_root().join("target"),
+        output_root: repo_root(),
     };
 
-    assert_eq!(mod_version(&info).expect("version"), "0.1.0");
+    assert_eq!(info.version, "0.1.0");
 }
 
 #[test]
-fn finds_the_bridge_class_names_of_a_patch_file() {
-    let text = "<li Class=\"RustBridge.RustThingCompProperties_Demo\"><key>x</key></li>\n\
-                    <li Class=\"RustBridge.RustGizmoCompProperties\" />\n\
-                    <li Class=\"DemoCompanion.RustInfoTab\" />";
+fn reads_a_mod_from_an_external_project() {
+    let directory = tempfile::tempdir().expect("temp dir");
+    fs::create_dir_all(directory.path().join("src")).expect("src");
+    fs::write(directory.path().join("src").join("lib.rs"), "").expect("lib");
+    fs::write(
+        directory.path().join("Cargo.toml"),
+        "[package]\n\
+         name = \"external_demo\"\n\
+         version = \"0.2.0\"\n\
+         edition = \"2021\"\n\
+         \n\
+         [lib]\n\
+         crate-type = [\"cdylib\"]\n\
+         \n\
+         [package.metadata.rimworld]\n\
+         mod-name = \"ExternalDemo\"\n",
+    )
+    .expect("manifest");
 
-    assert_eq!(
-        bridge_class_names(text),
-        vec!["RustThingCompProperties_Demo".to_string(), "RustGizmoCompProperties".to_string()]
+    let info = external_mod(directory.path()).expect("the external package resolves");
+    assert_eq!(info.package, "external_demo");
+    assert_eq!(info.mod_name, "ExternalDemo");
+    assert_eq!(info.version, "0.2.0");
+    assert_eq!(info.dir, directory.path().canonicalize().expect("canonical"));
+    assert_eq!(info.output_root, info.workspace_root);
+}
+
+#[test]
+fn scaffolds_an_external_mod_without_touching_the_workspace() {
+    let directory = tempfile::tempdir().expect("temp dir");
+    let target = directory.path().join("ExternalDemo");
+    scaffold("ExternalDemo", Some(&target), false, false, false).expect("scaffold");
+
+    let manifest = fs::read_to_string(target.join("Cargo.toml")).expect("manifest");
+    assert!(manifest.contains("rimworld-rs = { path ="), "the SDK is a path dependency: {manifest}");
+    assert!(manifest.contains("[package.metadata.rimworld]"));
+    assert!(manifest.contains("mod-name = \"ExternalDemo\""));
+    assert!(manifest.contains("[profile.release]"), "the mod carries the shipping profile");
+    assert!(target.join("mod").join("About").join("About.xml").is_file());
+    assert!(target.join("src").join("lib.rs").is_file());
+    assert!(target.join("companion").join("ExternalDemo.Companion.csproj").is_file());
+    assert!(target.join(".gitignore").is_file());
+    assert!(
+        !fs::read_to_string(repo_root().join("Cargo.toml")).expect("root manifest").contains("ExternalDemo"),
+        "the external scaffold is not registered in this repository"
     );
 }
 
@@ -160,6 +200,18 @@ fn drops_workspace_members() {
 
     let (_, none) = drop_workspace_members(manifest, "Missing").expect("the manifest parses");
     assert!(none.is_empty(), "an unknown mod removes nothing");
+}
+
+#[test]
+fn finds_the_bridge_class_names_of_a_patch_file() {
+    let text = "<li Class=\"RustBridge.RustThingCompProperties_Demo\"><key>x</key></li>\n\
+                    <li Class=\"RustBridge.RustGizmoCompProperties\" />\n\
+                    <li Class=\"DemoCompanion.RustInfoTab\" />";
+
+    assert_eq!(
+        bridge_class_names(text),
+        vec!["RustThingCompProperties_Demo".to_string(), "RustGizmoCompProperties".to_string()]
+    );
 }
 
 #[test]

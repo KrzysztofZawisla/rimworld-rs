@@ -6,7 +6,7 @@
   set `RIMWORLD_DIR`:
 
   ```powershell
-  $env:RIMWORLD_DIR = "D:\Steam\steamapps\common\RimWorld"
+  $env:RIMWORLD_DIR = "C:\Steam\steamapps\common\RimWorld"
   cargo xtask doctor
   ```
 
@@ -26,14 +26,15 @@
 ```powershell
 cargo xtask setup [<game dir>] # copy the game's reference assemblies into game-refs/ (local only)
 cargo xtask doctor            # game folder, version, toolchain, Harmony, mods folder
-cargo xtask build  [<mod>]    # build a mod into build/<ModName>/
-cargo xtask install[<mod>]    # build, then copy into <game>/Mods/<ModName>/
-cargo xtask new <Name> [--comp] [--job] [--itab]
-                              # scaffold mods/<Name>/ (and the companion samples)
-cargo xtask remove <mod>      # delete a scaffolded mod (folder + workspace entry)
-cargo xtask package [<mod>]   # build and zip into dist/<ModName>-<version>.zip
-cargo xtask gen-defs [<mod>]  # write Rust constants for every def name of your installation
-cargo xtask gen-defs [<mod>] --types ThingDef,HediffDef   # ... or only the def types you use
+cargo xtask build  [<mod>] [--path <DIR>]  # build into build/<ModName> (repo) or <ModDir>/build/<ModName>
+cargo xtask install[<mod>] [--path <DIR>]  # build, then copy into <game>/Mods/<ModName>/
+cargo xtask new <Name> [--path <DIR>] [--comp] [--job] [--itab]
+                              # scaffold mods/<Name>/ (or an external --path project) + samples
+cargo xtask remove <mod>      # delete mods/<mod> and its workspace entry
+cargo xtask package [<mod>] [--path <DIR>] # build and zip into <ModDir>/dist/<ModName>-<version>.zip
+cargo xtask gen-defs [<mod>] [--path <DIR>] # write Rust constants for every def name of your installation
+cargo xtask gen-defs [<mod>] [--path <DIR>] --types ThingDef,HediffDef   # ... or only the types you use
+cargo xtask clean [--path <DIR>]            # remove build/, dist/ and generated defs
 cargo xtask defs [--types T]  # list the installation's def names, without writing anything
 cargo xtask watch-log [--errors] [--grep <text>] [--tail <n>] [--once]
                               # follow Player.log, filtered to this project's [Rust]/[selftest] lines
@@ -41,14 +42,16 @@ cargo xtask run [-- <args>]   # start RimWorld (e.g. `-- -quicktest`)
 cargo xtask smoke             # install both examples, run -quicktest, fail on [selftest] FAIL
 ```
 
-Without a `<mod>` argument the example mod (`hello-rust-mod`) is used. Mods are found by folder
-name (`hello-rust-mod`) or package name.
+Without a `<mod>` argument the example mod (`hello-rust-mod`) is used. Mods under `examples/` and `mods/`
+are found by folder name or package name. A mod in its own project is selected with `--path <DIR>`; `<DIR>`
+may be the package directory (holding `Cargo.toml`) or that project's workspace root, and its source is
+never copied into this repository.
 
 ## Where the def names come from
 
-`cargo xtask gen-defs MyFirstMod` reads every `Data/**/Defs/**/*.xml` of your installation (DLCs and
-all loaded mods included) and writes `mods/MyFirstMod/src/generated_defs/` with one Rust file
-per def type, so a mod can write
+`cargo xtask gen-defs <mod>` (or `--path <ModDir>` for an external project) reads every
+`Data/**/Defs/**/*.xml` of your installation (DLCs and all loaded mods included) and writes
+`<ModDir>/src/generated_defs/` with one Rust file per def type, so a mod can write
 
 ```rust
 #[path = "generated_defs/mod.rs"]
@@ -66,34 +69,42 @@ that would compile it, so the rest of the suite still runs.
 ## Create your first mod
 
 ```powershell
-cargo xtask new MyFirstMod
+cargo xtask new MyFirstMod          # default: mods/MyFirstMod + workspace member
 cargo xtask install MyFirstMod
+
+cargo xtask new MyFirstMod --path <ModDir>   # the same tree in a project of its own
+cargo xtask install --path <ModDir>
 ```
 
-The scaffold is:
+The default scaffold is `mods/MyFirstMod/`, registered in this repository's workspace; `--path <ModDir>`
+creates the same tree as a standalone project instead:
 
 ```
-mods/MyFirstMod/
-  Cargo.toml            # cdylib + dependency on rimworld-rs + [package.metadata.rimworld]
-  src/lib.rs            # your module (on_init, on_defs_loaded, on_game_started, on_tick, ...)
-  companion/            # optional C# project: managed game types Rust cannot create
+mods/MyFirstMod/         # or <ModDir>/ with --path
+  Cargo.toml             # workspace-inherited; a --path project has a path dependency + [profile.release]
+  .gitignore             # generated_defs/ (and target/build/dist for --path)
+  src/lib.rs             # your module (on_init, on_defs_loaded, on_game_started, on_tick, ...)
+  companion/             # optional C# project: managed game types Rust cannot create
     MyFirstMod.Companion.csproj
     Companion.cs
   mod/
-    About/About.xml     # package id, supported versions, dependencies
+    About/About.xml      # package id, supported versions, dependencies
 ```
 
-`cargo xtask build` produces:
+`cargo xtask build MyFirstMod` (or `build --path <ModDir>`) produces:
 
 ```
-build/MyFirstMod/
+build/MyFirstMod/                               # this repository, for a mod under mods/
+<ModDir>/build/MyFirstMod/                      # for --path
   About/About.xml
   Assemblies/RimWorldRustBridge.MyFirstMod.dll   # the C# bridge (unique assembly name per mod)
   Assemblies/MyFirstModCompanion.dll             # your companion classes (when the project exists)
   Rust/my_first_mod.dll                          # your compiled Rust code
 ```
 
-and `cargo xtask install` copies exactly that tree into `<game>/Mods/MyFirstMod/`.
+and `cargo xtask install MyFirstMod` (or `install --path <ModDir>`) copies exactly that tree into
+`<game>/Mods/MyFirstMod/`. The output is the repository's `build/` for a mod under `mods/`, or
+`<ModDir>/build/` for `--path`. The example mods build the same way.
 
 ## What a mod gets out of the box
 
@@ -112,7 +123,7 @@ and `cargo xtask install` copies exactly that tree into `<game>/Mods/MyFirstMod/
 ## The development loop
 
 1. Edit Rust code.
-2. `cargo xtask install MyFirstMod`.
+2. `cargo xtask install MyFirstMod` (or `cargo xtask install --path <ModDir>` for an external project).
 3. Start RimWorld, make sure the mod is enabled in the mod list, load a save (or `cargo xtask run
    -- -quicktest`).
 4. Watch the log: the game writes `Player.log` in its save-data folder

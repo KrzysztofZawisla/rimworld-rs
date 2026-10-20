@@ -39,7 +39,7 @@ targets <Type> --members <text>` prints the ready-to-paste call for what you fin
 ## Managed-only (needs a C# companion)
 
 A native library cannot define a CLR type, so these are written in C# (the bridge talks to them with
-`companion_call`; `cargo xtask new --comp --job --itab` scaffolds working samples):
+`companion_call`; `cargo xtask new --path <DIR> --comp --job --itab` scaffolds working samples):
 
 - your own `HediffComp`, `JobDriver`, `ITab`, `Window`, `WorldObject`, render node, section layer or
   precept/ritual *instance* when it must run C# of its own (a plain `ThingComp` does **not** need one

@@ -20,8 +20,8 @@ pub(crate) fn smoke() -> Result<()> {
     }
 
     println!("==> installing the example mods");
-    build(Some("hello-rust-mod"), Mode::Install)?;
-    build(Some("api-test-mod"), Mode::Install)?;
+    build(Some("hello-rust-mod"), None, Mode::Install)?;
+    build(Some("api-test-mod"), None, Mode::Install)?;
 
     let mut path = newest_log(log_paths());
     let mut offset = path.as_ref().and_then(|path| fs::metadata(path).ok()).map(|metadata| metadata.len()).unwrap_or(0);

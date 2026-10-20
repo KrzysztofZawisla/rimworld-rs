@@ -109,7 +109,7 @@ pub(crate) fn test_all() -> Result<()> {
     match reference_source() {
         Ok(references) => {
             println!("==> building the example mod (with the C# bridge, references: {})", references.display());
-            build(None, Mode::Build)?;
+            build(None, None, Mode::Build)?;
             example = root.join("build").join("HelloRustMod").join("Rust").join("hello_rust_mod.dll");
         }
         Err(error) => println!("    skipping the C# bridge build: {error}"),
@@ -147,7 +147,7 @@ pub(crate) fn test_all() -> Result<()> {
         let self_test = match reference_source() {
             Ok(_) => {
                 println!("==> building the in-game self-test mod (with the C# bridge and its companion)");
-                build(Some("api-test-mod"), Mode::Build)?;
+                build(Some("api-test-mod"), None, Mode::Build)?;
                 root.join("build").join("ApiTestMod").join("Rust").join("api_test_mod.dll")
             }
             Err(_) => {

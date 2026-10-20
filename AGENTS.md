@@ -139,6 +139,7 @@ cargo xtask new <Name> [--path <DIR>] [--comp] [--job] [--itab]
 cargo xtask remove <mod>         # delete a mod under mods/ (folder + workspace entry)
 cargo xtask gen-defs [<mod>] [--path <DIR>] # writes <ModDir>/src/generated_defs/ from the installed game
 cargo xtask clean [--path <DIR>]  # removes build/, dist/ and generated defs (this repository without --path)
+cargo xtask secrets [--staged]   # gitleaks: full history (staged is the pre-commit mode)
 cargo xtask gen-subsystems [--check]
                                  # regenerates (or verifies) crates/rimworld-rs/src/subsystems_extra/
 cargo xtask defs [--types T]     # lists the def names of the installation
@@ -250,9 +251,9 @@ declaration has a file); and every local Markdown link and every `crates/`/`exam
 installs both example mods, launches `-quicktest`, and fails on `[selftest] FAIL` or a summary with a non-zero
 failed count.
 
-`git config core.hooksPath .githooks` once per clone enables the pre-commit hook, which runs the two gates
-cheap enough for every commit (`cargo xtask fmt`, which checks rather than fixes, and `cargo xtask layout
---check`). The rest is what `cargo xtask test` is for.
+`git config core.hooksPath .githooks` once per clone enables the pre-commit hook, which runs the three gates
+cheap enough for every commit (`cargo xtask fmt`, which checks rather than fixes, `cargo xtask layout --check`,
+and `cargo xtask secrets --staged`). The rest is what `cargo xtask test` is for.
 
 Three more gates run on tools this repository expects but does not ship: `typos .` (its whitelist lives in
 `typos.toml`, and every word in it is a spelling of the game itself - the contract check verifies those names
@@ -260,6 +261,12 @@ against the real assembly, so correcting them would break the SDK), `cargo mache
 `cargo nextest run --workspace`. Each of them prints a **SKIP with the reason** when its tool is missing, so
 `cargo xtask test` still runs on a machine that has only Rust and .NET - a gate that cannot run says so instead
 of passing silently.
+
+Secret scanning is local, not CI: `cargo xtask secrets` runs gitleaks over the whole git history (the
+`.gitleaks.toml` extends gitleaks' default rules), and `cargo xtask secrets --staged` is what the pre-commit
+hook runs so a secret is stopped before it enters a commit. Install gitleaks 8.19+ (for example
+`winget install --id Gitleaks.Gitleaks`, or a release from <https://github.com/gitleaks/gitleaks#installing>);
+without it both commands print a SKIP with the reason.
 
 - **No `unsafe` outside the FFI layer**: `abi/` (its `mod.rs`, `buffers.rs` and `host.rs`), `host.rs`, `dispatch.rs` and `lib.rs` may use it; every
   other module carries `#![deny(unsafe_code)]` (the wrapper generator emits that header too).

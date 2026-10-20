@@ -10,6 +10,7 @@ mod introspect;
 mod layout;
 mod packaging;
 mod scaffold;
+mod secrets;
 mod smoke;
 mod watch_log;
 mod workspace;
@@ -25,6 +26,7 @@ pub(crate) use gen_subsystems::*;
 pub(crate) use introspect::*;
 pub(crate) use packaging::*;
 pub(crate) use scaffold::*;
+pub(crate) use secrets::*;
 pub(crate) use smoke::*;
 pub(crate) use watch_log::*;
 pub(crate) use workspace::*;
@@ -59,6 +61,12 @@ struct Cli {
 enum Task {
     /// run every check that does not need the game (cargo test, ABI, contract)
     Test,
+    /// scan the repository for secrets with gitleaks (full history; `--staged` for the pre-commit hook)
+    Secrets {
+        /// scan only the staged changes (the pre-commit hook)
+        #[arg(long)]
+        staged: bool,
+    },
     /// install both example mods, launch `-quicktest`, and fail on a selftest FAIL
     Smoke,
     /// check the game installation, toolchain and mod folders
@@ -223,6 +231,7 @@ fn main() -> ExitCode {
 
     let result = match cli.task {
         Task::Test => test_all(),
+        Task::Secrets { staged } => secrets(staged),
         Task::Smoke => smoke(),
         Task::Doctor => doctor(),
         Task::Setup { directory } => setup(directory),

@@ -1,9 +1,10 @@
 #!/bin/sh
-# What runs before a commit: the two gates cheap enough to run every time.
+# What runs before a commit: the three gates cheap enough to run every time.
 #
 # `cargo xtask test` is the whole gate (fmt, clippy, layout, docs, tests, the ABI smoke tests, the bridge
-# contract) and takes minutes; these two catch the two mistakes that are most annoying to find later - a file
-# that is not formatted, and a file that has outgrown the layout rule. Enable this once with:
+# contract) and takes minutes; these catch the three mistakes that are most annoying to find later - a file
+# that is not formatted, a file that has outgrown the layout rule, and a secret that is about to be committed.
+# Enable this once with:
 #
 #   git config core.hooksPath .githooks
 #
@@ -16,3 +17,6 @@ cargo xtask fmt
 
 echo "== cargo xtask layout --check"
 cargo xtask layout --check
+
+echo "== cargo xtask secrets --staged"
+cargo xtask secrets --staged

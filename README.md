@@ -268,6 +268,20 @@ such a run leaves out is the in-game self-test mod, whose def names are generate
 (`cargo xtask gen-defs`): a checkout that has never seen the game has no such module, so the gates note
 that and keep the package out of every command that would compile it.
 
+## Secret scanning
+
+Secret scanning is local, not CI:
+
+```powershell
+cargo xtask secrets            # gitleaks over the whole git history
+cargo xtask secrets --staged   # the pre-commit mode
+```
+
+`.gitleaks.toml` extends gitleaks' default rules. Install gitleaks 8.19+ (for example
+`winget install --id Gitleaks.Gitleaks`, or a release from
+<https://github.com/gitleaks/gitleaks#installing>); without it both commands print a SKIP with the reason.
+The pre-commit hook runs the staged scan once it is enabled with `git config core.hooksPath .githooks`.
+
 ## In-game smoke test
 
 ```powershell
@@ -283,6 +297,8 @@ The individual tools also run standalone:
 ```powershell
 dotnet run --project tools/abi-smoke -- build/HelloRustMod/Rust/hello_rust_mod.dll
 dotnet run --project tools/abi-smoke -- --contract game-refs
+cargo xtask secrets
+cargo xtask secrets --staged
 ```
 
 What these checks cannot cover is live behaviour inside the game (that Harmony really invokes the

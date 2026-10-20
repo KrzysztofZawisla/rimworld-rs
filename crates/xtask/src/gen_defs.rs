@@ -33,10 +33,6 @@ pub(crate) fn write_generated_defs(info: &ModInfo, game: &Path, types: Option<St
     }
 
     run(command.arg("--out").arg(&out).current_dir(&root))?;
-    let legacy = info.dir.join("src").join("generated_defs.rs");
-    if legacy.exists() {
-        fs::remove_file(&legacy)?;
-    }
     println!("    {GENERATED_DEFS} is derived from your installation: keep it out of version control");
     Ok(())
 }
@@ -49,10 +45,6 @@ pub(crate) fn write_generated_defs_stub(info: &ModInfo) -> Result<()> {
         out.join("mod.rs"),
         "compile_error!(\"generated def names are missing: run `cargo xtask gen-defs` on a machine with RimWorld installed\");\n",
     )?;
-    let legacy = info.dir.join("src").join("generated_defs.rs");
-    if legacy.exists() {
-        fs::remove_file(&legacy)?;
-    }
     println!("    warning: no game installation found; wrote a stub to {}", out.display());
     Ok(())
 }

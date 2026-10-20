@@ -209,7 +209,6 @@ pub(crate) fn render_subsystems(
 pub(crate) fn write_subsystems(rows: &[(String, String, String, String, Vec<MemberDump>)], check: bool) -> Result<()> {
     let files = render_subsystems(rows)?;
     let dir = repo_root().join("crates").join("rimworld-rs").join("src").join("subsystems_extra");
-    let legacy = repo_root().join("crates").join("rimworld-rs").join("src").join("subsystems_extra.rs");
 
     if check {
         let existing = read_subsystem_files(&dir)?;
@@ -225,9 +224,6 @@ pub(crate) fn write_subsystems(rows: &[(String, String, String, String, Vec<Memb
             if !files.contains_key(path) {
                 problems.push(format!("extra {path}"));
             }
-        }
-        if legacy.exists() {
-            problems.push("extra subsystems_extra.rs (the module is a directory now)".to_string());
         }
 
         if problems.is_empty() {
@@ -252,9 +248,6 @@ pub(crate) fn write_subsystems(rows: &[(String, String, String, String, Vec<Memb
                 .map_err(|error| missing(format!("creating {}: {error}", parent.display())))?;
         }
         std::fs::write(&path, contents).map_err(|error| missing(format!("writing {}: {error}", path.display())))?;
-    }
-    if legacy.exists() {
-        std::fs::remove_file(&legacy).map_err(|error| missing(format!("removing {}: {error}", legacy.display())))?;
     }
     println!("wrote {} ({} file(s))", dir.display(), files.len());
     Ok(())

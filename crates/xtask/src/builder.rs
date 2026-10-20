@@ -116,6 +116,7 @@ pub(crate) fn build(query: Option<&str>, path: Option<&Path>, mode: Mode) -> Res
     fs::create_dir_all(&rust_dir)?;
     fs::copy(&native, rust_dir.join(format!("{library}.dll")))?;
 
+    check_no_game_assemblies(&output)?;
     println!("==> built {}", output.display());
 
     if mode == Mode::Install {
@@ -125,6 +126,28 @@ pub(crate) fn build(query: Option<&str>, path: Option<&Path>, mode: Mode) -> Res
         })?;
         println!("==> installed {}", target.display());
         println!("    enable '{}' in the game's mod list if it is not enabled yet", info.mod_name);
+    }
+
+    Ok(())
+}
+
+/// Refuses an assembled mod that contains a game assembly anywhere, including a stray file under the mod's
+/// own XML assets. The bridge build removes the ones it copied into `Assemblies/`, but a file in `mod/`
+/// would otherwise be packaged and shipped.
+fn check_no_game_assemblies(output: &Path) -> Result<()> {
+    for entry in walkdir::WalkDir::new(output) {
+        let entry = entry.map_err(|error| missing(format!("reading {}: {error}", output.display())))?;
+        if !entry.file_type().is_file() {
+            continue;
+        }
+
+        let name = entry.file_name().to_string_lossy();
+        if REFERENCE_ASSEMBLIES.iter().any(|game| name.eq_ignore_ascii_case(game)) {
+            return Err(missing(format!(
+                "{} is a game assembly; a mod must never ship game files (remove it from the mod assets)",
+                entry.path().display()
+            )));
+        }
     }
 
     Ok(())

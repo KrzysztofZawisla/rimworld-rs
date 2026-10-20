@@ -71,8 +71,14 @@ pub(crate) fn call(op: &str, mut request: Value) -> Result<Value, Error> {
     }
 
     let encoded = serde_json::to_vec(&request)?;
+    let len = u32::try_from(encoded.len())
+        .map_err(|_| Error::Host("the host request exceeds the ABI's u32 length".to_string()))?;
+    if len > i32::MAX as u32 {
+        return Err(Error::Host("the host request exceeds the bridge's int length".to_string()));
+    }
+
     let mut response = Buf::EMPTY;
-    let code = callback(api.user_data, encoded.as_ptr(), encoded.len() as u32, &mut response);
+    let code = callback(api.user_data, encoded.as_ptr(), len, &mut response);
     if code != 0 {
         return Err(Error::HostUnavailable(code));
     }

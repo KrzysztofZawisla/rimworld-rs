@@ -73,20 +73,40 @@ pub unsafe fn dispatch<M: Mod>(
         return 1;
     }
 
-    let event = read_string(event_ptr, event_len);
-    let payload = read_bytes(payload_ptr, payload_len);
+    // A panic must never unwind out of the `extern "C"` entry point: cover the event decoding and
+    // the response allocation as well as the handler, and let the bridge turn a failed code into a
+    // logged error instead of reading an uninitialized response slot.
+    let outcome = catch_unwind(AssertUnwindSafe(|| unsafe {
+        let event = read_string(event_ptr, event_len);
+        let payload = read_bytes(payload_ptr, payload_len);
+        match catch_unwind(AssertUnwindSafe(|| run::<M>(cell, &event, &payload))) {
+            Ok(response) => response,
+            Err(panic) => panic_response(&panic),
+        }
+    }));
 
-    let response = match catch_unwind(AssertUnwindSafe(|| run::<M>(cell, &event, &payload))) {
+    let response = match outcome {
         Ok(response) => response,
-        Err(panic) => {
-            let message = panic_message(&panic);
-            let _ = host::call("log", json!({ "level": "error", "message": format!("panic in Rust mod: {message}") }));
-            json!({ "ok": false, "error": format!("panic: {message}") }).to_string()
+        Err(panic) => catch_unwind(AssertUnwindSafe(|| panic_response(&panic)))
+            .unwrap_or_else(|_| "{\"ok\":false,\"error\":\"panic while handling a panic\"}".to_string()),
+    };
+
+    let buffer = match catch_unwind(AssertUnwindSafe(|| Buf::from_bytes(response.into_bytes()))) {
+        Ok(buffer) => buffer,
+        Err(_) => {
+            *response_out = Buf::EMPTY;
+            return 2;
         }
     };
 
-    *response_out = Buf::from_bytes(response.into_bytes());
+    *response_out = buffer;
     0
+}
+
+fn panic_response(panic: &Box<dyn std::any::Any + Send>) -> String {
+    let message = panic_message(panic);
+    let _ = host::call("log", json!({ "level": "error", "message": format!("panic in Rust mod: {message}") }));
+    json!({ "ok": false, "error": format!("panic: {message}") }).to_string()
 }
 
 fn run<M: Mod>(cell: &'static ModuleCell<M>, event: &str, payload: &[u8]) -> String {

@@ -8,9 +8,14 @@ it; changes require bumping `ABI_VERSION` in `crates/rimworld-rs/src/abi/mod.rs`
 
 - Calling convention: platform C (`extern "C"` / `CallingConvention.Cdecl`).
 - Strings and buffers are `(pointer, length)` pairs in UTF-8. Lengths are `u32`.
+- A buffer longer than `i32::MAX` is refused on both sides: the managed bridge copies responses
+  into an `int`-sized array, and the Rust side does not create a `RwrsBuf` it cannot hand over.
 - **Structs are passed through pointers, never by value.** On x64 the MS ABI passes 16-byte
   structs by reference; a signature mismatch there corrupts the heap instead of failing loudly.
 - Each side frees only what it allocated.
+- A panic in a Rust handler is caught at the ABI boundary and answered with a failed response; a
+  native response buffer that cannot be produced leaves `response_out` empty and returns a
+  non-zero code instead of letting the bridge read uninitialized memory.
 
 ## Exports (Rust -> bridge)
 
@@ -515,8 +520,10 @@ save data.
 
 ### User interface
 
-`ui_message`, `ui_dialog` and `ui_window_open` are **main thread only**; the bridge refuses other
-threads with a clear error (instead of crashing). `ui_dialog` opens a `Dialog_MessageBox`;
+Every host call runs from inside a Rust dispatch. A call from outside one — for example from a
+background thread a mod started — is refused with a clear error instead of touching the game
+concurrently. `ui_message`, `ui_dialog` and `ui_window_open` additionally require Unity's main
+thread, which the bridge checks separately; `ui_dialog` opens a `Dialog_MessageBox`;
 `ui_window_open` opens a window the mod describes in Rust (labels, buttons, checkboxes, sliders,
 text fields) that the bridge renders with `Listing_Standard`.
 
@@ -563,8 +570,8 @@ order and a failing entry reports its index.
 
 Dictionaries and lists returned by host commands (`game_info`, `def_info`, `def_names`, ...) are
 serialized as JSON objects/arrays. Everything else that is not a primitive becomes a handle:
-handles are allocated per dispatch and invalid afterwards, and reading them later returns
-`object reference n is not valid anymore`.
+handles are allocated per dispatch and invalid afterwards; an id from another dispatch is refused
+as well, and reading a handle later returns `object reference n is not valid anymore`.
 
 `Verse.TaggedString` (the type behind most labels, descriptions and letter texts) is serialized as
 a plain string in both directions — `def_get(..., "LabelCap")` returns a string, and method

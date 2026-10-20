@@ -70,6 +70,11 @@ ctx.settings_schema()?              // what the bridge holds for the options win
 ctx.set_tick_interval(250)?
 ```
 
+`Context` is deliberately `!Send + !Sync`: moving it to another thread is a compile error. Every
+host call also runs on the thread that dispatched the Rust event, and the bridge refuses a call
+from outside a dispatch (for example from a background thread) with a clear error instead of
+touching game state concurrently.
+
 ## Typed wrappers
 
 Handles are only valid inside the dispatch that produced them, so the wrappers borrow the `Context`
@@ -262,8 +267,9 @@ fn on_ui_action(&mut self, ctx: &mut Context, action: &UiAction) {
 one handler covers the whole UI.
 
 The window carries the game's own title and close button (the X in the corner), and it grows to fit
-the widgets it was given — a window that is too small would cut the last ones off. A `height` of
-`0.0` (the default) means "fit the content".
+the widgets it was given. A button declared with `.close_button(...)` is pinned to the bottom of the
+window, so it stays reachable even when the content does not fit. A `height` of `0.0` (the default)
+means "fit the content".
 
 All fallible calls return `rimworld_rs::Result<T>`.
 
@@ -444,9 +450,10 @@ the mod's own save data (game scope), so it survives save/load and travels with 
 Nothing cleans it up when a thing is destroyed — call `comp_state_clear` when the mod is done.
 
 Every event also carries the thing's load id, `comp.thing_id()` (`Thing.thingIDNumber`). Use it as the
-identity to compare and store: a handle's `$ref` is only an index into the handle table of the dispatch
-that produced it, so the same thing has different `$ref` numbers in different events — comparing
-`handle.id` across two events is meaningless. It is the same id `comp_state_*` keys on.
+identity to compare and store: a handle's `$ref` is valid only for the dispatch that issued it (the
+bridge refuses an id from another dispatch), so the same thing has different `$ref` numbers in
+different events — comparing `handle.id` across two events is meaningless. It is the same id
+`comp_state_*` keys on.
 
 Gizmos and the inspect line are asked while the thing is selected, like `on_gizmos`; clicks from a comp
 gizmo arrive in `on_ui_action` with the gizmo's `action`. A component that needs C# of its own (custom

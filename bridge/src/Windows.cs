@@ -45,9 +45,11 @@ internal sealed class RustWindow : Window
 
     private bool fitted;
 
+    private float measuredHeight;
+
     public override Vector2 InitialSize => new Vector2(
         Size.x > 0f ? Size.x : 420f,
-        Size.y > 0f ? Size.y : WidgetHeight());
+        Size.y > 0f ? Size.y : Math.Max(WidgetHeight(), measuredHeight));
 
     /// <summary>First guess for the height: the widgets, measured with the game's own line height.
     /// The real height is corrected on the first frame (see <see cref="DoWindowContents"/>).</summary>
@@ -55,8 +57,14 @@ internal sealed class RustWindow : Window
     {
         float line = Text.LineHeight;
         float height = 34f; // the title area the game draws
+        bool hasClose = false;
         foreach (Widget widget in widgets)
         {
+            if (widget.Kind == "button" && widget.CloseOnClick)
+            {
+                hasClose = true;
+            }
+
             height += widget.Kind switch
             {
                 "label" => line + 6f,
@@ -69,17 +77,33 @@ internal sealed class RustWindow : Window
             } + 4f; // the gap the renderer leaves after every widget
         }
 
-        return Math.Max(140f, height + 20f);
+        // The pinned Close is drawn in a footer outside the listing, so reserve that space as well.
+        float footer = hasClose ? line + 22f : 0f;
+        return Math.Max(140f, height + 20f + footer);
     }
 
     public override void DoWindowContents(Rect inRect)
     {
-        Rect content = inRect.ContractedBy(12f);
+        // A declared Close is a footer, not another item in the scrolling content: the listing is
+        // clipped when the widgets need more room than the window has, which used to hide the Close
+        // button below the frame. Pin it to the bottom so it is always reachable.
+        Widget closeWidget = widgets.FirstOrDefault(widget => widget.Kind == "button" && widget.CloseOnClick);
+        float footerHeight = closeWidget == null ? 0f : Text.LineHeight + 14f + 8f;
+        Rect content = new Rect(
+            inRect.x + 12f,
+            inRect.y + 12f,
+            inRect.width - 24f,
+            Math.Max(0f, inRect.height - 24f - footerHeight));
 
         var listing = new Listing_Standard();
         listing.Begin(content);
         foreach (Widget widget in widgets)
         {
+            if (ReferenceEquals(widget, closeWidget))
+            {
+                continue;
+            }
+
             switch (widget.Kind)
             {
                 case "label":
@@ -149,13 +173,27 @@ internal sealed class RustWindow : Window
 
         listing.End();
 
-        // A too-small window silently cuts the last widgets off — in game that hid a declared Close
-        // button below the frame. The first frame measures how much room the widgets really need and
-        // grows the window to it, so nothing a mod declares is ever out of reach.
+        if (closeWidget != null)
+        {
+            Rect footer = new Rect(
+                inRect.x + 12f,
+                inRect.yMax - 12f - (Text.LineHeight + 14f),
+                inRect.width - 24f,
+                Text.LineHeight + 14f);
+            if (Widgets.ButtonText(footer, closeWidget.Text))
+            {
+                Report(closeWidget, "clicked");
+                Close(true);
+            }
+        }
+
+        // The initial height is only an estimate; measure the real content (the pinned footer
+        // included) and grow the window on the first frame.
         if (!fitted && listing.CurHeight > 0f)
         {
             fitted = true;
-            float needed = listing.CurHeight + Margin * 2f + 34f; // title area plus margins
+            float needed = listing.CurHeight + footerHeight + Margin * 2f + 34f;
+            measuredHeight = needed;
             if (needed > windowRect.height)
             {
                 windowRect = new Rect(windowRect.x, windowRect.y, windowRect.width, needed);

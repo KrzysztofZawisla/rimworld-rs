@@ -475,15 +475,21 @@ internal static partial class Program
             uint code = dispatch(namePtr, nameBytes.Length, payloadPtr, payload.Length, slot);
             Check(code == 0, $"rwrs_dispatch('{name}') returned {code}");
             IntPtr pointer = Marshal.ReadIntPtr(slot);
-            int length = Marshal.ReadInt32(slot + IntPtr.Size);
-            if (pointer == IntPtr.Zero || length <= 0)
+            uint length = (uint)Marshal.ReadInt32(slot + IntPtr.Size);
+            if (pointer == IntPtr.Zero || length == 0)
             {
+                result = "{}";
+            }
+            else if (length > int.MaxValue)
+            {
+                Check(false, $"rwrs_dispatch('{name}') returned {length} bytes, larger than the test can copy");
+                freeBuf(pointer, length);
                 result = "{}";
             }
             else
             {
-                var bytes = new byte[length];
-                Marshal.Copy(pointer, bytes, 0, length);
+                var bytes = new byte[(int)length];
+                Marshal.Copy(pointer, bytes, 0, bytes.Length);
                 freeBuf(pointer, length);
                 result = Encoding.UTF8.GetString(bytes);
             }

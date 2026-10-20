@@ -3,27 +3,49 @@ use std::{
     path::{Component, Path, PathBuf},
 };
 
+use cargo_metadata::{MetadataCommand, Package};
+
 use crate::*;
 
 pub(crate) const DEFAULT_MOD: &str = "hello-rust-mod";
 
+/// One mod the tool can build, whether it lives in this repository (the examples) or in a project of its
+/// own chosen with `--path`.
 pub(crate) struct ModInfo {
     pub(crate) package: String,
     pub(crate) mod_name: String,
     pub(crate) dir: PathBuf,
+    pub(crate) version: String,
+    /// The cargo workspace the package belongs to; `cargo build` runs from here.
+    pub(crate) workspace_root: PathBuf,
+    /// Where cargo writes `<target>/release/<library>.dll`.
+    pub(crate) target_dir: PathBuf,
+    /// Where `build/<ModName>` and `dist/` are written: this repository for the examples, the mod's own
+    /// workspace root for an external project.
+    pub(crate) output_root: PathBuf,
 }
 
-/// The workspace as cargo itself describes it: one `cargo metadata --no-deps` call answers with every member's
-/// name, version and `[package.metadata]` table, so the tool never parses a manifest by hand - not the
-/// `version.workspace = true` inheritance, and not the `mod-name` the scaffold writes.
-pub(crate) fn workspace_packages() -> Result<Vec<cargo_metadata::Package>> {
-    let metadata = cargo_metadata::MetadataCommand::new()
-        .manifest_path(repo_root().join("Cargo.toml"))
+struct Workspace {
+    packages: Vec<Package>,
+    root: PathBuf,
+    target_dir: PathBuf,
+}
+
+/// The workspace as cargo itself describes it: one `cargo metadata --no-deps` call answers with every
+/// member's name, version, `[package.metadata]` table and the workspace/target folders, so the tool never
+/// parses a manifest by hand - not `version.workspace = true`, not the `mod-name` the scaffold writes.
+fn workspace_at(manifest: &Path) -> Result<Workspace> {
+    let metadata = MetadataCommand::new()
+        .manifest_path(manifest)
         .no_deps()
         .exec()
-        .map_err(|error| missing(format!("`cargo metadata` failed: {error}")))?;
+        .map_err(|error| missing(format!("`cargo metadata` failed for {}: {error}", manifest.display())))?;
 
-    Ok(metadata.packages)
+    Ok(Workspace {
+        packages: metadata.packages,
+        root: metadata.workspace_root.as_std_path().to_path_buf(),
+        target_dir: metadata.target_directory.as_std_path().to_path_buf(),
+    })
 }
 
 /// A mod name becomes a path segment (`build/<name>`, `<game>/Mods/<name>`, the zip file name), so a name
@@ -54,20 +76,20 @@ pub(crate) fn joined_within(root: &Path, name: &str) -> Result<PathBuf> {
     let inside = Path::new(name).components().all(|component| matches!(component, Component::Normal(_)))
         && joined.starts_with(root);
     if !inside {
-        return Err(missing(format!("'{name}' would write outside {}", root.display())));
+        return Err(missing(format!("'{}' would write outside {}", name, root.display())));
     }
 
     Ok(joined)
 }
 
-/// The mods of this repository are the workspace members under `examples/` and `mods/`, so cargo answers what a
-/// mod is called (`package.name`, or `[package.metadata.rimworld] mod-name` when it says otherwise) and where it
-/// lives - a directory that is not a member is not a mod the tooling can build.
+/// The mods of this repository: the built-in examples and the user mods under `mods/`. A mod of a separate
+/// project is reached through `--path`; its source never enters this repository or its workspace.
 pub(crate) fn discover_mods() -> Result<Vec<ModInfo>> {
     let root = repo_root();
+    let workspace = workspace_at(&root.join("Cargo.toml"))?;
     let mut mods = Vec::new();
-    for package in workspace_packages()? {
-        let manifest = PathBuf::from(package.manifest_path.as_std_path());
+    for package in &workspace.packages {
+        let manifest = Path::new(package.manifest_path.as_std_path());
         let Some(dir) = manifest.parent().map(Path::to_path_buf) else {
             continue;
         };
@@ -89,24 +111,117 @@ pub(crate) fn discover_mods() -> Result<Vec<ModInfo>> {
             .map(str::to_string)
             .unwrap_or_else(|| package.name.to_string());
         let mod_name = checked_mod_name(&mod_name)?;
-        mods.push(ModInfo { package: package.name.to_string(), mod_name, dir });
+        mods.push(ModInfo {
+            package: package.name.to_string(),
+            mod_name,
+            dir,
+            version: package.version.to_string(),
+            workspace_root: workspace.root.clone(),
+            target_dir: workspace.target_dir.clone(),
+            output_root: workspace.root.clone(),
+        });
     }
 
     mods.sort_by(|left, right| left.mod_name.cmp(&right.mod_name));
     Ok(mods)
 }
 
-pub(crate) fn find_mod(query: Option<&str>) -> Result<ModInfo> {
+/// Resolves a mod that lives in a separate project. `path` may name the package directory (the directory
+/// holding `Cargo.toml`), a `Cargo.toml`, or the workspace root of the project; in the last case the mod
+/// package is the member that declares `[package.metadata.rimworld]` or builds a `cdylib`.
+pub(crate) fn external_mod(path: &Path) -> Result<ModInfo> {
+    let path = path.canonicalize().map_err(|error| missing(format!("cannot open {}: {error}", path.display())))?;
+    let queried_dir = if path.is_file() { path.parent().unwrap_or(&path).to_path_buf() } else { path.clone() };
+    let manifest = if path.is_file() { path.clone() } else { path.join("Cargo.toml") };
+    if !manifest.is_file() {
+        return Err(missing(format!(
+            "{} has no Cargo.toml; pass the mod package directory or its manifest",
+            path.display()
+        )));
+    }
+
+    let workspace = workspace_at(&manifest)?;
+    let under_path: Vec<&Package> = workspace
+        .packages
+        .iter()
+        .filter(|package| {
+            package
+                .manifest_path
+                .as_std_path()
+                .parent()
+                .is_some_and(|dir| dir == queried_dir || dir.starts_with(&queried_dir))
+        })
+        .collect();
+    let mod_candidates: Vec<&Package> = under_path
+        .iter()
+        .copied()
+        .filter(|package| {
+            package.metadata.get("rimworld").is_some()
+                || package.targets.iter().any(|target| {
+                    target.crate_types.iter().any(|kind| matches!(kind, cargo_metadata::CrateType::CDyLib))
+                })
+        })
+        .collect();
+    let package = match (under_path.as_slice(), mod_candidates.as_slice()) {
+        ([only], _) => *only,
+        ([_, ..], [only]) => *only,
+        ([_, ..], []) => {
+            return Err(missing(format!(
+                "{} contains more than one package and none declares [package.metadata.rimworld] or builds a cdylib; pass the mod package directory",
+                path.display()
+            )))
+        }
+        ([_, ..], _) => {
+            return Err(missing(format!(
+                "{} contains more than one mod package; pass the package directory (the one holding the mod's Cargo.toml)",
+                path.display()
+            )))
+        }
+        ([], _) => return Err(missing(format!("{} contains no cargo package", path.display()))),
+    };
+
+    let mod_name = package
+        .metadata
+        .get("rimworld")
+        .and_then(|rimworld| rimworld.get("mod-name"))
+        .and_then(|name| name.as_str())
+        .map(str::to_string)
+        .unwrap_or_else(|| package.name.to_string());
+    let mod_name = checked_mod_name(&mod_name)?;
+    let Some(dir) = package.manifest_path.as_std_path().parent().map(Path::to_path_buf) else {
+        return Err(missing(format!("{} has no parent directory", package.manifest_path.as_std_path().display())));
+    };
+
+    Ok(ModInfo {
+        package: package.name.to_string(),
+        mod_name,
+        dir,
+        version: package.version.to_string(),
+        workspace_root: workspace.root.clone(),
+        target_dir: workspace.target_dir.clone(),
+        output_root: workspace.root,
+    })
+}
+
+pub(crate) fn find_mod(query: Option<&str>, path: Option<&Path>) -> Result<ModInfo> {
+    if let Some(path) = path {
+        if query.is_some() {
+            return Err(missing("give either a mod name or --path, not both"));
+        }
+        return external_mod(path);
+    }
+
     let query = query.unwrap_or(DEFAULT_MOD);
     let mods = discover_mods()?;
     mods.into_iter()
         .find(|info| info.dir.file_name().is_some_and(|name| name == query) || info.package == query)
-        .ok_or_else(|| missing(format!("no Rust mod matching '{query}' (try `cargo xtask list`)")))
+        .ok_or_else(|| {
+            missing(format!("no Rust mod matching '{query}' (try `cargo xtask list` or pass a project with --path)"))
+        })
 }
 
-// ------------------------------------------------------------------- commands
-
-/// Deletes a scaffolded mod: its folder, its built output and its workspace entry.
+/// Deletes a scaffolded mod from this repository: its folder, its built output and its workspace entry.
+/// A mod in its own project (`--path`) is not touched; delete that project yourself.
 pub(crate) fn remove(query: &str) -> Result<()> {
     let root = repo_root();
     let manifest = root.join("Cargo.toml");
@@ -163,7 +278,7 @@ pub(crate) fn drop_workspace_members(text: &str, query: &str) -> Result<(String,
     Ok((document.to_string(), removed))
 }
 
-/// Adds the fresh mod to the workspace so `cargo build` picks it up - through `toml_edit`, so the manifest keeps
+/// Adds a fresh mod to the workspace so `cargo build` picks it up - through `toml_edit`, so the manifest keeps
 /// its formatting, its comments and its member order, and a member name that is already there stays single.
 pub(crate) fn add_workspace_member(name: &str) -> Result<()> {
     let manifest = repo_root().join("Cargo.toml");
@@ -180,8 +295,6 @@ pub(crate) fn add_workspace_member(name: &str) -> Result<()> {
         return Ok(());
     }
 
-    // The list is one member per line: the new member takes the indentation of the one before it, and the
-    // whitespace that used to sit before `]` moves to the new last member, so the bracket keeps its own line.
     let trailing = members
         .iter()
         .last()

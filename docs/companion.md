@@ -6,7 +6,7 @@ else the game instantiates from a type name need real C# classes. That is what t
 assembly is for — a second DLL in the mod's `Assemblies` folder, compiled against the game's own
 assemblies exactly like the bridge.
 
-`cargo xtask new <Name>` scaffolds one (`<Name>/companion/`), and `cargo xtask build`/`install`
+`cargo xtask new <Name> --path <DIR>` scaffolds one (`<DIR>/companion/`), and `cargo xtask build --path <DIR>`/`install --path <DIR>`
 compiles it next to the bridge, so nothing extra is needed for a normal mod. An existing mod can
 add the same files by hand: one `.csproj` and any number of `.cs` files.
 
@@ -88,8 +88,8 @@ log, so the patch and everything it attaches silently disappear.
 
 ## Starting from the samples
 
-`cargo xtask new <Name> --comp --job --itab` writes three working samples next to the companion
-project (and `cargo xtask build` compiles them against the installed game, so a name the game does
+`cargo xtask new <Name> --path <DIR> --comp --job --itab` writes three working samples next to the companion
+project (and `cargo xtask build --path <DIR>` compiles them against the installed game, so a name the game does
 not have fails the build instead of the mod):
 
 - `OnSpawnComp.cs` — a `ThingComp` that reports its thing to Rust when it spawns and on its first
@@ -117,7 +117,7 @@ not have fails the build instead of the mod):
 
 ## Shapes the bridge does not host
 
-`cargo xtask new --comp --job --itab` scaffolds the three companion types a mod needs most
+`cargo xtask new --path <DIR> --comp --job --itab` scaffolds the three companion types a mod needs most
 (`ThingComp`, `JobDriver`, `ITab`). These four are the next layer: the bridge cannot host them,
 because the game instantiates them from a *type name* and their base classes do work the bridge would
 have to reimplement. Every member named below is in the contract check, so a game update that moves

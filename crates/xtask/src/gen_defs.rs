@@ -6,8 +6,8 @@ use crate::*;
 pub(crate) const GENERATED_DEFS: &str = "generated_defs";
 
 /// Generates the def-name constants of one mod from the installed game.
-pub(crate) fn gen_defs(query: Option<&str>, types: Option<String>) -> Result<()> {
-    let info = find_mod(query)?;
+pub(crate) fn gen_defs(query: Option<&str>, path: Option<&Path>, types: Option<String>) -> Result<()> {
+    let info = find_mod(query, path)?;
     let game = game_dir()?;
     write_generated_defs(&info, &game, types)
 }
@@ -43,7 +43,10 @@ pub(crate) fn write_generated_defs_stub(info: &ModInfo) -> Result<()> {
     fs::create_dir_all(&out)?;
     fs::write(
         out.join("mod.rs"),
-        "compile_error!(\"generated def names are missing: run `cargo xtask gen-defs` on a machine with RimWorld installed\");\n",
+        format!(
+            "compile_error!(\"generated def names are missing: run `cargo xtask gen-defs --path {}` on a machine with RimWorld installed\");\n",
+            info.dir.display()
+        ),
     )?;
     println!("    warning: no game installation found; wrote a stub to {}", out.display());
     Ok(())

@@ -366,7 +366,7 @@ Attach the bridge's component to a def once:
 
 The class name carries your mod's name: both comp classes are generated per mod
 (`RustThingCompProperties_<Mod>` and `RustGizmoCompProperties_<Mod>`), and `<Mod>` is what
-`cargo xtask new` called your mod. That is not decoration — the game resolves a patch's `Class`
+`cargo xtask new --path <DIR>` called your mod. That is not decoration — the game resolves a patch's `Class`
 across **every** loaded assembly, so two Rust mods that both name the shared class hand the component
 to whichever bridge was loaded first, and the other mod's Rust never sees its events (with nothing in
 the log).
@@ -484,7 +484,7 @@ batch them with [`Context::run_batch`] or keep the number of calls small.
 
 A window is declared in Rust (above). Managed *types* that the game instantiates — `ThingComp`,
 `JobDriver`, `ITab`, `Window`, `HediffComp` — must live in the mod's companion assembly, because Rust
-cannot define a CLR type. `cargo xtask new <Name> --comp --job --itab` writes working samples for
+cannot define a CLR type. `cargo xtask new <Name> --path <DIR> --comp --job --itab` writes working samples for
 all three; an `ITab` asks Rust for its content like this:
 
 ```csharp

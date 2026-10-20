@@ -28,7 +28,8 @@ impl Mod for MyMod {
 rimworld_rs::export_mod!(MyMod);
 ```
 
-A mod that only uses this crate still needs the bridge assembly built by `cargo xtask build` (or
-`cargo xtask package`) from the repository above: the game loads it, and it loads the compiled Rust library.
+A mod that only uses this crate still needs the bridge assembly built by `cargo xtask build --path <ModDir>`
+(or `cargo xtask package --path <ModDir>`) from the repository above: the game loads it, and it loads the
+compiled Rust library. The mod's own project stays outside the SDK checkout.
 
 This crate contains no RimWorld code, no game assemblies and no decompiled game assets.

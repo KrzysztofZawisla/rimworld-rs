@@ -9,7 +9,7 @@ as a normal mod assembly, and the tooling to build and install Rust mods:
 | --- | --- |
 | `crates/rimworld-rs` | The Rust SDK: `Mod` trait, events, host commands, C ABI. |
 | `bridge/` | The C# bridge (`RimWorldRustBridge.<Mod>.dll`): loads the Rust library, forwards game events into Rust and executes the commands Rust asks for. |
-| `crates/xtask` | `cargo xtask build/install/new/doctor/run` tooling. |
+| `crates/xtask` | `cargo xtask build/install/package/new/doctor/run` tooling; mod source lives in its own project, passed with `--path`. |
 | `examples/hello-rust-mod` | A complete mod using every part of the SDK. |
 | `tools/abi-smoke` | A C# harness that drives the ABI with a mock host, no game required. |
 | `docs/` | Architecture, protocol and getting-started guides. |
@@ -81,8 +81,8 @@ nested calls, result access) and the tick throttle.
   (`SaveScope::Game` / `SaveScope::Map`), with a schema version for migrations
   (`save_write_tagged`/`save_read_tagged`); `on_game_saving` writes data into the very save being
   written.
-- **Companion C# assembly**: `cargo xtask new --comp --job --itab` scaffolds samples, so a mod can
-  define managed game types (ThingComp, JobDriver, ITab, Window, ...) that Rust cannot create, call
+- **Companion C# assembly**: `cargo xtask new --path <DIR> --comp --job --itab` scaffolds samples, so a
+  mod can define managed game types (ThingComp, JobDriver, ITab, Window, ...) that Rust cannot create, call
   into them with `companion_call` and be called back with `Companion.Send`/`Request`. See
   [`docs/companion.md`](docs/companion.md).
 - **Know where the time goes**: `ctx.stats()` counts every host call with its cost, and
@@ -91,9 +91,9 @@ nested calls, result access) and the tick throttle.
   with ready-to-paste `harmony_patch` lines; `cargo xtask types <prefix>` finds type names;
   `cargo xtask coverage <Type>` shows which of a type's members have a typed operation and which are
   reached through `ref_get`/`ref_set`/`ref_call` by name;
-  `cargo xtask gen-defs <mod>` writes Rust constants for every def name of the installation so a
-  renamed def becomes a compile error; `cargo xtask watch-log` follows the game log filtered to this
-  mod; `cargo xtask package <mod>` builds a Workshop-ready zip.
+  `cargo xtask gen-defs [<mod>] [--path <DIR>]` writes Rust constants for every def name of the
+  installation so a renamed def becomes a compile error; `cargo xtask watch-log` follows the game log
+  filtered to this mod; `cargo xtask package [<mod>] [--path <DIR>]` builds a Workshop-ready zip.
 - **Check it in game**: `cargo xtask smoke` installs both example mods, runs `-quicktest`, and fails
   on a `[selftest] FAIL` line or a non-zero failed count.
 
@@ -129,32 +129,52 @@ rimworld_rs::export_mod!(MyMod);
 
 ## Creating your own mod
 
+A mod lives in `mods/<Name>/` in this repository by default and is registered in the workspace. A mod can
+also live in a project of its own: pass `--path <ModDir>`. Both are built by the same commands.
+
 ```powershell
-cargo xtask new MyFirstMod    # scaffolds mods/MyFirstMod and registers it in the workspace
+# default: mods/MyFirstMod, registered in this repository's workspace
+cargo xtask new MyFirstMod
 cargo xtask build MyFirstMod
 cargo xtask install MyFirstMod
 
+# external project, outside this repository
+cargo xtask new MyFirstMod --path <ModDir>
+cargo xtask build   --path <ModDir>
+cargo xtask install --path <ModDir>
+
 # managed game types (ThingComp, JobDriver, ITab, Window, ...) come with samples:
 cargo xtask new MyFirstMod --comp --job --itab
+cargo xtask new MyFirstMod --path <ModDir> --comp --job --itab
 
 # other things the tooling does:
-cargo xtask gen-defs MyFirstMod     # Rust constants for every def name of your installation
-cargo xtask watch-log --tail 40     # follow Player.log, filtered to [Rust]/[selftest]
-cargo xtask package MyFirstMod      # dist/MyFirstMod-<version>.zip for the Workshop
-cargo xtask remove MyFirstMod       # delete the mod (folder + workspace entry)
+cargo xtask gen-defs MyFirstMod                  # Rust constants for every def name
+cargo xtask gen-defs --path <ModDir>
+cargo xtask watch-log --tail 40                  # follow Player.log, filtered to [Rust]/[selftest]
+cargo xtask package MyFirstMod                   # dist/MyFirstMod-<version>.zip
+cargo xtask package --path <ModDir>              # <ModDir>/dist/MyFirstMod-<version>.zip
+cargo xtask clean                                # remove the repository build/, dist/, generated defs
+cargo xtask clean --path <ModDir>                # remove that project's build/, dist/, generated defs
+cargo xtask remove MyFirstMod                    # delete mods/MyFirstMod + its workspace entry
 
 # repository maintainers:
 cargo xtask smoke                   # install both examples, run -quicktest, fail on [selftest] FAIL
 cargo xtask gen-subsystems --check  # verify the tracked generated wrappers match the generator
 ```
 
-The scaffold contains the Rust crate, the `About/About.xml` metadata, a starting module and a
-companion C# project (`companion/<Name>.Companion.csproj`) that `cargo xtask build` compiles into
-`Assemblies/` next to the bridge — that is where managed game types live.
+The default scaffold writes `mods/MyFirstMod/` with a workspace-inherited `Cargo.toml`, the
+`About/About.xml` metadata, the starting module, the `mod/` content, the companion C# project
+(`companion/<Name>.Companion.csproj`) and a `.gitignore`, and adds the mod to the workspace.
+`cargo xtask new <Name> --path <DIR>` creates the same tree as a standalone project outside this
+repository instead: its `Cargo.toml` carries a `rimworld-rs` path dependency and the shipping
+`[profile.release]`, and it is not added to this workspace. `--path` may name the package directory (the
+one holding `Cargo.toml`) or the workspace root of that project.
 
-Mods are built through the workspace's release profile (the root `Cargo.toml`): whole-program LTO, one codegen
-unit per crate, no debug info, and `panic = "unwind"` so a panic inside a mod is answered instead of taking the
-game down. Cargo reads profiles from the workspace root only, so every member inherits it.
+The examples and `mods/` build through this repository's release profile (the root `Cargo.toml`):
+whole-program LTO, one codegen unit per crate, no debug info, and `panic = "unwind"` so a panic inside a mod
+is answered instead of taking the game down. An external mod owns its workspace root, so its own
+`Cargo.toml` carries the same `[profile.release]` (the scaffold writes it); cargo reads profiles from the
+workspace root only.
 
 ## How it works
 
@@ -277,12 +297,15 @@ a published crate could only ever be half of a mod, and a prebuilt bridge cannot
 be compiled for the game version you actually run.
 
 So everyone builds from source: clone this repository (or use it as a template), run `cargo xtask setup` once so
-the bridge has reference assemblies, then `cargo xtask build` / `cargo xtask install`. `cargo xtask package`
-zips a finished mod for the Workshop, and that archive is the only thing meant to leave your machine.
+the bridge has reference assemblies, then `cargo xtask build --path <ModDir>` / `cargo xtask install --path
+<ModDir>` for a mod in its own project (the examples build with the same commands without `--path`). `cargo
+xtask package --path <ModDir>` zips a finished mod for the Workshop, and that archive is the only thing meant to
+leave your machine.
 
 A mod that lives in its own cargo workspace points at the SDK with a path or git dependency
 (`rimworld-rs = { git = "https://github.com/KrzysztofZawisla/rimworld-rs" }`) — there is no
-registry version to pin, by design.
+registry version to pin, by design. Its workspace root carries the shipping `[profile.release]`; the
+repository's profile only covers the examples.
 
 ## Documentation
 

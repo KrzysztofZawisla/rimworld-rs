@@ -115,6 +115,9 @@ enum Task {
         /// only these def types, e.g. `ThingDef,HediffDef`
         #[arg(long)]
         types: Option<String>,
+        /// the mod package/workspace directory of a separate project
+        #[arg(long, value_name = "DIR")]
+        path: Option<PathBuf>,
         mod_name: Option<String>,
     },
     /// regenerate crates/rimworld-rs/src/subsystems_extra/ from the installed game
@@ -123,15 +126,33 @@ enum Task {
         #[arg(long)]
         check: bool,
     },
-    /// build a Rust mod into `build/<ModName>/`
-    Build { mod_name: Option<String> },
+    /// build a Rust mod into `build/<ModName>/` in its own project (or this repository for the examples)
+    Build {
+        /// the mod package/workspace directory of a separate project
+        #[arg(long, value_name = "DIR")]
+        path: Option<PathBuf>,
+        mod_name: Option<String>,
+    },
     /// build and copy the mod into the game's Mods folder
-    Install { mod_name: Option<String> },
+    Install {
+        /// the mod package/workspace directory of a separate project
+        #[arg(long, value_name = "DIR")]
+        path: Option<PathBuf>,
+        mod_name: Option<String>,
+    },
     /// build and zip the mod into `dist/<ModName>-<version>.zip`
-    Package { mod_name: Option<String> },
-    /// scaffold a new Rust mod under `mods/<Name>/`
+    Package {
+        /// the mod package/workspace directory of a separate project
+        #[arg(long, value_name = "DIR")]
+        path: Option<PathBuf>,
+        mod_name: Option<String>,
+    },
+    /// scaffold a new Rust mod under `mods/<Name>/` (or in `--path <DIR>` outside this repository)
     New {
         name: String,
+        /// create the mod in this directory instead of `mods/<Name>/` (a project of its own)
+        #[arg(long, value_name = "DIR")]
+        path: Option<PathBuf>,
         /// also write the companion C# project
         #[arg(long)]
         comp: bool,
@@ -142,7 +163,7 @@ enum Task {
         #[arg(long)]
         itab: bool,
     },
-    /// delete a scaffolded mod folder and its workspace entry
+    /// delete a scaffolded mod under `mods/` and its workspace entry
     Remove { mod_name: String },
     /// follow the game log, filtered to `[Rust]`/`[selftest]` lines
     WatchLog {
@@ -164,7 +185,7 @@ enum Task {
         #[arg(long)]
         no_color: bool,
     },
-    /// list the Rust mods in this repository
+    /// list the mods of this repository (examples and `mods/`)
     List,
     /// start RimWorld (installed mods are picked up on launch)
     Run {
@@ -173,7 +194,11 @@ enum Task {
         args: Vec<String>,
     },
     /// remove build/, dist/ and the generated def modules
-    Clean,
+    Clean {
+        /// clean the build output of a separate project instead of this repository
+        #[arg(long, value_name = "DIR")]
+        path: Option<PathBuf>,
+    },
 }
 
 fn main() -> ExitCode {
@@ -208,19 +233,19 @@ fn main() -> ExitCode {
         Task::Lint => lint(),
         Task::Layout { fix, check: _, file } => layout::run(fix, file),
         Task::Defs { types, filter } => list_defs(types.as_deref(), filter.as_deref()),
-        Task::GenDefs { types, mod_name } => gen_defs(mod_name.as_deref(), types),
+        Task::GenDefs { types, path, mod_name } => gen_defs(mod_name.as_deref(), path.as_deref(), types),
         Task::GenSubsystems { check } => gen_subsystems(check),
-        Task::Build { mod_name } => build(mod_name.as_deref(), Mode::Build),
-        Task::Install { mod_name } => build(mod_name.as_deref(), Mode::Install),
-        Task::Package { mod_name } => package(mod_name.as_deref()),
-        Task::New { name, comp, job, itab } => scaffold(&name, comp, job, itab),
+        Task::Build { path, mod_name } => build(mod_name.as_deref(), path.as_deref(), Mode::Build),
+        Task::Install { path, mod_name } => build(mod_name.as_deref(), path.as_deref(), Mode::Install),
+        Task::Package { path, mod_name } => package(mod_name.as_deref(), path.as_deref()),
+        Task::New { name, path, comp, job, itab } => scaffold(&name, path.as_deref(), comp, job, itab),
         Task::Remove { mod_name } => remove(&mod_name),
         Task::WatchLog { all, errors, grep, tail, once, no_color } => {
             watch_log(all, errors, grep, tail.unwrap_or(20), once, no_color)
         }
         Task::List => list(),
         Task::Run { args } => run_game(&args),
-        Task::Clean => clean(),
+        Task::Clean { path } => clean(path.as_deref()),
     };
 
     match result {

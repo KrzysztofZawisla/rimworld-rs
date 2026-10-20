@@ -1,12 +1,18 @@
-//! Theme: a live `Verse.Pawn`.
+//! A live `Verse.Pawn`.
 use serde_json::Value;
 
 use super::{handle_of, IntVec3Ref, Thing};
 use crate::{types::ObjRef, Context, Result};
 /// A live `Verse.Pawn`.
 pub struct Pawn<'a> {
-    pub(super) ctx: &'a Context,
-    pub(super) handle: ObjRef,
+    ctx: &'a Context,
+    handle: ObjRef,
+}
+
+impl std::fmt::Debug for Pawn<'_> {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "Pawn({:?})", self.handle)
+    }
 }
 
 impl<'a> Pawn<'a> {

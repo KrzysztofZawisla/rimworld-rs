@@ -1,13 +1,8 @@
-//! Theme: builder. Split from `main.rs`.
-#![allow(unused_imports)]
-
 use std::{
-    env, fs,
-    path::{Component, Path, PathBuf},
+    fs,
+    path::{Path, PathBuf},
     process::Command,
 };
-
-use heck::{ToSnakeCase, ToTitleCase};
 
 use crate::*;
 

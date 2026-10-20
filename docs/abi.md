@@ -117,16 +117,17 @@ objects: `ctx.pawn_health`, `ctx.pawn_hediff_set`, `ctx.pawn_skills`, `ctx.pawn_
 `ctx.pawn_mind_state`, `ctx.pawn_job_tracker`, `ctx.pawn_mechanitor`, `ctx.pawn_learning`, `ctx.map_weather_manager`,
 `ctx.map_terrain_grid`, `ctx.map_pathing`, `ctx.map_lord_manager`, `ctx.map_pawns`, `ctx.game_time`,
 `ctx.game_research`, `ctx.game_quests`, `ctx.game_factions`, `ctx.world_grid`, `ctx.world_info` and the rest —
-**142 wrappers over 3257 named members** (about a third of `Assembly-CSharp.dll`'s declared members), plus typed
+**133 wrappers over 4265 named members**, plus typed
 wrappers for the objects a handle points at (`Hediff`, `Gene`, `Ability`, `Job`, `Bill`, `Zone`, `Area`, `Room`,
 `Designation`, `Fire`, `Filth`, `Plant`, `Apparel`, `Quest`, `Faction`, `Caravan`, `Settlement`, ...).
 Each wrapper declares the game's type it wraps, the type it hangs off, that type's accessor and every member it
 names, and `cargo xtask test` verifies all of it against the assembly
-(`142 subsystem wrapper(s), 3257 member name(s), 0 wrong`, plus the shape rule: a member read with `ref_get` is a
+(`133 subsystem wrapper(s), 4265 member name(s), 0 wrong`, plus the shape rule: a member read with `ref_get` is a
 field, a property or a zero-argument method; a method that takes arguments must be called, and a def argument
 travels as a handle). `crates/rimworld-rs/src/subsystems_extra/` is **generated** from the installation's own
 metadata — `cargo xtask gen-subsystems` reads every member of every type it wraps and writes one file per
-wrapper, so nothing there can be guessed wrong and a game update is one command.
+wrapper, so nothing there can be guessed wrong and a game update is one command. `cargo xtask test` runs
+`gen-subsystems --check`, which fails when the recorded directory no longer matches the generator.
 `ctx.member_scan()` + `cargo xtask coverage <Type>` say what is left to the generic route.
 
 The in-game self-test reads through every wrapper family once (`examples/api-test-mod`: "the typed subsystem
@@ -136,7 +137,7 @@ caught.
 The in-game self-test asserts `missing == 0` on every run (`examples/api-test-mod`), which is what keeps
 this claim true as the game changes: a renamed or newly-shaped member fails there, not in a mod.
 
-### Pawns (`crates/rimworld-rs/src/values.rs`)
+### Pawns (`crates/rimworld-rs/src/values/pawn.rs`)
 
 Every pawn operation takes `ref` (the pawn handle); the actions are listed in `ChangesTheGame`.
 

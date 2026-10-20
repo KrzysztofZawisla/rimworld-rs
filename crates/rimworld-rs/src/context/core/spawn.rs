@@ -1,5 +1,3 @@
-//! Theme: spawn. Split from `context/core.rs`.
-
 use super::*;
 
 impl Context {

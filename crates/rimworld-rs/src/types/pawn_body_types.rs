@@ -1,11 +1,8 @@
-//! Theme: pawn_body_types. Split from `types.rs`.
-#![allow(unused_imports, unused_macros)] // the imports and the macros are the module's shared vocabulary, used across the theme files
+#![allow(unused_macros)] // the imports and the macros are the module's shared vocabulary, used across the theme files
 
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Map, Value};
+use serde::Deserialize;
 
 use super::*;
-use crate::{host, Result};
 
 /// How grown one plant is.
 #[derive(Debug, Clone, Default, Deserialize)]

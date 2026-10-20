@@ -1,4 +1,4 @@
-//! Theme: event handlers. Split from `lib.rs`.
+//! Event handlers for the self-test mod.
 
 mod comp;
 mod companion;

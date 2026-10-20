@@ -1,5 +1,3 @@
-//! Theme: health. Split from `context/pawn_body.rs`.
-
 use super::*;
 
 impl Context {

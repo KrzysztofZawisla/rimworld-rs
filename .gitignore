@@ -5,7 +5,6 @@ bin/
 obj/
 /game-refs/
 .commandcode/
-generated_defs.rs
 generated_defs/
 MODLOG.md
 

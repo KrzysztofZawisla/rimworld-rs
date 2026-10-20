@@ -1,11 +1,7 @@
-//! Theme: ui. Split from `types.rs`.
-#![allow(unused_imports, unused_macros)] // the imports and the macros are the module's shared vocabulary, used across the theme files
+#![allow(unused_macros)] // the imports and the macros are the module's shared vocabulary, used across the theme files
 
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Map, Value};
-
-use super::*;
-use crate::{host, Result};
+use serde::Serialize;
+use serde_json::{json, Value};
 
 /// One gizmo (a button) a mod wants to show for a thing, returned from
 /// [`crate::Mod::on_gizmos`].

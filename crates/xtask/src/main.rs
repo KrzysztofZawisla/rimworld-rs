@@ -1,6 +1,7 @@
 //! Build, install and scaffolding tooling for the repository: `cargo xtask <command>`.
 
 mod builder;
+mod docs;
 mod game;
 mod gates;
 mod gen_defs;
@@ -9,12 +10,14 @@ mod introspect;
 mod layout;
 mod packaging;
 mod scaffold;
+mod smoke;
 mod watch_log;
 mod workspace;
 
 use std::{path::PathBuf, process::ExitCode};
 
 pub(crate) use builder::*;
+pub(crate) use docs::*;
 pub(crate) use game::*;
 pub(crate) use gates::*;
 pub(crate) use gen_defs::*;
@@ -22,6 +25,7 @@ pub(crate) use gen_subsystems::*;
 pub(crate) use introspect::*;
 pub(crate) use packaging::*;
 pub(crate) use scaffold::*;
+pub(crate) use smoke::*;
 pub(crate) use watch_log::*;
 pub(crate) use workspace::*;
 
@@ -55,6 +59,8 @@ struct Cli {
 enum Task {
     /// run every check that does not need the game (cargo test, ABI, contract)
     Test,
+    /// install both example mods, launch `-quicktest`, and fail on a selftest FAIL
+    Smoke,
     /// check the game installation, toolchain and mod folders
     Doctor,
     /// copy the game's reference assemblies into game-refs/ (gitignored, local only)
@@ -112,7 +118,11 @@ enum Task {
         mod_name: Option<String>,
     },
     /// regenerate crates/rimworld-rs/src/subsystems_extra/ from the installed game
-    GenSubsystems,
+    GenSubsystems {
+        /// verify the recorded module is current instead of writing it
+        #[arg(long)]
+        check: bool,
+    },
     /// build a Rust mod into `build/<ModName>/`
     Build { mod_name: Option<String> },
     /// build and copy the mod into the game's Mods folder
@@ -188,6 +198,7 @@ fn main() -> ExitCode {
 
     let result = match cli.task {
         Task::Test => test_all(),
+        Task::Smoke => smoke(),
         Task::Doctor => doctor(),
         Task::Setup { directory } => setup(directory),
         Task::Targets { type_name, members } => targets(&type_name, members.as_deref()),
@@ -198,7 +209,7 @@ fn main() -> ExitCode {
         Task::Layout { fix, check: _, file } => layout::run(fix, file),
         Task::Defs { types, filter } => list_defs(types.as_deref(), filter.as_deref()),
         Task::GenDefs { types, mod_name } => gen_defs(mod_name.as_deref(), types),
-        Task::GenSubsystems => gen_subsystems(),
+        Task::GenSubsystems { check } => gen_subsystems(check),
         Task::Build { mod_name } => build(mod_name.as_deref(), Mode::Build),
         Task::Install { mod_name } => build(mod_name.as_deref(), Mode::Install),
         Task::Package { mod_name } => package(mod_name.as_deref()),

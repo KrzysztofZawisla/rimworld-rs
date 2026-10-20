@@ -1,5 +1,3 @@
-//! Theme: game. Split from `subsystems.rs`.
-
 mod game_research;
 pub use game_research::*;
 mod game_storyteller;

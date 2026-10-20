@@ -1,5 +1,3 @@
-//! Theme: time_beds_and_accessors. Split from `suite/run.rs`.
-
 use crate::*;
 
 impl ApiTest {

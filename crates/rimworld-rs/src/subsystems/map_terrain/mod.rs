@@ -1,5 +1,3 @@
-//! Theme: map_terrain. Split from `subsystems.rs`.
-
 mod terrain_grid;
 pub use terrain_grid::*;
 mod map_roof;

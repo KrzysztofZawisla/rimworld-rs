@@ -1,17 +1,10 @@
-//! Theme: unit_tests. Split from `types.rs`.
-#![allow(unused_imports, unused_macros)] // the imports and the macros are the module's shared vocabulary, used across the theme files
-
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Map, Value};
-
-use super::*;
-use crate::{host, Result};
+#![allow(unused_macros)] // the imports and the macros are the module's shared vocabulary, used across the theme files
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use serde_json::json;
+    use serde_json::{json, Map, Value};
 
-    use super::*;
+    use crate::types::*;
 
     #[test]
     fn patch_call_parses_a_full_payload() {
@@ -192,8 +185,9 @@ pub(crate) mod tests {
     /// the smallest payload that breaks it, which the deterministic generator above cannot do.
     mod properties {
         use proptest::prelude::*;
+        use serde_json::{json, Value};
 
-        use super::*;
+        use crate::types::*;
 
         /// An arbitrary JSON value: leaves of every kind the bridge writes, nested to a depth, and free to be
         /// nonsense - which is exactly what a lenient parser has to survive.

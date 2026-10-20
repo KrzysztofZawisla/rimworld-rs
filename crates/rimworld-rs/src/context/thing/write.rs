@@ -1,5 +1,3 @@
-//! Theme: write. Split from `context/thing.rs`.
-
 use super::*;
 
 impl Context {

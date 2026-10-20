@@ -1,5 +1,3 @@
-//! Theme: things_maps_and_pawns. Split from `suite/run.rs`.
-
 use crate::*;
 
 impl ApiTest {

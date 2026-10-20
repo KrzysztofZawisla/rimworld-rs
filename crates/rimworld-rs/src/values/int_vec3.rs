@@ -1,11 +1,17 @@
-//! Theme: the `Verse.IntVec3` value.
+//! The `Verse.IntVec3` value.
 use super::as_i64;
 use crate::{types::ObjRef, Context, Result};
 /// A `Verse.IntVec3` value: created with [`Context::vec3`], usable as an argument of
 /// [`crate::Thing::set_position`], [`Context::draw_cells`] and friends.
 pub struct IntVec3Ref<'a> {
-    pub(super) ctx: &'a Context,
-    pub(super) handle: ObjRef,
+    ctx: &'a Context,
+    handle: ObjRef,
+}
+
+impl std::fmt::Debug for IntVec3Ref<'_> {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "IntVec3Ref({:?})", self.handle)
+    }
 }
 
 impl<'a> IntVec3Ref<'a> {

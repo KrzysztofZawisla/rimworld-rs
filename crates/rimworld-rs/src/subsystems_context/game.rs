@@ -1,5 +1,3 @@
-//! Theme: game. Split from `subsystems_context.rs`.
-
 use super::*;
 
 impl Context {

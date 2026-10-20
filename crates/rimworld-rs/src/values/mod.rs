@@ -38,22 +38,6 @@ fn handle_of(value: &Value, what: &str) -> Result<ObjRef> {
     ObjRef::from_value(value).ok_or_else(|| Error::InvalidResponse(format!("{what} is not an object handle")))
 }
 
-/// Wrappers print their handle; read the value with the accessors instead.
-macro_rules! debug_through_handle {
-    ($type:ident) => {
-        impl std::fmt::Debug for $type<'_> {
-            fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                write!(formatter, "{}({:?})", stringify!($type), self.handle)
-            }
-        }
-    };
-}
-
-debug_through_handle!(IntVec3Ref);
-debug_through_handle!(Thing);
-debug_through_handle!(Map);
-debug_through_handle!(Pawn);
-
 fn as_i64(value: &Value) -> Option<i64> {
     value
         .as_i64()

@@ -1,5 +1,3 @@
-//! Theme: construction_planet_and_diagnostics. Split from `suite/run.rs`.
-
 use crate::*;
 
 impl ApiTest {

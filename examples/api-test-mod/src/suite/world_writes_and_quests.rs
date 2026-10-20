@@ -1,5 +1,3 @@
-//! Theme: world_writes_and_quests. Split from `suite/run.rs`.
-
 use crate::*;
 
 impl ApiTest {

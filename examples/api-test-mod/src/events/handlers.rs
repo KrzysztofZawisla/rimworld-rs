@@ -1,5 +1,3 @@
-//! Theme: the Mod trait implementation. Split from `events/mod.rs`.
-
 use crate::*;
 
 impl Mod for ApiTest {

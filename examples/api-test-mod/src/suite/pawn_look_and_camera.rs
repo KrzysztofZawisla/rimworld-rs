@@ -1,5 +1,3 @@
-//! Theme: pawn_look_and_camera. Split from `suite/run.rs`.
-
 use crate::*;
 
 impl ApiTest {

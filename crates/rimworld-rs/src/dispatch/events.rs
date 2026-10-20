@@ -1,5 +1,3 @@
-//! Theme: event routing. Split from `dispatch.rs`.
-
 use super::*;
 
 /// Routes one event to the module handler it names.

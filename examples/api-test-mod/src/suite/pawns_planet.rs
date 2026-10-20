@@ -1,5 +1,3 @@
-//! Theme: pawns_planet. Split from `suite/run.rs`.
-
 use crate::*;
 
 impl ApiTest {

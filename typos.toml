@@ -3,7 +3,7 @@
 # Every word below is a spelling the **game** uses, not a typo of ours. These names come from
 # `Assembly-CSharp.dll`: they sit in the wrappers' `MEMBERS` lists, and `cargo xtask test` verifies each one
 # against the real assembly (`674/674 contract requirements`, `0 wrong`) - so "correcting" one would break the
-# SDK at runtime while `cargo` stayed happy. The generator's output (`subsystems_extra.rs`) carries the same
+# SDK at runtime while `cargo` stayed happy. The generator's output (`subsystems_extra/`) carries the same
 # spellings, which is why they are words here and not `extend-ignore-re` patterns.
 [default.extend-words]
 Parms = "Parms"

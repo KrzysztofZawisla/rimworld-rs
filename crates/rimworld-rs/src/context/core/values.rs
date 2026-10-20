@@ -1,5 +1,3 @@
-//! Theme: values. Split from `context/core.rs`.
-
 use super::*;
 
 impl Context {

@@ -82,7 +82,7 @@ RimWorld mods in Rust:
 
 - Game root: the Steam installation of RimWorld. The tooling tries the usual Steam paths first and
   `RIMWORLD_DIR` names the folder when the game lives somewhere else.
-- Version: `1.7.4981 rev136`, running on **WaylithCLR** (`.NET 10` fork) with the
+- Version: `1.7.4982 rev1280`, running on **WaylithCLR** (`.NET 10` fork) with the
   RocketWerkz "Brutal" engine. No Unity runtime; `UnityStubs.dll` emulates Unity APIs.
 - World creation, colony start and map generation run in the **engine**, not in the managed code: the `Verse`
   page classes, `Game.InitNewGame` and `MapGenerator.GenerateMap` install as Harmony patches and are then never
@@ -112,6 +112,7 @@ exactly how they were verified.
 
 ```powershell
 cargo xtask test                 # every check that does not need the game (fmt, clippy, tests, ABI, contract)
+cargo xtask smoke                # install both example mods, run -quicktest, fail on [selftest] FAIL
 cargo xtask fmt [--fix]          # check (or fix) Rust formatting; nightly rustfmt, see rustfmt.toml
 cargo xtask lint                 # clippy -D warnings, plus dotnet format where the game is installed
 cargo build --release            # builds the SDK, the fixture and the example mod cdylib
@@ -125,6 +126,8 @@ cargo xtask new <Name> [--comp] [--job] [--itab]
                                  # scaffolds a mod (and the companion samples)
 cargo xtask remove <mod>         # deletes a scaffolded mod (folder + workspace entry)
 cargo xtask gen-defs [<mod>]     # writes <mod>/src/generated_defs/ from the installed game
+cargo xtask gen-subsystems [--check]
+                                 # regenerates (or verifies) crates/rimworld-rs/src/subsystems_extra/
 cargo xtask defs [--types T]     # lists the def names of the installation
 cargo xtask watch-log [--errors] [--grep <text>] [--tail <n>] [--once]
                                  # follows Player.log, filtered to [Rust]/[selftest] lines
@@ -187,12 +190,16 @@ behaviour is patch-related) so the change is covered by `cargo xtask test`.
   limit, but their item count is not counted: a generated constant is not an item the rule is meant to count,
   and a generator that emits one huge file is exactly the defect this rule catches. `cargo xtask layout --check`
   measures both numbers for hand-written Rust, the line count for roots and generated files, and the line count
-  for C#. A file that has to be split is split by hand, one theme per module, and the module's header says which
-  theme it holds. The split helpers this repository once carried (`cargo xtask layout --split`,
-  `tools/splits/*.txt`) are gone: every file is inside the rule, and the decision belongs to the person reading
-  the code, not to a spec.
+  for C#. It also checks the module tree: every `mod.rs` must declare every `.rs` file and module directory
+  next to it, and every declaration must have a file behind it. A file that has to be split is split by hand,
+  one theme per module, and the module's header says which theme it holds. The decision belongs to the person
+  reading the code, not to a spec.
 - **This is enforced, not a preference.** The check belongs in `cargo xtask test`, so an oversized file fails the gate
   the same way an unformatted file does.
+- **A split is not documented in the result.** No `//! Theme: ...`, no `//! ... Split from ...`, no
+  `// Split from main.rs`, and no "the file this module was split out of". A file states what it holds now;
+  how it came to exist is `git log`, not a comment. Generated files carry a current description too, never
+  the name of the file they replaced.
 
 ## Working rules
 
@@ -219,6 +226,15 @@ gate would report a green C# that only its whitespace pass ever looked at. `carg
 that happens, so the analyzer half can never go missing quietly again.
 `cargo xtask fmt [--fix]` and `cargo xtask lint` run the pieces on their own.
 
+The same suite also checks the generated output and the documentation: `gen-subsystems --check` renders
+`crates/rimworld-rs/src/subsystems_extra/` in memory and fails on a missing, changed or extra file; the def
+modules are checked for the 500-line / 396-constant generator limits; `cargo xtask layout --check` also
+verifies the module tree (every `mod.rs` declares every file and module directory next to it, and every
+declaration has a file); and every local Markdown link and every `crates/`/`examples/`/`docs/`/`bridge/`/
+`tools/`/`skills/` path in inline code must resolve. `cargo xtask smoke` is the in-game counterpart: it
+installs both example mods, launches `-quicktest`, and fails on `[selftest] FAIL` or a summary with a non-zero
+failed count.
+
 `git config core.hooksPath .githooks` once per clone enables the pre-commit hook, which runs the two gates
 cheap enough for every commit (`cargo xtask fmt`, which checks rather than fixes, and `cargo xtask layout
 --check`). The rest is what `cargo xtask test` is for.
@@ -238,7 +254,8 @@ of passing silently.
   reach the generated Rust as *data* - every literal is escaped and every identifier sanitized - so a name that
   carries a quote or a dot can never become source. `cargo xtask gen-subsystems` reads the assembly through
   `tools/abi-smoke --members-json` and writes `crates/rimworld-rs/src/subsystems_extra/` (one file per wrapper,
-  re-exported by its `mod.rs`).
+  re-exported by its `mod.rs`); `cargo xtask test` runs it with `--check`, so a recorded wrapper that no longer
+  matches the generator fails the gate instead of drifting.
 
 ## Conventions for changes
 

@@ -1,5 +1,3 @@
-//! Theme: pawn_health. Split from `subsystems.rs`.
-
 mod health_tracker;
 pub use health_tracker::*;
 mod hediff_set;

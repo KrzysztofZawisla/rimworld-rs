@@ -1,5 +1,3 @@
-//! Theme: setup. Split from `lib.rs`.
-
 use crate::*;
 
 impl ApiTest {

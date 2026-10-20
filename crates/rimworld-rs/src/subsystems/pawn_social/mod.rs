@@ -1,5 +1,3 @@
-//! Theme: pawn_social. Split from `subsystems.rs`.
-
 mod pawn_guest;
 pub use pawn_guest::*;
 mod pawn_ownership;

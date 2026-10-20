@@ -1,5 +1,3 @@
-//! Theme: map_places. Split from `subsystems.rs`.
-
 mod map_areas;
 pub use map_areas::*;
 mod map_rooms;

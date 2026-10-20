@@ -1,14 +1,6 @@
-//! Theme: command. Split from `layout.rs`.
-#![allow(unused_imports, unused_macros)] // the imports and the macros are the module's shared vocabulary, used across the theme files
+#![allow(unused_macros)] // the imports and the macros are the module's shared vocabulary, used across the theme files
 
-use std::{
-    collections::BTreeMap,
-    fs,
-    path::{Path, PathBuf},
-};
-
-use proc_macro2::Span;
-use syn::{spanned::Spanned, File as RustFile, ImplItem, Item};
+use std::path::PathBuf;
 
 use super::*;
 use crate::{missing, repo_root, Result};
@@ -56,12 +48,24 @@ pub fn run(fix: bool, file: Option<PathBuf>) -> Result<()> {
         println!("  over  {:>22}  {}", format!("{lines} lines"), relative(&root, file));
     }
 
-    if over.is_empty() && csharp_over.is_empty() {
-        println!("every file is inside the rule ({csharp_within} C# file(s) measured by lines)");
+    let tree_problems = if only.is_none() { tree::check(&root)? } else { Vec::new() };
+    for problem in &tree_problems {
+        println!("  tree  {problem}");
+    }
+
+    if over.is_empty() && csharp_over.is_empty() && tree_problems.is_empty() {
+        println!(
+            "every file is inside the rule and every module tree is consistent ({csharp_within} C# file(s) measured by lines)"
+        );
         return Ok(());
     }
 
     let total = over.len() + csharp_over.len();
-    println!("{total} file(s) need a thematic split: {} Rust, {} C#", over.len(), csharp_over.len());
-    Err(missing(format!("{total} file(s) outgrew the layout rule (see `File layout` in AGENTS.md)")))
+    println!(
+        "{total} size violation(s), {} module-tree problem(s): {} Rust, {} C#",
+        tree_problems.len(),
+        over.len(),
+        csharp_over.len()
+    );
+    Err(missing("the layout rule or the module tree check failed (see `File layout` in AGENTS.md)"))
 }

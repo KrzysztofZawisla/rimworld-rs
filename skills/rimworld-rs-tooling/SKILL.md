@@ -46,6 +46,7 @@ struct travels by value across the Rust/C# ABI.
 | `build [<mod>] [--path <DIR>]` / `install [<mod>] [--path <DIR>]` / `package [<mod>] [--path <DIR>]` | Build into `build/<ModName>` (or `<ModDir>/build/`), copy into `<game>/Mods`, zip into `dist/` (or `<ModDir>/dist/`) |
 | `gen-defs [<mod>] [--path <DIR>]` / `defs` | Rust constants for def names (`<ModDir>/src/generated_defs/`, gitignored) / list the installation's defs |
 | `clean [--path <DIR>]` | Remove `<ModDir>/build`, `dist` and generated defs (this repository without `--path`) |
+| `secrets [--staged]` | gitleaks over the whole git history, or the staged pre-commit mode; SKIP if gitleaks is missing |
 | `watch-log [--errors --grep <text> --tail <n> --once]` | Follow `Player.log`, filtered to `[Rust]`/`[selftest]` lines |
 | `run -- <args>` | Start the game (dev loop), e.g. `cargo xtask run -- -quicktest` |
 | `targets <Type> [--members <M>]` / `types <prefix>` / `coverage <Type>` | Reverse-engineering help: patch targets with ready-to-paste lines, type search, what has a typed wrapper |
@@ -87,7 +88,10 @@ generator), the generated-def limits (≤500 lines and ≤396 constants per file
 --verify-no-changes` for the bridge where the reference assemblies are, the Rust tests, the abi-smoke
 self-test, `--op-parity`, the patch-file check, the per-mod component check, and — with a game or `game-refs/` —
 `--contract`, `--defs`, `--patches`. The optional gates (`typos`, `cargo-machete`, `cargo-nextest`) print a SKIP
-when the tool is missing; a stage that cannot run says so instead of passing silently. `cargo xtask smoke` is
+when the tool is missing; a stage that cannot run says so instead of passing silently. Secret scanning is local
+and separate: `cargo xtask secrets` scans the whole history with gitleaks, `cargo xtask secrets --staged` is the
+pre-commit mode (enable it with `git config core.hooksPath .githooks`). Install gitleaks 8.19+; without it the
+command prints SKIP. `cargo xtask smoke` is
 the in-game counterpart: it installs both example mods, launches `-quicktest`, and fails on `[selftest] FAIL`
 or a non-zero failed count in the summary.
 

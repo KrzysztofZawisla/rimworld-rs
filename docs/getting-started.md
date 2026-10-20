@@ -35,6 +35,7 @@ cargo xtask package [<mod>] [--path <DIR>] # build and zip into <ModDir>/dist/<M
 cargo xtask gen-defs [<mod>] [--path <DIR>] # write Rust constants for every def name of your installation
 cargo xtask gen-defs [<mod>] [--path <DIR>] --types ThingDef,HediffDef   # ... or only the types you use
 cargo xtask clean [--path <DIR>]            # remove build/, dist/ and generated defs
+cargo xtask secrets [--staged]              # gitleaks: full history, or staged for pre-commit
 cargo xtask defs [--types T]  # list the installation's def names, without writing anything
 cargo xtask watch-log [--errors] [--grep <text>] [--tail <n>] [--once]
                               # follow Player.log, filtered to this project's [Rust]/[selftest] lines
@@ -144,6 +145,10 @@ The mod is a native library that RimWorld loads once per launch: **restart the g
   generator limits, that every `mod.rs` and its directory agree, and that local Markdown links resolve.
   Run it first when something misbehaves — a renamed game member, a wrong def name or a missing Harmony
   overload fails there instead of in game.
+- `cargo xtask secrets` scans the whole git history with gitleaks; `cargo xtask secrets --staged` is the
+  pre-commit mode. Install gitleaks 8.19+ (`winget install --id Gitleaks.Gitleaks` or a release from
+  <https://github.com/gitleaks/gitleaks#installing>); without it the command prints SKIP. Enable the hook with
+  `git config core.hooksPath .githooks`.
 - `examples/api-test-mod` is the in-game proof: enable it next to Harmony and it prints
   `[selftest] PASS/FAIL/SKIP` lines for every feature. Offline (through `tools/abi-smoke`) the same
   mod reports SKIP instead of FAIL for anything the mock cannot answer, so a FAIL always means a

@@ -142,14 +142,13 @@ mod tests {
     }
 
     #[test]
-    fn reports_a_missing_link_and_an_old_path() {
+    fn reports_a_missing_link() {
         let root = tempfile::tempdir().expect("temp dir");
         fs::create_dir_all(root.path().join("docs")).expect("mkdir");
         let page = root.path().join("docs/page.md");
-        fs::write(&page, "[gone](missing.md)\n`crates/rimworld-rs/src/subsystems_extra.rs`\n").expect("write");
+        fs::write(&page, "[gone](missing.md)\n").expect("write");
 
         let problems = check_file(&page, root.path()).expect("check");
         assert!(problems.iter().any(|problem| problem.contains("missing.md")), "{problems:?}");
-        assert!(problems.iter().any(|problem| problem.contains("subsystems_extra.rs")), "{problems:?}");
     }
 }

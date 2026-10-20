@@ -198,13 +198,6 @@ pub(crate) fn clean() -> Result<()> {
             println!("==> removed {}", generated.display());
             removed = true;
         }
-
-        let legacy = info.dir.join("src").join("generated_defs.rs");
-        if legacy.exists() {
-            fs::remove_file(&legacy)?;
-            println!("==> removed {}", legacy.display());
-            removed = true;
-        }
     }
 
     if !removed {

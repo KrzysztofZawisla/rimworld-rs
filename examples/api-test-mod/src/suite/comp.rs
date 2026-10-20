@@ -139,9 +139,16 @@ impl ApiTest {
 
         // 3. gizmos and the inspect line, pulled per frame while the thing is selected
         if let Some(start) = self.comp_frontend_start {
+            if !self.comp_frontend_checked {
+                if let Some(handle) = self.comp_frontend_handle.clone() {
+                    let _ = ctx.select(&handle, false);
+                }
+                let _ = ctx.companion_call("ApiTestCompanion.Bridge", "OpenTestTab", &[]);
+            }
             if !self.comp_frontend_checked && tick - start >= 120 {
                 self.comp_frontend_checked = true;
                 self.comp_frontend_start = None;
+                self.comp_frontend_handle = None;
                 let _ = ctx.clear_selection();
                 let gizmos = self.comp_frontend_gizmos;
                 let inspects = self.comp_frontend_inspects;

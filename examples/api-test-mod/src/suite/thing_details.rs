@@ -133,6 +133,25 @@ impl ApiTest {
                         return Err(format!("opening the bill left it on {:?}", opened.pawn));
                     }
 
+                    // A dedicated worker: the suite's first colonist is busy with the other checks,
+                    // and the bill event check should not depend on when that pawn becomes free.
+                    let player_faction = ctx.factions().ok().and_then(|factions| {
+                        factions.into_iter().find(|faction| faction.player).and_then(|faction| faction.def_name)
+                    });
+                    let (worker_x, worker_z) = colony_cell(ctx, map.id)?;
+                    let worker = ctx
+                        .spawn_pawn(pawn_kind_def::COLONIST, player_faction.as_deref(), map.id, worker_x, worker_z)
+                        .map_err(|error| error.to_string())?;
+                    for work_type in ["Crafting", "Stonecutting", "Hauling"] {
+                        let _ = worker.set_work_priority(work_type, 1);
+                    }
+                    let assigned = ctx
+                        .thing_bill_set_pawn(&table, id, Some(worker.handle()))
+                        .map_err(|error| error.to_string())?;
+                    if assigned.pawn.is_none() {
+                        return Err(format!("the dedicated bill worker was not assigned: {assigned:?}"));
+                    }
+
                     // With one bill the only offset left is 0, which the game refuses by name.
                     match ctx.thing_bill_move(&table, id, 0) {
                         Err(error) if error.to_string().contains("moves nothing") => {}
@@ -150,7 +169,7 @@ impl ApiTest {
                     // again reports its own tidiness instead of the event. The tick phase that watches those
                     // counters now has a real bill to watch.
                     ctx.log(format!(
-                        "[selftest] the bill path works ({recipe} added, paused with 3 as its target, a move that moves nothing refused by name, left in the queue for the game to work)"
+                        "[selftest] the bill path works ({recipe} added, paused with 3 as its target, a move that moves nothing refused by name, a dedicated worker assigned, left in the queue for the game to work)"
                     ));
                 }
                 None => self.report.skip(

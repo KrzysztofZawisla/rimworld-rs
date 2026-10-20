@@ -185,6 +185,7 @@ struct ApiTest {
     comp_tick_driven: u32,
     comp_frontend_start: Option<i64>,
     comp_frontend_checked: bool,
+    comp_frontend_handle: Option<ObjRef>,
     comp_frontend_gizmos: u32,
     comp_frontend_inspects: u32,
 

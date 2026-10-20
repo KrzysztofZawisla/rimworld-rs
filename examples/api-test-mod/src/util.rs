@@ -117,31 +117,61 @@ pub(crate) fn colony_anchor(ctx: &Context, map_id: i32) -> Result<(i32, i32), St
     Ok((x, z))
 }
 
+fn cell_is_free(ctx: &Context, map_id: i32, x: i32, z: i32) -> bool {
+    let Ok(cell) = ctx.map_cell_info(map_id, x, z) else {
+        return false;
+    };
+    if cell.edifice_def_name.is_some() || cell.terrain_def_name.as_deref().is_some_and(|name| name.contains("Water")) {
+        return false;
+    }
+
+    ctx.map_things_in_radius(map_id, x, z, 0.5, None)
+        .map(|found| !found.things.iter().any(|thing| thing.handle.is_some()))
+        .unwrap_or(false)
+}
+
 /// A free, open cell near `(x, z)`: no edifice, no water, and no thing already on it.
 pub(crate) fn open_cell_near(ctx: &Context, map_id: i32, x: i32, z: i32) -> Result<(i32, i32), String> {
     for (dx, dz) in OPEN_OFFSETS {
         let (cx, cz) = (x + dx, z + dz);
-        let Ok(cell) = ctx.map_cell_info(map_id, cx, cz) else {
-            continue;
-        };
-        if cell.edifice_def_name.is_some()
-            || cell.terrain_def_name.as_deref().is_some_and(|name| name.contains("Water"))
-        {
-            continue;
-        }
-        let occupied = ctx
-            .map_things_in_radius(map_id, cx, cz, 0.5, None)
-            .map(|found| found.things.iter().any(|thing| thing.handle.is_some()))
-            .unwrap_or(false);
-        if !occupied {
+        if cell_is_free(ctx, map_id, cx, cz) {
             return Ok((cx, cz));
         }
     }
     Err(format!("no free open cell near ({x}, {z})"))
 }
 
-/// A free, open cell next to the colony.
+/// A free, open cell next to any colonist. The first colonist's room fills up as the suite spawns
+/// its fixtures, so the later checks try the other colonists as anchors too.
 pub(crate) fn colony_cell(ctx: &Context, map_id: i32) -> Result<(i32, i32), String> {
-    let (x, z) = colony_anchor(ctx, map_id)?;
-    open_cell_near(ctx, map_id, x, z)
+    let colonists = ctx.map_colonists(map_id).map_err(|error| error.to_string())?;
+    for colonist in &colonists {
+        let (x, _, z) =
+            colonist.position().map_err(|error| error.to_string())?.to_tuple().map_err(|error| error.to_string())?;
+        if let Ok(cell) = open_cell_near(ctx, map_id, x, z) {
+            return Ok(cell);
+        }
+    }
+    Err("no free open cell near any colonist".to_string())
+}
+
+/// A free, open colony cell that also has a free neighbour, so a zone can grow into it.
+pub(crate) fn colony_cell_with_neighbour(ctx: &Context, map_id: i32) -> Result<(i32, i32), String> {
+    let colonists = ctx.map_colonists(map_id).map_err(|error| error.to_string())?;
+    for colonist in &colonists {
+        let (x, _, z) =
+            colonist.position().map_err(|error| error.to_string())?.to_tuple().map_err(|error| error.to_string())?;
+        for (dx, dz) in OPEN_OFFSETS {
+            let (cx, cz) = (x + dx, z + dz);
+            if !cell_is_free(ctx, map_id, cx, cz) {
+                continue;
+            }
+            for (nx, nz) in [(1, 0), (0, 1), (-1, 0), (0, -1)] {
+                if cell_is_free(ctx, map_id, cx + nx, cz + nz) {
+                    return Ok((cx, cz));
+                }
+            }
+        }
+    }
+    Err("no free open cell with a free neighbour near any colonist".to_string())
 }

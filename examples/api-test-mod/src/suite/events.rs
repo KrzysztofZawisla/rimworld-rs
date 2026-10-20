@@ -1,5 +1,9 @@
 use crate::*;
 
+/// The bill is worked by the game's own AI. At the quicktest speed 22,000 ticks is about a minute;
+/// the colony needs that long when its first pawn is busy with the suite's other jobs.
+const BILL_WAIT_TICKS: u32 = 22_000;
+
 impl ApiTest {
     pub(crate) fn check_game_events(&mut self, ctx: &mut Context) {
         if self.events_checked {
@@ -224,7 +228,7 @@ impl ApiTest {
     pub(crate) fn note_bill_events(&mut self, ctx: &mut Context) {
         if !self.bill_armed {
             self.bill_armed = true;
-            self.bill_wait = 3000;
+            self.bill_wait = BILL_WAIT_TICKS;
             return;
         }
 
@@ -244,7 +248,9 @@ impl ApiTest {
             self.report.fail(
                 ctx,
                 "bill_completed and bill_started arrive",
-                "no bill started within 3000 ticks: check that the workbench is reachable, its ingredient is available and a colonist has the work type free",
+                &format!(
+                    "no bill started within {BILL_WAIT_TICKS} ticks: check that the workbench is reachable, its ingredient is available and a colonist has the work type free"
+                ),
             );
         }
     }

@@ -57,6 +57,19 @@ namespace ApiTestCompanion
         {
             return Add(2, 40);
         }
+
+        /// <summary>Opens the companion's tab in the inspect pane for the currently selected thing.</summary>
+        public static bool OpenTestTab()
+        {
+            MainTabWindow_Inspect window = Find.WindowStack?.WindowOfType<MainTabWindow_Inspect>();
+            if (window == null)
+            {
+                return false;
+            }
+
+            window.OpenTabType = typeof(RustInfoTab);
+            return true;
+        }
     }
 
     /// <summary>
@@ -85,19 +98,34 @@ namespace ApiTestCompanion
                 return;
             }
 
+            // The suite drives ThingWithComps.Tick from Rust, so the first tick can happen while Rust
+            // is busy and the bridge answers the replaced call with the default. Retry on the game's
+            // own tick, when Rust is idle, instead of spending the only attempt on the busy one.
+            int replaced = Bridge.AddThroughReplace();
+            if (replaced == 0)
+            {
+                return;
+            }
+
+            string answer = Bridge.AskRust("ping");
+            if (string.IsNullOrEmpty(answer))
+            {
+                return;
+            }
+
             ticked = true;
 
             // A call the *game* makes: the replaced call runs its Rust handler here and the answer
             // travels back through the generated shim.
             Companion.Send("ApiTestMod", "replace_result", new Dictionary<string, object>
             {
-                ["value"] = Bridge.AddThroughReplace(),
+                ["value"] = replaced,
             });
 
             // A request the *game* makes: Rust is idle on a tick, so the answer comes straight back.
             Companion.Send("ApiTestMod", "companion_answer", new Dictionary<string, object>
             {
-                ["answer"] = Bridge.AskRust("ping"),
+                ["answer"] = answer,
             });
         }
     }

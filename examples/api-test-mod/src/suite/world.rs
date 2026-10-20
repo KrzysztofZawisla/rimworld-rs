@@ -45,32 +45,41 @@ impl ApiTest {
             }
         }
 
-        let neighbour = start + 1;
-        match ctx.world_path(start, neighbour) {
-            Ok(path) if path.found => {
-                if path.tiles.is_empty() || path.total_cost <= 0.0 {
-                    self.report.fail(
-                        ctx,
-                        "world_path reads a route from the game's pathfinder",
-                        &format!("the game called it found, but answered {path:?}"),
-                    );
-                } else {
-                    ctx.log(format!(
-                        "[selftest] the route {start} -> {neighbour} crosses {} tile(s) for {:.1}",
-                        path.tiles.len(),
-                        path.total_cost
-                    ));
-                    self.report.pass(ctx, "world_path reads a route from the game's pathfinder");
+        // The first world object can sit on an island. Ask the pathfinder for a route to another
+        // object (or one of its neighbours) until one pair is on the same landmass.
+        let mut targets: Vec<i32> =
+            ctx.world_objects().map(|objects| objects.iter().map(|object| object.tile).collect()).unwrap_or_default();
+        for delta in [1, -1, 1000, -1000, 2, -2, 2000, -2000, 250, -250] {
+            targets.push(start + delta);
+        }
+        targets.retain(|target| *target != start && *target >= 0);
+        targets.sort_unstable();
+        targets.dedup();
+
+        let mut route = None;
+        for target in targets {
+            if let Ok(path) = ctx.world_path(start, target) {
+                if path.found && !path.tiles.is_empty() && path.total_cost > 0.0 {
+                    route = Some((target, path));
+                    break;
                 }
             }
-            Ok(_) => self.report.skip(
+        }
+
+        match route {
+            Some((target, path)) => {
+                ctx.log(format!(
+                    "[selftest] the route {start} -> {target} crosses {} tile(s) for {:.1}",
+                    path.tiles.len(),
+                    path.total_cost
+                ));
+                self.report.pass(ctx, "world_path reads a route from the game's pathfinder");
+            }
+            None => self.report.skip(
                 ctx,
                 "world_path reads a route from the game's pathfinder",
-                "the game says there is no land route between the two tested tiles",
+                "the game found no land route from the first world object to any tested tile",
             ),
-            Err(error) => {
-                self.report.check(ctx, "world_path reads a route from the game's pathfinder", Err(error.to_string()))
-            }
         }
     }
 

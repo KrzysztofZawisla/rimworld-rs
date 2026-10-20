@@ -238,11 +238,38 @@ impl ApiTest {
                         quest.id, accepted.state, ended.state
                     ));
                 }
-                None => self.report.skip(
-                    ctx,
-                    "a quest is accepted and ended",
-                    "the game offers no quest to accept this run",
-                ),
+                None => {
+                    let mut generated = None;
+                    let mut refusals = Vec::new();
+                    for script in [quest_script_def::BEGGARS, quest_script_def::CREEP_JOINER_ARRIVAL] {
+                        match ctx.quest_generate(script, None) {
+                            Ok(quest) => {
+                                generated = Some(quest);
+                                break;
+                            }
+                            Err(error) => refusals.push(format!("{script}: {error}")),
+                        }
+                    }
+
+                    let quest = generated.ok_or_else(|| {
+                        format!("the game offered no quest and generated none: {}", refusals.join("; "))
+                    })?;
+                    let accepted = match ctx.quest_accept(quest.id, None) {
+                        Ok(accepted) => Some(accepted),
+                        Err(error) if error.to_string().contains("already accepted") => None,
+                        Err(error) => return Err(error.to_string()),
+                    };
+                    let ended = ctx.quest_end(quest.id, "Success").map_err(|error| error.to_string())?;
+                    ctx.log(format!(
+                        "[selftest] the game offered no quest, so the check generated quest {} and ended it ({} -> {})",
+                        quest.id,
+                        accepted
+                            .as_ref()
+                            .map(|state| state.state.clone())
+                            .unwrap_or_else(|| "already accepted".to_string()),
+                        ended.state
+                    ));
+                }
             }
 
             Ok(())

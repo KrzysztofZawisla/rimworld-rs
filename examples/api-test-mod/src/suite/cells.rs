@@ -52,7 +52,13 @@ impl ApiTest {
             Err(why) => self.report.skip(ctx, "map_add_gas puts gas in the cell and map_gas sees it", &why),
         }
 
-        let (zone_x, zone_z) = (x + 2, z + 2);
+        let (zone_x, zone_z) = match colony_cell_with_neighbour(ctx, map_id) {
+            Ok(cell) => cell,
+            Err(error) => {
+                self.report.skip(ctx, "a stockpile is created, grown, shrunk and deleted", &error);
+                return;
+            }
+        };
         match ctx.map_zone_create_stockpile(map_id, zone_x, zone_z, None) {
             Ok(created) => {
                 let outcome = (|| -> Result<(), String> {

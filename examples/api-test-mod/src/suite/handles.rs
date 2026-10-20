@@ -1,5 +1,3 @@
-//! Theme: handles. Split from `suite/run.rs`.
-
 use crate::*;
 
 impl ApiTest {

@@ -1,4 +1,4 @@
-//! Theme: small handle helpers. Split from `lib.rs`.
+//! Small handle helpers used by the self-test suite.
 
 use crate::*;
 

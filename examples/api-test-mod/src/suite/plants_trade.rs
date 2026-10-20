@@ -1,5 +1,3 @@
-//! Theme: plants_trade. Split from `lib.rs`.
-
 use crate::*;
 
 impl ApiTest {

@@ -38,6 +38,7 @@ cargo xtask defs [--types T]  # list the installation's def names, without writi
 cargo xtask watch-log [--errors] [--grep <text>] [--tail <n>] [--once]
                               # follow Player.log, filtered to this project's [Rust]/[selftest] lines
 cargo xtask run [-- <args>]   # start RimWorld (e.g. `-- -quicktest`)
+cargo xtask smoke             # install both examples, run -quicktest, fail on [selftest] FAIL
 ```
 
 Without a `<mod>` argument the example mod (`hello-rust-mod`) is used. Mods are found by folder
@@ -127,13 +128,16 @@ The mod is a native library that RimWorld loads once per launch: **restart the g
 - `cargo xtask test` runs every check that does not need the game: SDK unit tests, the bridge's
   marshaling self-test, the ABI smoke tests (example mod and the `rimworld-rs-testmod` fixture
   with patch outcomes and panic recovery), the bridge contract check against the game's
-  `Assembly-CSharp.dll` and the def-name check against the installed game's XML. Run it first when
-  something misbehaves — a renamed game member, a wrong def name or a missing Harmony overload
-  fails there instead of in game.
+  `Assembly-CSharp.dll` and the def-name check against the installed game's XML. It also verifies that
+  the generated subsystem wrappers match the generator, that the generated def files stay within the
+  generator limits, that every `mod.rs` and its directory agree, and that local Markdown links resolve.
+  Run it first when something misbehaves — a renamed game member, a wrong def name or a missing Harmony
+  overload fails there instead of in game.
 - `examples/api-test-mod` is the in-game proof: enable it next to Harmony and it prints
   `[selftest] PASS/FAIL/SKIP` lines for every feature. Offline (through `tools/abi-smoke`) the same
   mod reports SKIP instead of FAIL for anything the mock cannot answer, so a FAIL always means a
-  real problem.
+  real problem. `cargo xtask smoke` runs that loop with both example mods and fails the command on a
+  `[selftest] FAIL` line.
 - Common causes of "nothing happens":
   - the mod is installed but not enabled in the in-game mod list;
   - the native library is not in `Rust/` (exactly one `.dll` is expected there);

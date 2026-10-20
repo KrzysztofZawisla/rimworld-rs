@@ -1,13 +1,8 @@
-//! Theme: pawn_work. Split from `subsystems/pawn_work.rs`.
-
-#![allow(unused_imports, unused_macros)] // the imports and the macros are the module's shared vocabulary, used across the theme files
+#![allow(unused_macros)] // the imports and the macros are the module's shared vocabulary, used across the theme files
 
 use serde_json::Value;
 
-use super::super::{
-    count_reader, def_reader, flag_call, flag_reader, number_reader, object_reader, objects_reader, subsystem,
-    text_reader, void_call, writer, *,
-};
+use super::super::{flag_reader, subsystem, text_reader, *};
 use crate::{context::Context, types::ObjRef, Result};
 
 subsystem!(

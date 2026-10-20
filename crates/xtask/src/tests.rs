@@ -1,16 +1,8 @@
-//! Theme: tests. Split from `main.rs`.
-#![allow(unused_imports)]
-
-use std::{
-    env, fs,
-    path::{Component, Path, PathBuf},
-    process::Command,
-};
+use std::{fs, path::Path};
 
 use heck::{ToSnakeCase, ToTitleCase};
 
 use super::*;
-use crate::*;
 
 #[test]
 fn finds_the_mods_through_cargo() {

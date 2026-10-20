@@ -1,13 +1,4 @@
-//! Theme: gates. Split from `main.rs`.
-#![allow(unused_imports)]
-
-use std::{
-    env, fs,
-    path::{Component, Path, PathBuf},
-    process::Command,
-};
-
-use heck::{ToSnakeCase, ToTitleCase};
+use std::process::Command;
 
 use crate::*;
 
@@ -74,12 +65,15 @@ pub(crate) fn test_all() -> Result<()> {
     // stub, and the packages that need an installation are left out of every command that would compile them:
     // the gates run with whatever the machine has, while the mod's own def names can only come from a game.
     let unavailable = ensure_all_generated_defs(true)?;
+    check_generated_subsystems()?;
+    check_generated_defs()?;
 
     fmt(false)?;
     lint()?;
     // the layout rule is a gate, not a convention: a file over the size limit fails the suite the same way an
     // unformatted file does. It runs before the build, because a split that has to happen is cheaper to see now.
     layout::run(false, None)?;
+    check_markdown()?;
     let root = repo_root();
 
     // Extra gates, each skipped with a reason when its tool is not installed: this command has to run on a

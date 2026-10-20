@@ -1,4 +1,4 @@
-//! Theme: the bridge-hosted thing component.
+//! The bridge-hosted thing component.
 use serde_json::Value;
 
 use super::Thing;
@@ -23,12 +23,12 @@ use crate::{types::ObjRef, Context, Result};
 /// # }
 /// ```
 pub struct ThingComp<'a> {
-    pub(super) ctx: &'a Context,
-    pub(super) thing: ObjRef,
-    pub(super) comp: ObjRef,
-    pub(super) key: String,
-    pub(super) thing_id: i32,
-    pub(super) respawning: bool,
+    ctx: &'a Context,
+    thing: ObjRef,
+    comp: ObjRef,
+    key: String,
+    thing_id: i32,
+    respawning: bool,
 }
 
 impl<'a> ThingComp<'a> {

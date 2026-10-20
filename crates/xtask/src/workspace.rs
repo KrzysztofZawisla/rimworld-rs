@@ -1,13 +1,7 @@
-//! Theme: workspace. Split from `main.rs`.
-#![allow(unused_imports)]
-
 use std::{
-    env, fs,
+    fs,
     path::{Component, Path, PathBuf},
-    process::Command,
 };
-
-use heck::{ToSnakeCase, ToTitleCase};
 
 use crate::*;
 

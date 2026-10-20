@@ -10,10 +10,7 @@ unstable_features = true
 # `cargo xtask gen-subsystems`) belongs to its generator: formatting it would make the check depend on
 # which game build is installed and would disagree with the next generation.
 ignore = [
-    "examples/*/src/generated_defs.rs",
-    "mods/*/src/generated_defs.rs",
     "examples/*/src/generated_defs/**",
     "mods/*/src/generated_defs/**",
-    "crates/rimworld-rs/src/subsystems_extra.rs",
     "crates/rimworld-rs/src/subsystems_extra/**",
 ]

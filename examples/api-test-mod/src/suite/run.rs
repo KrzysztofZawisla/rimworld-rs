@@ -1,5 +1,3 @@
-//! Theme: the suite orchestrator and its chunks. Split from `lib.rs`.
-
 use crate::*;
 
 impl ApiTest {
@@ -19,6 +17,7 @@ impl ApiTest {
         self.check_typed_subsystems(ctx, map);
         self.check_handle_members_and_health(ctx, map);
         self.check_health_items_and_policies(ctx, map);
+        self.check_health_and_world_rules(ctx, map);
         self.check_lords_training_and_records(ctx, map);
         self.check_pawn_look_and_camera(ctx, map);
         self.check_thing_details(ctx, map);

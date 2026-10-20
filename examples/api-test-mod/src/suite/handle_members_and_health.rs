@@ -1,5 +1,3 @@
-//! Theme: handle_members_and_health. Split from `suite/run.rs`.
-
 use crate::*;
 
 impl ApiTest {

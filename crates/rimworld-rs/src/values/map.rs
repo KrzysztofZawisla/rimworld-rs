@@ -1,12 +1,18 @@
-//! Theme: a live `Verse.Map`.
+//! A live `Verse.Map`.
 use serde_json::Value;
 
 use super::{as_i64, handle_of, Pawn, Thing};
 use crate::{types::ObjRef, Context, Result};
 /// A live `Verse.Map`.
 pub struct Map<'a> {
-    pub(super) ctx: &'a Context,
-    pub(super) handle: ObjRef,
+    ctx: &'a Context,
+    handle: ObjRef,
+}
+
+impl std::fmt::Debug for Map<'_> {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "Map({:?})", self.handle)
+    }
 }
 
 impl<'a> Map<'a> {

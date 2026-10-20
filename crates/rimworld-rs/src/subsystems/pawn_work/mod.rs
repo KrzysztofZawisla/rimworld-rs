@@ -1,5 +1,3 @@
-//! Theme: pawn_work. Split from `subsystems.rs`.
-
 mod work_settings;
 pub use work_settings::*;
 mod pawn_age;

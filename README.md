@@ -21,7 +21,7 @@ automatically.
 
 ## Requirements
 
-- RimWorld 1.7 installed (this repository was built against `1.7.4977 rev1248`; the tooling looks
+- RimWorld 1.7 installed (this repository was built against `1.7.4982 rev1280`; the tooling looks
   for the usual Steam paths and `RIMWORLD_DIR` names the folder when the game is elsewhere).
 - Rust nightly and .NET SDK 9+ (the bridge compiles against the game's own .NET 10 assemblies).
 - The Harmony mod (`brrainz.harmony`) to use the `harmony_patch` API. Everything else works
@@ -94,6 +94,8 @@ nested calls, result access) and the tick throttle.
   `cargo xtask gen-defs <mod>` writes Rust constants for every def name of the installation so a
   renamed def becomes a compile error; `cargo xtask watch-log` follows the game log filtered to this
   mod; `cargo xtask package <mod>` builds a Workshop-ready zip.
+- **Check it in game**: `cargo xtask smoke` installs both example mods, runs `-quicktest`, and fails
+  on a `[selftest] FAIL` line or a non-zero failed count.
 
 Still out of reach from Rust alone: defining managed types (that is what the companion assembly is
 for), arbitrary 3D rendering (the SDK draws markers and lines, not meshes), and everything that
@@ -140,6 +142,10 @@ cargo xtask gen-defs MyFirstMod     # Rust constants for every def name of your 
 cargo xtask watch-log --tail 40     # follow Player.log, filtered to [Rust]/[selftest]
 cargo xtask package MyFirstMod      # dist/MyFirstMod-<version>.zip for the Workshop
 cargo xtask remove MyFirstMod       # delete the mod (folder + workspace entry)
+
+# repository maintainers:
+cargo xtask smoke                   # install both examples, run -quicktest, fail on [selftest] FAIL
+cargo xtask gen-subsystems --check  # verify the tracked generated wrappers match the generator
 ```
 
 The scaffold contains the Rust crate, the `About/About.xml` metadata, a starting module and a
@@ -202,6 +208,11 @@ removes any game assembly that a build might accidentally copy into a mod folder
 cargo xtask test        # runs everything below, in one go
 ```
 
+Before the numbered stages it checks that `crates/rimworld-rs/src/subsystems_extra/` still matches the
+generator (`gen-subsystems --check`), that the generated def files stay within the 500-line / 396-constant
+limits, that every `mod.rs` and its directory agree, and that every local Markdown link and repository path
+resolves.
+
 `cargo xtask test` runs, in order:
 
 1. `cargo test --workspace` — SDK unit tests (event routing, patch payloads, outcomes, randomized
@@ -236,6 +247,16 @@ On a machine without RimWorld the same command still runs: it skips the stages t
 such a run leaves out is the in-game self-test mod, whose def names are generated from an installation
 (`cargo xtask gen-defs`): a checkout that has never seen the game has no such module, so the gates note
 that and keep the package out of every command that would compile it.
+
+## In-game smoke test
+
+```powershell
+cargo xtask smoke
+```
+
+Close RimWorld first. The command installs both example mods, launches the game with `-quicktest`, reads the
+new part of `Player.log`, and fails on a `[selftest] FAIL` line or a summary with a non-zero failed count. On
+success it prints the `N passed, M failed, K skipped` summary and leaves the game running.
 
 The individual tools also run standalone:
 

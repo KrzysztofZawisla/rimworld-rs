@@ -106,37 +106,33 @@ internal static partial class Program
     }
 
     /// <summary>
-    /// Verifies the Rust subsystem wrappers (crates/rimworld-rs/src/subsystems.rs) against the game
-    /// assembly. Every wrapper declares the game's own type it wraps, the type it hangs off and the member
-    /// of that type, and every member it names — this walks those declarations and checks each name against
-    /// the real metadata, so a member the SDK would reach for by a wrong name fails `cargo xtask test`
-    /// instead of a running game.
+    /// Verifies the Rust subsystem wrappers (`crates/rimworld-rs/src/subsystems/` and
+    /// `crates/rimworld-rs/src/subsystems_extra/`) against the game assembly. Every wrapper declares the
+    /// game's own type it wraps, the type it hangs off and the member of that type, and every member it
+    /// names — this walks those declarations and checks each name against the real metadata, so a member
+    /// the SDK would reach for by a wrong name fails `cargo xtask test` instead of a running game.
     /// </summary>
     private static int CheckSubsystems(MetadataReader reader, string repo)
     {
-        // Both wrapper modules: the hand-written one, which is a directory of theme files since the layout rule
-        // split it, and the generated one, which declares its wrappers with the same shape (`subsystem!` and
-        // `wrapper!`).
+        // Both wrapper modules: the hand-written one, a directory with one file per subsystem family, and the
+        // generated one, which declares its wrappers with the same shape (`subsystem!` and `wrapper!`).
         string handWritten = Path.Combine(repo, "crates", "rimworld-rs", "src", "subsystems");
-        string generated = Path.Combine(repo, "crates", "rimworld-rs", "src", "subsystems_extra.rs");
-        if (!Directory.Exists(handWritten) && !File.Exists(generated))
+        string generated = Path.Combine(repo, "crates", "rimworld-rs", "src", "subsystems_extra");
+        if (!Directory.Exists(handWritten) || !Directory.Exists(generated))
         {
-            Console.Error.WriteLine($"no {handWritten} and no {generated}: the subsystem wrappers cannot be checked");
+            Console.Error.WriteLine($"missing {handWritten} or {generated}: the subsystem wrappers cannot be checked");
             return 1;
         }
 
         string text = string.Empty;
-        if (Directory.Exists(handWritten))
+        foreach (string file in Directory.GetFiles(handWritten, "*.rs", SearchOption.AllDirectories))
         {
-            foreach (string file in Directory.GetFiles(handWritten, "*.rs", SearchOption.AllDirectories))
-            {
-                text += File.ReadAllText(file);
-            }
+            text += File.ReadAllText(file);
         }
 
-        if (File.Exists(generated))
+        foreach (string file in Directory.GetFiles(generated, "*.rs", SearchOption.AllDirectories))
         {
-            text += File.ReadAllText(generated);
+            text += File.ReadAllText(file);
         }
 
         var provider = new TypeNameProvider(reader);

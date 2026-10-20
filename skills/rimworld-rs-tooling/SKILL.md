@@ -48,6 +48,8 @@ struct travels by value across the Rust/C# ABI.
 | `run -- <args>` | Start the game (dev loop), e.g. `cargo xtask run -- -quicktest` |
 | `targets <Type> [--members <M>]` / `types <prefix>` / `coverage <Type>` | Reverse-engineering help: patch targets with ready-to-paste lines, type search, what has a typed wrapper |
 | `test` / `fmt [--fix]` / `lint` / `layout --check` | The gates (below) |
+| `smoke` | Install both example mods, run `-quicktest`, fail on `[selftest] FAIL` (leaves the game running) |
+| `gen-subsystems [--check]` | Regenerate or verify the tracked wrappers in `crates/rimworld-rs/src/subsystems_extra/` |
 
 `build`, `install` and `package` accept the mod's **package name or folder name** — `cargo xtask install
 api-test-mod`, not the `mod-name` from the manifest (`find_mod` matches `package`/directory, never
@@ -64,6 +66,7 @@ api-test-mod`, not the `mod-name` from the manifest (`find_mod` matches `package
   from there without the game.
 - The in-game self-test loop: `cargo xtask install api-test-mod` → enable **Rust API Self-Test** in the mod list
   → start a colony → watch `[selftest] PASS/FAIL/SKIP` lines and the summary `N passed, M failed, K skipped`.
+  `cargo xtask smoke` does that loop with both example mods and fails the command on a `FAIL` line.
 - `ModsConfig.xml` lists mods by **packageId** (`rimworld.rs.apitest` for the self-test), never by folder name;
   the file lives in `%USERPROFILE%\AppData\LocalLow\Ludeon Studios\RimWorld by Ludeon Studios\Config\`.
 - On this game build the log is `…\RimWorld by Ludeon Studios\Logs\Player.log` (the `Logs` subfolder), and the
@@ -73,12 +76,16 @@ api-test-mod`, not the `mod-name` from the manifest (`find_mod` matches `package
 
 `cargo xtask test` runs, in order: `cargo fmt --all -- --check`, `clippy --workspace --all-targets -- -D
 warnings`, `cargo doc` (broken doc links are a defect), `cargo xtask layout --check` (≤500 lines and ≤40 items
-for hand-written Rust, ≤300 lines for roots, ≤500 lines for generated files; C# is measured by lines),
+for hand-written Rust, ≤300 lines for roots, ≤500 lines for generated files; C# is measured by lines; the
+module tree must agree with every `mod.rs`), `gen-subsystems --check` (the tracked wrappers match the
+generator), the generated-def limits (≤500 lines and ≤396 constants per file), a Markdown link/path check,
 `dotnet format
 --verify-no-changes` for the bridge where the reference assemblies are, the Rust tests, the abi-smoke
 self-test, `--op-parity`, the patch-file check, the per-mod component check, and — with a game or `game-refs/` —
 `--contract`, `--defs`, `--patches`. The optional gates (`typos`, `cargo-machete`, `cargo-nextest`) print a SKIP
-when the tool is missing; a stage that cannot run says so instead of passing silently.
+when the tool is missing; a stage that cannot run says so instead of passing silently. `cargo xtask smoke` is
+the in-game counterpart: it installs both example mods, launches `-quicktest`, and fails on `[selftest] FAIL`
+or a non-zero failed count in the summary.
 
 `tools/abi-smoke` modes worth knowing:
 

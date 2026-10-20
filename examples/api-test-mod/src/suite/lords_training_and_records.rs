@@ -1,5 +1,3 @@
-//! Theme: lords_training_and_records. Split from `suite/run.rs`.
-
 use crate::*;
 
 impl ApiTest {

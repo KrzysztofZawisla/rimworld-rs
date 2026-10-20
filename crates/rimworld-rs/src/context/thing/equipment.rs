@@ -1,5 +1,3 @@
-//! Theme: equipment. Split from `context/thing.rs`.
-
 use super::*;
 
 impl Context {

@@ -1,5 +1,3 @@
-//! Theme: query. Split from `context/map.rs`.
-
 use super::*;
 
 impl Context {

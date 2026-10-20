@@ -1,18 +1,14 @@
-//! Theme: measure. Split from `layout.rs`.
-#![allow(unused_imports, unused_macros)] // the imports and the macros are the module's shared vocabulary, used across the theme files
+#![allow(unused_macros)] // the imports and the macros are the module's shared vocabulary, used across the theme files
 
 use std::{
-    collections::BTreeMap,
     fs,
     path::{Path, PathBuf},
 };
 
-use proc_macro2::Span;
-use syn::{spanned::Spanned, File as RustFile, ImplItem, Item};
+use syn::Item;
 use walkdir::WalkDir;
 
-use super::*;
-use crate::{missing, repo_root, Result};
+use crate::{missing, Result};
 
 /// The number of lines a hand-written file may reach before the rule asks for a thematic split.
 pub(crate) const MAX_LINES: usize = 500;

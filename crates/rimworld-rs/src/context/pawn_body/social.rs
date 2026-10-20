@@ -1,5 +1,3 @@
-//! Theme: social. Split from `context/pawn_body.rs`.
-
 use super::*;
 
 impl Context {

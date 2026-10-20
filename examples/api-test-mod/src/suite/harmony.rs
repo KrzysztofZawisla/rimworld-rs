@@ -1,5 +1,3 @@
-//! Theme: harmony. Split from `suite/run.rs`.
-
 use crate::*;
 
 impl ApiTest {

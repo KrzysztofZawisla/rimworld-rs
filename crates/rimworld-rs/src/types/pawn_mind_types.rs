@@ -1,11 +1,8 @@
-//! Theme: pawn_mind_types. Split from `types.rs`.
-#![allow(unused_imports, unused_macros)] // the imports and the macros are the module's shared vocabulary, used across the theme files
+#![allow(unused_macros)] // the imports and the macros are the module's shared vocabulary, used across the theme files
 
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Map, Value};
+use serde::Deserialize;
 
 use super::*;
-use crate::{host, Result};
 
 /// A pawn's abilities after the game changed them.
 #[derive(Debug, Clone, Default, Deserialize)]

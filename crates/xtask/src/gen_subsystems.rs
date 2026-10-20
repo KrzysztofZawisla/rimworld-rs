@@ -1,14 +1,3 @@
-//! Theme: gen_subsystems. Split from `main.rs`.
-#![allow(unused_imports)]
-
-use std::{
-    env, fs,
-    path::{Component, Path, PathBuf},
-    process::Command,
-};
-
-use heck::{ToSnakeCase, ToTitleCase};
-
 use crate::*;
 
 mod harness;
@@ -21,7 +10,10 @@ pub(crate) use render::*;
 /// installed game. The names come from `tools/abi-smoke --members-json`, which reads the assembly once per
 /// pass and answers with every member's name, kind, argument count, declaring type and visibility — so this
 /// generator never parses a layout meant for a human, and no member name is ever guessed.
-pub(crate) fn gen_subsystems() -> Result<()> {
+///
+/// With `check`, it renders the same files in memory and compares them with the recorded directory instead
+/// of writing: `cargo xtask test` uses that so a stale generated module fails the gate.
+pub(crate) fn gen_subsystems(check: bool) -> Result<()> {
     // A broken intra-doc link or a missing doc comment is a defect in an SDK, so rustdoc runs as a gate too.
     // The gate is the defect, not the style: a broken intra-doc link is wrong, while a missing doc comment
     // is a to-do (it stays a warning, and `cargo doc` lists what is left).
@@ -79,7 +71,26 @@ pub(crate) fn gen_subsystems() -> Result<()> {
         }
     }
 
-    write_subsystems(&rows)
+    write_subsystems(&rows, check)
+}
+
+/// The `cargo xtask test` gate for the generated wrappers: a machine without the game says why it skips,
+/// and a machine with the game fails when the recorded directory no longer matches the generator.
+pub(crate) fn check_generated_subsystems() -> Result<()> {
+    match reference_source() {
+        Ok(references) if references.join("Assembly-CSharp.dll").exists() => {
+            println!("==> checking generated subsystem wrappers");
+            gen_subsystems(true)
+        }
+        Ok(references) => {
+            println!("SKIP: generated subsystem wrappers: no Assembly-CSharp.dll in {}", references.display());
+            Ok(())
+        }
+        Err(error) => {
+            println!("SKIP: generated subsystem wrappers: {error}");
+            Ok(())
+        }
+    }
 }
 
 /// The game's types the generator wraps: an object a handle points at hangs off no single member.

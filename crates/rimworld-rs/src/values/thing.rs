@@ -1,12 +1,18 @@
-//! Theme: a live `Verse.Thing` and the operations that act on one.
+//! A live `Verse.Thing` and the operations that act on one.
 use serde_json::Value;
 
 use super::{as_i64, handle_of, IntVec3Ref};
 use crate::{types::ObjRef, Context, Result};
 /// A live `Verse.Thing`.
 pub struct Thing<'a> {
-    pub(super) ctx: &'a Context,
-    pub(super) handle: ObjRef,
+    ctx: &'a Context,
+    handle: ObjRef,
+}
+
+impl std::fmt::Debug for Thing<'_> {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "Thing({:?})", self.handle)
+    }
 }
 
 impl<'a> Thing<'a> {
@@ -57,7 +63,7 @@ impl<'a> Thing<'a> {
 
     /// Moves the thing to a cell built with [`Context::vec3`].
     pub fn set_position(&self, cell: &IntVec3Ref<'_>) -> Result<()> {
-        self.handle.set("Position", cell.handle.to_value())
+        self.handle.set("Position", cell.handle().to_value())
     }
 
     /// Removes the thing from the game.

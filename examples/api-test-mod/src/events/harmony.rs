@@ -1,5 +1,3 @@
-//! Theme: harmony handlers. Split from `events/mod.rs`.
-
 use crate::*;
 
 impl ApiTest {

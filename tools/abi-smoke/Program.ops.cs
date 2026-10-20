@@ -57,8 +57,8 @@ internal static partial class Program
         }
 
         var bridge = new SortedSet<string>(StringComparer.Ordinal);
-        // The router is one file of a family since the layout rule split it: every `HostOps*.cs` counts, or the
-        // check would see no bridge operation at all and report the whole SDK as missing.
+        // The router is one file of a family: every `HostOps*.cs` counts, or the check would see no bridge
+        // operation at all and report the whole SDK as missing.
         string bridgeSource = Path.Combine(repo, "bridge", "src");
         string hostOps = string.Empty;
         foreach (string file in Directory.Exists(bridgeSource)
@@ -211,8 +211,7 @@ internal static partial class Program
 
         // Every operation needs a case of its own in the mock host: either a real answer or a refusal with a
         // reason. Without one the mock answers "success with null" and an offline check passes without proof.
-        // the mock host is a family of files since the layout rule split this one: reading a single path made
-        // every operation look unmocked
+        // The mock host is a family of files, so every `Program*.cs` in this directory is read.
         var withoutMock = new List<string>();
         string mockText = string.Empty;
         string mockDirectory = Path.Combine(repo, "tools", "abi-smoke");

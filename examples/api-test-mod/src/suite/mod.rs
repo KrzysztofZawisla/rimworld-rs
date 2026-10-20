@@ -1,16 +1,19 @@
-//! Theme: the self-test suite. Split from `lib.rs`.
+//! The self-test suite.
 
+mod caravan;
 mod cells;
 mod combat;
 mod comp;
 mod construction_planet_and_diagnostics;
 mod designations;
 mod environment;
+mod environment_power;
 mod events;
 mod finish;
 mod handle_members_and_health;
 mod handles;
 mod harmony;
+mod health_and_world_rules;
 mod health_items_and_policies;
 mod lords_training_and_records;
 mod pawn_look_and_camera;

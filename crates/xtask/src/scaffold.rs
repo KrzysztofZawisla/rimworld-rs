@@ -1,11 +1,4 @@
-//! Theme: scaffold. Split from `main.rs`.
-#![allow(unused_imports)]
-
-use std::{
-    env, fs,
-    path::{Component, Path, PathBuf},
-    process::Command,
-};
+use std::fs;
 
 use heck::{ToSnakeCase, ToTitleCase};
 

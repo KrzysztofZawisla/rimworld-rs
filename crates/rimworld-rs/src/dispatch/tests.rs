@@ -1,5 +1,3 @@
-//! Theme: dispatch tests. Split from `dispatch.rs`.
-
 use super::*;
 use crate::{
     abi::HostApi,

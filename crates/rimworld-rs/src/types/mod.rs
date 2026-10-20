@@ -1,4 +1,3 @@
-//! Themes of `types.rs`, the file this module was split out of.
 //! Values exchanged with the game: event payloads, defs, references and patch results.
 
 mod core;

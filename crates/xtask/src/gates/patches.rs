@@ -1,13 +1,7 @@
-//! Theme: gates/patches. Split from `main.rs`.
-#![allow(unused_imports)]
-
 use std::{
-    env, fs,
-    path::{Component, Path, PathBuf},
-    process::Command,
+    fs,
+    path::{Path, PathBuf},
 };
-
-use heck::{ToSnakeCase, ToTitleCase};
 
 use crate::*;
 

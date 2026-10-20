@@ -1,9 +1,7 @@
-//! Theme: core. Split from `subsystems.rs`.
-#![allow(unused_imports, unused_macros)] // the imports and the macros are the module's shared vocabulary, used across the theme files
+#![allow(unused_macros)] // the imports and the macros are the module's shared vocabulary, used across the theme files
 
 use serde_json::Value;
 
-use super::*;
 use crate::{context::Context, types::ObjRef, Result};
 
 pub(crate) fn number_of(value: &Value) -> f64 {

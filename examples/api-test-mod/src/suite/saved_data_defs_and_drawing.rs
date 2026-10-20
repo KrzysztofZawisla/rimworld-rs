@@ -1,5 +1,3 @@
-//! Theme: saved_data_defs_and_drawing. Split from `suite/run.rs`.
-
 use crate::*;
 
 impl ApiTest {

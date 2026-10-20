@@ -1,11 +1,6 @@
-//! Theme: map_terrain_types. Split from `types.rs`.
-#![allow(unused_imports, unused_macros)] // the imports and the macros are the module's shared vocabulary, used across the theme files
+#![allow(unused_macros)] // the imports and the macros are the module's shared vocabulary, used across the theme files
 
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Map, Value};
-
-use super::*;
-use crate::{host, Result};
+use serde::Deserialize;
 
 /// The temperature a room took from `Context::map_set_room_temperature`.
 #[derive(Debug, Clone, Default, Deserialize)]

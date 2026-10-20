@@ -1,13 +1,4 @@
-//! Theme: gen_defs. Split from `main.rs`.
-#![allow(unused_imports)]
-
-use std::{
-    env, fs,
-    path::{Component, Path, PathBuf},
-    process::Command,
-};
-
-use heck::{ToSnakeCase, ToTitleCase};
+use std::{fs, path::Path, process::Command};
 
 use crate::*;
 
@@ -129,9 +120,95 @@ pub(crate) fn ensure_all_generated_defs(refresh: bool) -> Result<Vec<String>> {
     Ok(unavailable)
 }
 
+/// Checks the generated def files: every file is within the layout line limit, and every class file
+/// holds at most the generator's part size.
+pub(crate) fn check_generated_defs() -> Result<()> {
+    for info in discover_mods()? {
+        if !uses_generated_defs(&info) {
+            continue;
+        }
+
+        let directory = info.dir.join("src").join(GENERATED_DEFS);
+        if !directory.is_dir() {
+            continue;
+        }
+
+        let root = fs::read_to_string(directory.join("mod.rs")).unwrap_or_default();
+        if root.contains("compile_error!") {
+            continue;
+        }
+
+        check_defs_directory(&directory)?;
+        println!("generated defs for {} are within the generator limits", info.mod_name);
+    }
+    Ok(())
+}
+
+fn check_defs_directory(directory: &Path) -> Result<()> {
+    const MAX_LINES: usize = 500;
+    const MAX_CONSTANTS: usize = 396;
+
+    for entry in walkdir::WalkDir::new(directory) {
+        let entry = entry.map_err(|error| missing(format!("reading {}: {error}", directory.display())))?;
+        if !entry.file_type().is_file()
+            || entry.path().extension().and_then(|extension| extension.to_str()) != Some("rs")
+        {
+            continue;
+        }
+
+        let text = fs::read_to_string(entry.path())?;
+        let lines = text.lines().count();
+        let constants = text.lines().filter(|line| line.starts_with("pub const ")).count();
+        if lines > MAX_LINES {
+            return Err(missing(format!(
+                "{} has {lines} lines, over the {MAX_LINES}-line limit",
+                entry.path().display()
+            )));
+        }
+        if constants > MAX_CONSTANTS {
+            return Err(missing(format!(
+                "{} has {constants} constants, over the {MAX_CONSTANTS} part size",
+                entry.path().display()
+            )));
+        }
+    }
+
+    Ok(())
+}
+
 /// The `--exclude` arguments that keep the packages of `unavailable` out of a workspace-wide cargo command.
 pub(crate) fn excluding(packages: &[String]) -> Vec<String> {
     packages.iter().flat_map(|package| ["--exclude".to_string(), package.clone()]).collect()
 }
 
 // ---------------------------------------------------------------- packaging
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn constants(count: usize) -> String {
+        (0..count).map(|index| format!("pub const C{index}: &str = \"x\";\n")).collect()
+    }
+
+    #[test]
+    fn accepts_a_part_at_the_limit() {
+        let directory = tempfile::tempdir().expect("temp dir");
+        fs::write(directory.path().join("part.rs"), constants(396)).expect("write");
+        assert!(check_defs_directory(directory.path()).is_ok());
+    }
+
+    #[test]
+    fn rejects_a_part_over_the_limit() {
+        let directory = tempfile::tempdir().expect("temp dir");
+        fs::write(directory.path().join("part.rs"), constants(397)).expect("write");
+        assert!(check_defs_directory(directory.path()).is_err());
+    }
+
+    #[test]
+    fn rejects_a_file_over_the_line_limit() {
+        let directory = tempfile::tempdir().expect("temp dir");
+        fs::write(directory.path().join("part.rs"), "// line\n".repeat(501)).expect("write");
+        assert!(check_defs_directory(directory.path()).is_err());
+    }
+}

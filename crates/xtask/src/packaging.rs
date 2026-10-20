@@ -1,13 +1,4 @@
-//! Theme: packaging. Split from `main.rs`.
-#![allow(unused_imports)]
-
-use std::{
-    env, fs,
-    path::{Component, Path, PathBuf},
-    process::Command,
-};
-
-use heck::{ToSnakeCase, ToTitleCase};
+use std::{fs, path::Path};
 
 use crate::*;
 

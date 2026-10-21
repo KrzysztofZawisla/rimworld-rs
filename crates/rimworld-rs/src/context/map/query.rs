@@ -60,6 +60,15 @@ impl Context {
 }
 
 impl Context {
+    /// How much of a zone is occupied by item stacks: its cells, occupied cells, item stacks, total
+    /// items and `fill` (occupied cells / cells). The game has no capacity value, so `fill` is an
+    /// occupancy measure rather than a percentage of a theoretical maximum.
+    pub fn zone_occupancy(&self, zone: &ObjRef) -> Result<ZoneOccupancy> {
+        read(host::call("zone_occupancy", json!({ "ref": zone.id }))?)
+    }
+}
+
+impl Context {
     /// A storage's settings: a stockpile zone, a shelf, a hopper. `storage` may be a zone handle
     /// (`map_zones`) or a thing handle.
     pub fn storage_settings(&self, storage: &ObjRef) -> Result<StorageSettingsInfo> {

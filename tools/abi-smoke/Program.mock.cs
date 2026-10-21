@@ -53,6 +53,7 @@ internal static partial class Program
             "thing_designate" => "{\"ok\":true,\"result\":{\"changed\":true,\"defName\":\"Haul\",\"label\":\"steel\"}}",
             "thing_undesignate" => "{\"ok\":true,\"result\":{\"changed\":false,\"reason\":\"nothing was designated on that thing\",\"defName\":\"Haul\",\"label\":\"steel\"}}",
             "map_zones" => MockZones(),
+            "zone_occupancy" => "{\"ok\":true,\"result\":{\"label\":\"Stockpile\",\"cells\":4,\"occupiedCells\":3,\"stacks\":5,\"items\":120,\"fill\":0.75}}",
             "storage_settings" => $"{{\"ok\":true,\"result\":{{\"label\":\"Shelf\",\"priority\":\"{MockStoragePriority}\",\"allowedDefCount\":3,\"allowedDefs\":[\"Steel\",\"Silver\"]}}}}",
             "storage_set_priority" => HandleStoragePriority(request),
             "storage_allow" => HandleStorageAllow(request),

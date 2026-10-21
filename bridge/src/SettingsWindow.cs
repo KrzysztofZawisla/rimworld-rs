@@ -13,7 +13,7 @@ public sealed class SettingField
 
     public string Label;
 
-    /// <summary>One of <c>bool</c>, <c>int</c>, <c>float</c>, <c>string</c>.</summary>
+    /// <summary>One of <c>bool</c>, <c>int</c>, <c>float</c>, <c>string</c>, <c>token</c>.</summary>
     public string Kind;
 
     public string Default;
@@ -100,6 +100,40 @@ internal static class SettingsWindow
                             Changed(mod, field, slider.ToString("0.###", CultureInfo.InvariantCulture));
                         }
 
+                        break;
+                    }
+                case "token":
+                    {
+                        listing.Label(field.Label);
+                        Rect row = listing.GetRect(Text.LineHeight + 6f);
+                        Rect valueRect = new Rect(
+                            row.x,
+                            row.y,
+                            Mathf.Max(80f, row.width - 190f),
+                            row.height);
+                        Widgets.DrawMenuSection(valueRect);
+                        Widgets.Label(valueRect.ContractedBy(4f), current);
+
+                        Rect copyRect = new Rect(valueRect.xMax + 4f, row.y, 80f, row.height);
+                        if (Widgets.ButtonText(copyRect, "Copy"))
+                        {
+                            GUIUtility.systemCopyBuffer = current;
+                        }
+
+                        Rect rotateRect = new Rect(copyRect.xMax + 4f, row.y, 90f, row.height);
+                        if (Widgets.ButtonText(rotateRect, "Rotate"))
+                        {
+                            RustHost.Current?.DispatchVoid(
+                                "ui_action",
+                                new Dictionary<string, object>
+                                {
+                                    ["handler"] = "settings_action",
+                                    ["id"] = field.Key,
+                                    ["value"] = "rotate",
+                                });
+                        }
+
+                        listing.Gap(6f);
                         break;
                     }
                 default:

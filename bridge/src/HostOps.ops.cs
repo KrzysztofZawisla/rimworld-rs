@@ -660,6 +660,8 @@ internal static partial class HostOps
                 return DesignationOps.UndesignateThing(request);
             case "map_zones":
                 return DesignationOps.Zones(request);
+            case "zone_occupancy":
+                return DesignationOps.ZoneOccupancy(request);
             case "storage_settings":
                 return DesignationOps.Storage(request);
             case "storage_set_priority":

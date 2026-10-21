@@ -61,6 +61,30 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn zone_occupancy_parses_a_bridge_payload() {
+        let value = json!({
+            "label": "Stockpile",
+            "cells": 40,
+            "occupiedCells": 31,
+            "stacks": 54,
+            "items": 1240,
+            "fill": 0.775
+        });
+
+        let occupancy: ZoneOccupancy = serde_json::from_value(value).expect("occupancy");
+        assert_eq!(occupancy.label.as_deref(), Some("Stockpile"));
+        assert_eq!(occupancy.cells, 40);
+        assert_eq!(occupancy.occupied_cells, 31);
+        assert_eq!(occupancy.stacks, 54);
+        assert_eq!(occupancy.items, 1240);
+        assert!((occupancy.fill - 0.775).abs() < f32::EPSILON);
+
+        let empty: ZoneOccupancy = serde_json::from_value(json!({})).expect("defaulted occupancy");
+        assert_eq!(empty.cells, 0);
+        assert_eq!(empty.fill, 0.0);
+    }
+
+    #[test]
     fn object_references_are_recognized() {
         let handle = ObjRef::from_value(&json!({ "$ref": 12, "$type": "Verse.Map" })).expect("handle");
         assert_eq!(handle.id, 12);

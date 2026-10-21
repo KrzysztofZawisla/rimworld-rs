@@ -14,6 +14,15 @@
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <NoWarn>$(NoWarn);CS1701;CS1702;MSB3277;MSB3246;MSB3247</NoWarn>
 
+    <!-- Analyzer coverage at the SDK's recommended level; compiler warnings are errors, analyzer findings
+         follow their .editorconfig severities (the `dotnet format` gate looks at those). NuGet restores
+         exactly the committed packages.lock.json. -->
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <CodeAnalysisTreatWarningsAsErrors>false</CodeAnalysisTreatWarningsAsErrors>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RestoreLockedMode>true</RestoreLockedMode>
+
     <!-- The game runs on .NET 10 (a WaylithCLR fork) while a local SDK may be 9.x, so the bridge is
          compiled directly against the game's own assemblies. Those assemblies are never stored in
          this repository: either `cargo xtask setup` copied them into the gitignored game-refs/

@@ -35,7 +35,9 @@ Instructions for AI agents working in this repository.
    installation must never be committed, staged or published. The bridge compiles against the
    player's local installation, or against the gitignored `game-refs/` copy that `cargo xtask
    setup` creates; `bin/`, `obj/`, `build/`, `dist/`, `target/` and `game-refs/` are local-only and
-   `.gitignore` is what keeps them out.
+   `.gitignore` is what keeps them out. `cargo xtask build` removes a game assembly it copied into
+   `Assemblies/` and then refuses the assembled output if one remains anywhere, including a stray
+   file under `mod/`.
    A *finding* is not game content: a def name in `bridge/names.json` or a member name in a
    generated wrapper is a recorded name, and names, signatures and formats are the only thing of
    the game this repository carries - no file from an installation is ever copied in.
@@ -76,8 +78,9 @@ RimWorld mods in Rust:
 
 - `crates/rimworld-rs` — the Rust-facing SDK: `Mod` trait, events, host commands, FFI ABI.
 - `bridge/` — the C# bridge loaded by RimWorld as a normal mod assembly. It loads the native Rust
-  cdylib, forwards game lifecycle events into Rust and executes the commands Rust asks for
-  (logging, defs, spawning, letters, settings, Harmony patches, object reflection).
+  cdylib from `<mod>/Rust/` (exactly one regular file, path confined to the mod root, no
+  symlink/junction), forwards game lifecycle events into Rust and executes the commands Rust asks
+  for (logging, defs, spawning, letters, settings, Harmony patches, object reflection).
 - `crates/xtask` — build/install/scaffold tooling (`cargo xtask ...`).
 - `crates/rimworld-rs-testmod` — a cdylib fixture driven by `tools/abi-smoke`; not a real mod.
 - `examples/hello-rust-mod` — a complete, installable example mod.
@@ -235,7 +238,10 @@ clippy --workspace --all-targets -- -D warnings`, a documentation pass (`cargo d
 which lists unresolved intra-doc links and missing doc comments), `cargo xtask layout --check` (no hand-written
 file over 500 lines or 40 items, no root over 300 lines, no generated file over 500 lines), and
 `dotnet format --verify-no-changes` for the bridge where the game's reference
-assemblies are (a SKIP with the reason otherwise). That last one runs the project with `RimWorldAnalysisPass=1`,
+assemblies are (a SKIP with the reason otherwise). The bridge sets `AnalysisLevel=latest-recommended`,
+treats compiler warnings as errors (`CodeAnalysisTreatWarningsAsErrors=false` leaves analyzer findings
+at their configured severity) and restores NuGet from the committed `bridge/packages.lock.json` with
+`RestoreLockedMode=true`. That last one runs the project with `RimWorldAnalysisPass=1`,
 which is what hands the tool's analyzer stages a framework reference to build a compilation from: without it
 they load no references, print "Required references were not loaded ..." (localized) and still exit 0, so the
 gate would report a green C# that only its whitespace pass ever looked at. `cargo xtask lint` fails loudly when

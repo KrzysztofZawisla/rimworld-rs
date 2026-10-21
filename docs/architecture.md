@@ -14,7 +14,9 @@ RimWorld loads mods as managed assemblies:
 
 Rust therefore cannot be loaded directly by the game; a tiny managed assembly must exist to own the
 `Verse.Mod` entry point. That assembly is the bridge, and it is identical for every Rust mod: it
-loads `<mod>/Rust/<lib>.dll`, hands Rust a table of host callbacks and forwards events.
+loads exactly one regular `.dll` from `<mod>/Rust/` (the resolved path must stay inside the mod
+root; a symlinked file or folder is refused), hands Rust a table of host callbacks and forwards
+events.
 
 ## Components
 
@@ -47,9 +49,9 @@ loads `<mod>/Rust/<lib>.dll`, hands Rust a table of host callbacks and forwards 
 
 1. The game discovers the bridge assembly and instantiates `RustMod` with the mod's
    `ModContentPack`.
-2. `RustMod` locates the single `*.dll` in `<mod>/Rust/`, loads it with `NativeLibrary.Load`,
-   checks `rwrs_abi_version` and calls `rwrs_init` with a table containing one callback
-   (`host_call`).
+2. `RustMod` resolves the single `*.dll` in `<mod>/Rust/`, refusing a path outside the mod root or
+   a symlink/junction, loads it with `NativeLibrary.Load`, checks `rwrs_abi_version` and calls
+   `rwrs_init` with a table containing one callback (`host_call`).
 3. The bridge dispatches `mod_loaded`; Rust creates the module instance (lazily) and calls
    `Mod::on_init` on the first event ever.
 4. `[StaticConstructorOnStartup]` fires after all defs are loaded -> `defs_loaded`.
@@ -104,6 +106,7 @@ which the example mod logs as a warning.
   passes 16-byte structs by reference — a mismatch there corrupts memory silently.
 - **Handles are scoped.** A `{"$ref": n}` handle is only valid inside the dispatch that created
   it; the reference table is cleared when the dispatch ends.
-- **One native library per mod.** The bridge expects exactly one `.dll` in `Rust/`; that keeps the
+- **One native library per mod.** The bridge expects exactly one regular `.dll` in `Rust/`, with
+  the resolved path under the mod root; a symlinked file or folder is refused. That keeps the
   assembly name, the handler name and the log prefix unambiguous. The bridge assembly itself is
   built per mod (`RimWorldRustBridge.<ModName>`) so multiple Rust mods can coexist.

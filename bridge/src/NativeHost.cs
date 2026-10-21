@@ -87,21 +87,12 @@ internal sealed class RustHost
 
     private static RustHost Create(string modName, string rootDir)
     {
-        string rustDir = Path.Combine(rootDir, "Rust");
-        if (!Directory.Exists(rustDir))
+        string nativePath = ResolveNativeLibrary(modName, rootDir);
+        if (nativePath == null)
         {
-            Log.Error($"[Rust] {modName}: the mod has no 'Rust' folder ({rustDir})");
             return null;
         }
 
-        string[] files = Directory.GetFiles(rustDir, "*.dll");
-        if (files.Length != 1)
-        {
-            Log.Error($"[Rust] {modName}: expected exactly one native library in {rustDir}, found {files.Length}");
-            return null;
-        }
-
-        string nativePath = files[0];
         IntPtr library = NativeLibrary.Load(nativePath);
 
         TypeHooks.Install();
@@ -171,6 +162,63 @@ internal sealed class RustHost
                 NativeLibrary.Free(library);
             }
         }
+    }
+
+    /// <summary>
+    /// Resolves the one native library of this mod and refuses anything that is not a regular file inside
+    /// the mod's own `Rust/` folder: a `..` or an absolute path, a symlink/junction, or a second DLL. A
+    /// library outside `<mod>/Rust` would let a path mistake load a file from somewhere else on the
+    /// machine; the game already trusts a mod's code, so this is about keeping the load where the mod
+    /// says it is, not a sandbox.
+    /// </summary>
+    private static string ResolveNativeLibrary(string modName, string rootDir)
+    {
+        string root = Path.GetFullPath(rootDir);
+        string rootPrefix = root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+        string rustDir = Path.GetFullPath(Path.Combine(root, "Rust"));
+        string rustPrefix = rustDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+
+        if (!rustDir.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            Log.Error($"[Rust] {modName}: the Rust folder {rustDir} is outside the mod root {root}");
+            return null;
+        }
+
+        if (!Directory.Exists(rustDir))
+        {
+            Log.Error($"[Rust] {modName}: the mod has no 'Rust' folder ({rustDir})");
+            return null;
+        }
+
+        if ((File.GetAttributes(rustDir) & FileAttributes.ReparsePoint) != 0)
+        {
+            Log.Error($"[Rust] {modName}: the Rust folder is a symlink or junction ({rustDir}); refusing to load it");
+            return null;
+        }
+
+        string[] files = Directory.GetFiles(rustDir, "*.dll");
+        if (files.Length != 1)
+        {
+            Log.Error($"[Rust] {modName}: expected exactly one native library in {rustDir}, found {files.Length}");
+            return null;
+        }
+
+        string nativePath = Path.GetFullPath(files[0]);
+        if (!nativePath.StartsWith(rustPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            Log.Error($"[Rust] {modName}: the native library {nativePath} is outside {rustDir}; refusing to load it");
+            return null;
+        }
+
+        if ((File.GetAttributes(nativePath) & FileAttributes.ReparsePoint) != 0)
+        {
+            Log.Error($"[Rust] {modName}: the native library is a symlink or junction ({nativePath}); refusing to load it");
+            return null;
+        }
+
+        return nativePath;
     }
 
     public bool ShouldDispatchTick()

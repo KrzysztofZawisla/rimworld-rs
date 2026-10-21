@@ -8,7 +8,7 @@ as a normal mod assembly, and the tooling to build and install Rust mods:
 | Path | What it is |
 | --- | --- |
 | `crates/rimworld-rs` | The Rust SDK: `Mod` trait, events, host commands, C ABI. |
-| `bridge/` | The C# bridge (`RimWorldRustBridge.<Mod>.dll`): loads the Rust library, forwards game events into Rust and executes the commands Rust asks for. |
+| `bridge/` | The C# bridge (`RimWorldRustBridge.<Mod>.dll`): loads the mod's `Rust/<lib>.dll` (one regular file, confined to the mod root), forwards game events into Rust and executes the commands Rust asks for. |
 | `crates/xtask` | `cargo xtask build/install/package/new/doctor/run` tooling; mod source lives in its own project, passed with `--path`. |
 | `examples/hello-rust-mod` | A complete mod using every part of the SDK. |
 | `tools/abi-smoke` | A C# harness that drives the ABI with a mock host, no game required. |
@@ -23,7 +23,8 @@ automatically.
 
 - RimWorld 1.7 installed (this repository was built against `1.7.4982 rev1280`; the tooling looks
   for the usual Steam paths and `RIMWORLD_DIR` names the folder when the game is elsewhere).
-- Rust nightly and .NET SDK 9+ (the bridge compiles against the game's own .NET 10 assemblies).
+- Rust nightly and .NET SDK 9+ (the bridge compiles against the game's own .NET 10 assemblies and
+  restores NuGet from `bridge/packages.lock.json` in locked mode).
 - The Harmony mod (`brrainz.harmony`) to use the `harmony_patch` API. Everything else works
   without it.
 
@@ -188,6 +189,10 @@ RimWorld (WaylithCLR, .NET 10)
   └── <mod>/Rust/<lib>.dll                               (Rust, your mod)
 ```
 
+The bridge loads exactly one regular `.dll` from `<mod>/Rust/`: the resolved path must stay inside
+the mod root, and a symlinked file or `Rust` folder is refused. Anything else is a load error in the
+game log, never a library from somewhere else on the machine.
+
 All events and commands are small UTF-8 JSON messages; complex managed objects are passed as
 **handles** (`{"$ref": n, "$type": "..."}`) that stay valid for the duration of one dispatch.
 Panics in Rust are caught at the ABI boundary, reported into the game log and turned into an
@@ -220,13 +225,19 @@ The build needs a few assemblies from *your own* RimWorld installation:
 
 `game-refs/` and the build output are local-only: `game-refs/`, `bin/`, `obj/` and `build/` are
 gitignored and must never be committed or redistributed. As a safety net, `cargo xtask build`
-removes any game assembly that a build might accidentally copy into a mod folder.
+removes any game assembly a build might accidentally copy into `Assemblies/`, then refuses the
+assembled output if a game assembly remains anywhere - including a stray file under `mod/` - so a
+package cannot ship one.
 
 ## Testing without the game
 
 ```powershell
 cargo xtask test        # runs everything below, in one go
 ```
+
+The bridge is built with `AnalysisLevel=latest-recommended` and compiler warnings as errors, restores
+NuGet from the committed `bridge/packages.lock.json` in locked mode, and is checked with
+`dotnet format --verify-no-changes` where the game's reference assemblies are installed.
 
 Before the numbered stages it checks that `crates/rimworld-rs/src/subsystems_extra/` still matches the
 generator (`gen-subsystems --check`), that the generated def files stay within the 500-line / 396-constant

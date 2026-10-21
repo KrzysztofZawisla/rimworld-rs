@@ -150,6 +150,74 @@ internal static class DesignationOps
         return list;
     }
 
+    /// <summary>
+    /// How much of a zone is occupied by item stacks. The game has no native "fill" for a stockpile:
+    /// a zone is a set of cells and its capacity depends on stack limits, item sizes and the storage
+    /// filter. This reports the facts that can be measured — zone cells, occupied cells, item stacks
+    /// and the total item count — plus `fill` as occupied cells / zone cells.
+    /// </summary>
+    public static object ZoneOccupancy(JsonElement request)
+    {
+        Zone zone = ResolveZone(request);
+        Map map = zone.zoneManager?.map;
+        if (map == null)
+        {
+            throw new BridgeException($"the zone '{zone.label}' has no map");
+        }
+
+        int cells = 0;
+        int occupiedCells = 0;
+        int stacks = 0;
+        int items = 0;
+        foreach (IntVec3 cell in zone.Cells)
+        {
+            if (map.zoneManager.ZoneAt(cell) != zone)
+            {
+                continue;
+            }
+
+            cells++;
+            List<Thing> things = map.thingGrid?.ThingsListAt(cell);
+            if (things == null)
+            {
+                continue;
+            }
+
+            bool holdsItems = false;
+            foreach (Thing thing in things)
+            {
+                if (thing == null || thing.Destroyed || thing.def == null)
+                {
+                    continue;
+                }
+
+                if (thing.def.category != ThingCategory.Item)
+                {
+                    continue;
+                }
+
+                holdsItems = true;
+                stacks++;
+                items += thing.stackCount;
+            }
+
+            if (holdsItems)
+            {
+                occupiedCells++;
+            }
+        }
+
+        return new Dictionary<string, object>
+        {
+            ["label"] = zone.label,
+            ["cells"] = cells,
+            ["occupiedCells"] = occupiedCells,
+            ["stacks"] = stacks,
+            ["items"] = items,
+            ["fill"] = cells > 0 ? (float)occupiedCells / cells : 0f,
+        };
+    }
+
     public static object Storage(JsonElement request)
     {
         StorageSettings settings = ResolveSettings(request, out string label);

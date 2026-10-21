@@ -369,6 +369,7 @@ this reason when something asks for it:
 | `map_zone_add_cell` | `ref` (a zone), `mapId`, `x`, `z` | the zone's entry after the call (a cell of another zone is refused) |
 | `map_zone_remove_cell` | `ref`, `x`, `z` | the zone's entry plus `hadCell` |
 | `map_zone_delete` | `ref` | the zone's entry plus `deleted` |
+| `zone_occupancy` | `ref` (a zone) | `{label?, cells, occupiedCells, stacks, items, fill}` — item stacks on the zone's own cells; `fill` is occupied cells / cells (the game has no capacity value) |
 | `storage_settings` | `ref` (a stockpile zone or a storage thing) | `{label, priority, allowedDefCount, allowedDefs}` (up to 64 defs) |
 | `storage_set_priority` | `ref`, `priority` (`Unstored`/`Low`/`Normal`/`Preferred`/`Important`/`Critical`) | `{label, before, after}` |
 | `storage_allow` | `ref`, `defName`, `allow` | `{label, defName, before, after, allowedDefCount}` |

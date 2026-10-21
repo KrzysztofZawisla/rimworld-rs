@@ -275,6 +275,7 @@ pub enum SettingKind {
     Int,
     Float,
     String,
+    Token,
 }
 
 /// One field of the mod options window. Values are stored as strings in the mod's config file.
@@ -335,6 +336,19 @@ impl SettingSpec {
             key: key.to_string(),
             label: label.to_string(),
             kind: SettingKind::String,
+            default: default.to_string(),
+            min: None,
+            max: None,
+        }
+    }
+}
+
+impl SettingSpec {
+    pub fn token(key: &str, label: &str, default: &str) -> SettingSpec {
+        SettingSpec {
+            key: key.to_string(),
+            label: label.to_string(),
+            kind: SettingKind::Token,
             default: default.to_string(),
             min: None,
             max: None,

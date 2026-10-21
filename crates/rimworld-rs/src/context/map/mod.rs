@@ -8,7 +8,7 @@ use crate::{
         FilthMade, FireInfo, FireStart, FogState, GasSnapshot, HeatPush, LordChange, LordInfo, ObjRef, PocketMap,
         PollutionSet, PowerSnapshot, RadiusQuery, RoofState, RoomInfo, RoomTemperature, SnowSet, StorageAllowChange,
         StoragePriority, StoragePriorityChange, StorageSettingsInfo, TerrainSet, ThingInRadius, TimeSnapshot,
-        WealthInfo, WeatherSnapshot, ZoneInfo, ZonePlant,
+        WealthInfo, WeatherSnapshot, ZoneInfo, ZoneOccupancy, ZonePlant,
     },
     values::Thing,
     Result,

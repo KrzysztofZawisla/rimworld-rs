@@ -731,6 +731,15 @@ thing.undesignate(map_id, "Haul")?;
 // The map's zones: a stockpile, a growing zone, a fishing zone.
 for zone in ctx.map_zones(map_id)? {
     ctx.log(format!("{}: {} cells", zone.type_name.unwrap_or_default(), zone.cells));
+    if let Some(handle) = &zone.handle {
+        let occupancy = ctx.zone_occupancy(handle)?;     // {label?, cells, occupied_cells, stacks, items, fill}
+        ctx.log(format!(
+            "occupied {:.0}% with {} stacks / {} items",
+            occupancy.fill * 100.0,
+            occupancy.stacks,
+            occupancy.items
+        ));
+    }
 }
 
 // A stockpile of your own: one cell to start, then grow it.

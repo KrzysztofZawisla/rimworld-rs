@@ -119,12 +119,14 @@ impl ApiTest {
         // A storage the check can rely on: a zone of the map's own that *has* storage settings (a growing
         // zone has none), or — when there is no such zone — a stockpile this check makes and deletes again.
         let mut created_zone = None;
+        let mut zone_for_occupancy = None;
         let mut handle = None;
         for zone in &zones {
             let Some(zone_handle) = zone.handle.clone() else {
                 continue;
             };
             if ctx.storage_settings(&zone_handle).is_ok() {
+                zone_for_occupancy = Some(zone_handle.clone());
                 handle = Some(zone_handle);
                 break;
             }
@@ -139,6 +141,7 @@ impl ApiTest {
                         .clone()
                         .ok_or_else(|| format!("the game made a stockpile without a handle: {zone:?}"))?;
                     created_zone = Some(zone_handle.clone());
+                    zone_for_occupancy = Some(zone_handle.clone());
                     handle = Some(zone_handle);
                 }
                 Err(error) => {
@@ -173,6 +176,41 @@ impl ApiTest {
         let allowed = ctx.storage_allow(&handle, thing_def::STEEL, true).map_err(|error| error.to_string())?;
         if !allowed.after {
             return Err(format!("steel is still not accepted: {allowed:?}"));
+        }
+
+        if let Some(zone) = &zone_for_occupancy {
+            let occupancy = ctx
+                .zone_occupancy(zone)
+                .map_err(|error| format!("zone_occupancy failed on a real zone: {error}"))?;
+            if occupancy.cells <= 0
+                || occupancy.occupied_cells < 0
+                || occupancy.occupied_cells > occupancy.cells
+                || occupancy.stacks < 0
+                || occupancy.items < 0
+            {
+                return Err(format!("zone_occupancy returned inconsistent numbers: {occupancy:?}"));
+            }
+            let expected = if occupancy.cells > 0 {
+                occupancy.occupied_cells as f32 / occupancy.cells as f32
+            } else {
+                0.0
+            };
+            if (occupancy.fill - expected).abs() > 0.001 {
+                return Err(format!(
+                    "zone_occupancy fill {} does not match {}/{} cells",
+                    occupancy.fill, occupancy.occupied_cells, occupancy.cells
+                ));
+            }
+            if occupancy.stacks > 0 && occupancy.items <= 0 {
+                return Err(format!("zone_occupancy has stacks but no items: {occupancy:?}"));
+            }
+            ctx.log(format!(
+                "[selftest] zone_occupancy: {:.0}% ({} occupied cells, {} stacks, {} items)",
+                occupancy.fill * 100.0,
+                occupancy.occupied_cells,
+                occupancy.stacks,
+                occupancy.items
+            ));
         }
 
         let _ = ctx.storage_set_priority(&handle, StoragePriority::Normal);

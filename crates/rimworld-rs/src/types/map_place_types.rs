@@ -170,6 +170,25 @@ pub struct ZoneInfo {
     pub deleted: bool,
 }
 
+/// How much of a zone is occupied by item stacks.
+///
+/// `fill` is occupied cells / cells. The game has no capacity value for a stockpile: capacity
+/// depends on stack limits, item sizes and the storage filter, so this reports the measurable facts
+/// instead of pretending there is one exact percentage.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct ZoneOccupancy {
+    pub label: Option<String>,
+    pub cells: i32,
+    pub occupied_cells: i32,
+    /// The number of item stacks on the zone's cells.
+    pub stacks: i32,
+    /// The summed `stackCount` of those stacks.
+    pub items: i32,
+    /// Occupied cells divided by the zone's cells, in 0.0..=1.0.
+    pub fill: f32,
+}
+
 /// A named area of a map.
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase", default)]

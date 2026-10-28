@@ -179,9 +179,8 @@ impl ApiTest {
         }
 
         if let Some(zone) = &zone_for_occupancy {
-            let occupancy = ctx
-                .zone_occupancy(zone)
-                .map_err(|error| format!("zone_occupancy failed on a real zone: {error}"))?;
+            let occupancy =
+                ctx.zone_occupancy(zone).map_err(|error| format!("zone_occupancy failed on a real zone: {error}"))?;
             if occupancy.cells <= 0
                 || occupancy.occupied_cells < 0
                 || occupancy.occupied_cells > occupancy.cells
@@ -190,11 +189,8 @@ impl ApiTest {
             {
                 return Err(format!("zone_occupancy returned inconsistent numbers: {occupancy:?}"));
             }
-            let expected = if occupancy.cells > 0 {
-                occupancy.occupied_cells as f32 / occupancy.cells as f32
-            } else {
-                0.0
-            };
+            let expected =
+                if occupancy.cells > 0 { occupancy.occupied_cells as f32 / occupancy.cells as f32 } else { 0.0 };
             if (occupancy.fill - expected).abs() > 0.001 {
                 return Err(format!(
                     "zone_occupancy fill {} does not match {}/{} cells",

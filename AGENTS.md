@@ -97,8 +97,19 @@ RimWorld mods in Rust:
 
 - Game root: the Steam installation of RimWorld. The tooling tries the usual Steam paths first and
   `RIMWORLD_DIR` names the folder when the game lives somewhere else.
-- Version: `1.7.4982 rev1280`, running on **WaylithCLR** (`.NET 10` fork) with the
-  RocketWerkz "Brutal" engine. No Unity runtime; `UnityStubs.dll` emulates Unity APIs.
+- Platform layouts the tooling handles: Windows keeps the assemblies at the game root next to `Data/`;
+  Linux keeps the defs in `<game>/Data` and the assemblies in `<game>/*_Data/Managed`; macOS is a
+  `RimWorld.app` bundle inside `<game>`, with the defs in `<game>/Data` and the assemblies in
+  `<game>/RimWorld.app/Contents/MacOS`. Local mods go to `<game>/Mods` on every platform, and
+  `cargo xtask doctor` prints the roots it resolved.
+- Verified on macOS (1.7.4990, WaylithCLR .NET 10, Apple Silicon): `setup`, `build` (native `osx-arm64`
+  and `osx-x64`, the bridge and a companion), `install`, `run`, `watch-log`, `defs`, `targets`,
+  `coverage`, `--contract`, `--defs` and `--patches`; the game loaded
+  `Rust/osx-arm64/lib<mod>.dylib` and Harmony patched `Verse.Map.MapUpdate` in-game. The log is
+  `~/Library/Application Support/Ludeon Studios/RimWorld by Ludeon Studios/Logs/Player.log`.
+- Version: `1.7.4982 rev1280` on the Windows build, `1.7.4990 rev1069` verified on macOS, running on
+  **WaylithCLR** (`.NET 10` fork) with the RocketWerkz "Brutal" engine. No Unity runtime;
+  `UnityStubs.dll` emulates Unity APIs.
 - World creation, colony start and map generation run in the **engine**, not in the managed code: the `Verse`
   page classes, `Game.InitNewGame` and `MapGenerator.GenerateMap` install as Harmony patches and are then never
   called (six in-game runs, with `Verse.Log.Message` as the positive control - MODLOG). A mod cannot hook the
@@ -134,9 +145,12 @@ cargo build --release            # builds the SDK, the fixture and the example m
 cargo test                       # Rust unit tests (event routing, protocol, outcomes, xtask)
 cargo xtask doctor               # checks game paths, tools and Harmony availability
 cargo xtask setup                # copies the game's reference assemblies into game-refs/
-cargo xtask build [<mod>] [--path <DIR>]   # bridge + companion + Rust into build/<ModName> (or <ModDir>/build)
-cargo xtask install [<mod>] [--path <DIR>] # builds and copies the mod into the game's Mods folder
-cargo xtask package [<mod>] [--path <DIR>] # zips the mod into <ModDir>/dist/<ModName>-<version>.zip
+cargo xtask build [<mod>] [--path <DIR>] [--target <triple>] [--all-targets]
+                                 # bridge + companion + one native library per target into build/<ModName>
+cargo xtask install [<mod>] [--path <DIR>] [--target <triple>] [--all-targets]
+                                 # builds and copies the mod into the game's Mods folder
+cargo xtask package [<mod>] [--path <DIR>] [--target <triple>] [--all-targets]
+                                 # builds and zips the mod into dist/<ModName>-<version>.zip
 cargo xtask new <Name> [--path <DIR>] [--comp] [--job] [--itab]
                                  # scaffolds mods/<Name>/ (or an external --path project) + samples
 cargo xtask remove <mod>         # delete a mod under mods/ (folder + workspace entry)
@@ -155,8 +169,8 @@ cargo xtask coverage Verse.Pawn  # what has a typed operation behind it and what
 
 # individual checks, no game required:
 dotnet run --project tools/abi-smoke                                     # marshaling self-test
-dotnet run --project tools/abi-smoke -- build/ApiTestMod/Rust/api_test_mod.dll
-dotnet run --project tools/abi-smoke -- target/release/rimworld_rs_testmod.dll --fixture
+dotnet run --project tools/abi-smoke -- build/ApiTestMod/Rust/<rid>/api_test_mod.dll
+dotnet run --project tools/abi-smoke -- target/release/<host-native-library> --fixture
 dotnet run --project tools/abi-smoke -- --contract game-refs             # bridge contract check
 dotnet run --project tools/abi-smoke -- --op-parity .                    # SDK op names <-> HostOps, names.json keys <-> the SDK
 ```
@@ -328,6 +342,16 @@ without it both commands print a SKIP with the reason.
   generated `RustBridge.RustThingCompProperties_<Mod>`), with spawn/despawn/tick/gizmos/inspect
   callbacks and per-thing state (`comp_state_*`), so a mod that only needs per-thing behaviour stays
   Rust-only.
+- **The native library is per platform; the bridge is not.** A Rust cdylib is machine code, so
+  `cargo xtask build` writes `<mod>/Rust/<rid>/<lib>` (`win-x64`, `linux-x64`, `osx-x64`,
+  `osx-arm64`, ...) and `bridge/src/NativeHost.cs` selects the folder for the running game. One mod
+  folder (and one Steam Workshop item) therefore carries every platform. The C# bridge stays a
+  single managed assembly because the game loads `Assemblies/*.dll` flat — never split it per
+  platform. A new platform means a target in `SHIPPING_TARGETS`/`NativeTarget::for_triple` in
+  `crates/xtask`, the matching identifier in `NativeHost.cs`, and a doc row. Cross-OS targets use
+  `cargo zigbuild` automatically when `cargo-zigbuild` is installed; the MSVC Windows target is not
+  a zig target, so it uses `cargo xwin build` when `cargo-xwin` is installed and plain cargo (a
+  linker configured on the machine) otherwise.
 - **A type the XML or the save file names is generated per mod, never shared.** The bridge ships one copy per mod
   and the game resolves a patch's `Class` - and a save's component - across *every* loaded assembly by load order,
   so naming a shared bridge class (settings, `RustThingCompProperties`, `RustGizmoCompProperties`, the game and map

@@ -43,7 +43,7 @@ struct travels by value across the Rust/C# ABI.
 | `setup` | Copy the game's reference assemblies into the gitignored `game-refs/` (the bridge compiles without the game) |
 | `new <Name> [--path <DIR>] [--comp --job --itab]` | Scaffold `mods/<Name>` (or `<DIR>` with `--path`) plus optional companion samples |
 | `remove <mod>` | Delete `mods/<mod>` and its workspace entry |
-| `build [<mod>] [--path <DIR>]` / `install [<mod>] [--path <DIR>]` / `package [<mod>] [--path <DIR>]` | Build into `build/<ModName>` (or `<ModDir>/build/`), copy into `<game>/Mods`, zip into `dist/` (or `<ModDir>/dist/`) |
+| `build [<mod>] [--path <DIR>] [--target <triple>] [--all-targets]` / `install …` / `package …` | Build into `build/<ModName>` (or `<ModDir>/build/`), copy into `<game>/Mods`, zip into `dist/` (or `<ModDir>/dist/`); each target adds one `Rust/<rid>/` folder |
 | `gen-defs [<mod>] [--path <DIR>]` / `defs` | Rust constants for def names (`<ModDir>/src/generated_defs/`, gitignored) / list the installation's defs |
 | `clean [--path <DIR>]` | Remove `<ModDir>/build`, `dist` and generated defs (this repository without `--path`) |
 | `secrets [--staged]` | gitleaks over the whole git history, or the staged pre-commit mode; SKIP if gitleaks is missing |
@@ -63,8 +63,8 @@ registers it in the workspace by default; `--path` creates the standalone projec
 ## The game, and running things offline
 
 - Find the installation before setting anything: `HKLM\SOFTWARE\WOW6432Node\Valve\Steam` → `InstallPath` →
-  `steamapps\common\RimWorld` (extra libraries are listed in `steamapps\libraryfolders.vdf`). The tooling only
-  tries the two default Steam paths, so on a non-default library **set `RIMWORLD_DIR`** or every game stage skips.
+  `steamapps\common\RimWorld` (extra libraries are listed in `steamapps\libraryfolders.vdf`). The tooling tries
+  the usual Steam paths on Windows, Linux and macOS; anywhere else **set `RIMWORLD_DIR`** or every game stage skips.
 - `cargo xtask doctor` says exactly what is missing; `cargo xtask test` prints a SKIP **with the reason** for
   every stage that needs the game, so it is safe to run on a machine without RimWorld.
 - Reference assemblies: `cargo xtask setup` (gitignored `game-refs/`); the bridge and the contract check work
@@ -73,9 +73,14 @@ registers it in the workspace by default; `--path` creates the standalone projec
   → start a colony → watch `[selftest] PASS/FAIL/SKIP` lines and the summary `N passed, M failed, K skipped`.
   `cargo xtask smoke` does that loop with both example mods and fails the command on a `FAIL` line.
 - `ModsConfig.xml` lists mods by **packageId** (`rimworld.rs.apitest` for the self-test), never by folder name;
-  the file lives in `%USERPROFILE%\AppData\LocalLow\Ludeon Studios\RimWorld by Ludeon Studios\Config\`.
-- On this game build the log is `…\RimWorld by Ludeon Studios\Logs\Player.log` (the `Logs` subfolder), and the
-  engine prints header-less stack traces for ordinary log lines — they are not exceptions.
+  the file lives in the game's user data folder: `%USERPROFILE%\AppData\LocalLow\Ludeon Studios\RimWorld by
+  Ludeon Studios\Config\` on Windows and `~/Library/Application Support/RimWorld/Config/` on macOS.
+- Local mods go to `<game>/Mods` on every platform (the tooling's `mods_folder`); on macOS the assemblies it
+  compiles against live in `<game>/RimWorld.app/Contents/MacOS` and the def XML in `<game>/Data`.
+- On this game build the log is the `Logs/Player.log` of the game's data folder: `…\RimWorld by Ludeon
+  Studios\Logs\Player.log` on Windows and `~/Library/Application Support/Ludeon Studios/RimWorld by Ludeon
+  Studios/Logs/Player.log` on macOS (`cargo xtask watch-log` picks the newest existing candidate itself), and
+  the engine prints header-less stack traces for ordinary log lines — they are not exceptions.
 
 ## Gates (what to run before saying "done")
 
@@ -124,6 +129,12 @@ or a non-zero failed count in the summary.
 
 ## Traps that have cost time in this repository
 
+- **The native library is per platform.** A Rust cdylib is machine code: `cargo xtask build` writes
+  `build/<ModName>/Rust/<rid>/<lib>` (`win-x64`, `linux-x64`, `osx-x64`, `osx-arm64`) and the bridge picks the
+  folder for the running game. `--all-targets` builds the shipping matrix; cross-OS targets use `cargo zigbuild`
+  automatically when `cargo-zigbuild` is installed, the MSVC Windows target uses `cargo xwin build` when
+  `cargo-xwin` is installed, and the C# bridge stays one managed assembly because the game loads
+  `Assemblies/*.dll` flat.
 - **Cargo profiles are read from the workspace root only.** A `[profile.release]` in a member is ignored with a
   warning. The examples and `mods/` use this repository's shipping profile (fat LTO, one codegen unit,
   `panic = "unwind"`), and an external mod's own workspace root carries the same profile — `cargo xtask new

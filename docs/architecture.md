@@ -5,7 +5,7 @@
 RimWorld loads mods as managed assemblies:
 
 - `Verse.ModAssemblyHandler` calls `Assembly.LoadFrom` for **every** `*.dll` in a mod's
-  `Assemblies/` folder, so a native (Rust) `.dll` must live outside that folder.
+  `Assemblies/` folder, so a native (Rust) library must live outside that folder.
 - `LoadedModManager.CreateModClasses()` instantiates every non-abstract `Verse.Mod` subclass it can
   find and passes the owning `ModContentPack`.
 - `Game.FillComponents()` and `Map.FillComponents()` instantiate **all** non-abstract
@@ -14,9 +14,13 @@ RimWorld loads mods as managed assemblies:
 
 Rust therefore cannot be loaded directly by the game; a tiny managed assembly must exist to own the
 `Verse.Mod` entry point. That assembly is the bridge, and it is identical for every Rust mod: it
-loads exactly one regular `.dll` from `<mod>/Rust/` (the resolved path must stay inside the mod
-root; a symlinked file or folder is refused), hands Rust a table of host callbacks and forwards
-events.
+loads `<mod>/Rust/<rid>/<lib>`, hands Rust a table of host callbacks and forwards events.
+
+`<rid>` is the .NET runtime identifier of the running game (`win-x64`, `linux-x64`, `osx-x64`,
+`osx-arm64`, ...). A Rust cdylib is native machine code, so one file cannot serve several operating
+systems: the build writes one library per platform and the bridge selects the folder that matches
+the process it runs in. The library it picks must be exactly one regular file whose resolved path
+stays inside the mod root; a symlinked file or folder is refused.
 
 ## Components
 
@@ -38,7 +42,7 @@ events.
               |  JSON events        ^  JSON commands
               v                     |
 +--------------------------------------------------------------+
-| <mod>/Rust/<lib>.dll  (Rust, rimworld-rs)                    |
+| <mod>/Rust/<rid>/<lib>  (Rust, one per platform)             |
 |    export_mod!      - the four C ABI exports                 |
 |    dispatch         - routes events into your Mod impl       |
 |    Context          - log / defs / spawn / letters / patches |
@@ -49,8 +53,9 @@ events.
 
 1. The game discovers the bridge assembly and instantiates `RustMod` with the mod's
    `ModContentPack`.
-2. `RustMod` resolves the single `*.dll` in `<mod>/Rust/`, refusing a path outside the mod root or
-   a symlink/junction, loads it with `NativeLibrary.Load`, checks `rwrs_abi_version` and calls
+2. `RustMod` computes the running game's runtime identifier and resolves the single regular
+   native library in `<mod>/Rust/<rid>/`, refusing a path outside the mod root or a
+   symlink/junction, loads it with `NativeLibrary.Load`, checks `rwrs_abi_version` and calls
    `rwrs_init` with a table containing one callback (`host_call`).
 3. The bridge dispatches `mod_loaded`; Rust creates the module instance (lazily) and calls
    `Mod::on_init` on the first event ever.
@@ -106,7 +111,9 @@ which the example mod logs as a warning.
   passes 16-byte structs by reference — a mismatch there corrupts memory silently.
 - **Handles are scoped.** A `{"$ref": n}` handle is only valid inside the dispatch that created
   it; the reference table is cleared when the dispatch ends.
-- **One native library per mod.** The bridge expects exactly one regular `.dll` in `Rust/`, with
-  the resolved path under the mod root; a symlinked file or folder is refused. That keeps the
-  assembly name, the handler name and the log prefix unambiguous. The bridge assembly itself is
-  built per mod (`RimWorldRustBridge.<ModName>`) so multiple Rust mods can coexist.
+- **One native library per platform.** The bridge expects exactly one regular file in
+  `Rust/<rid>/`, with the resolved path under the mod root; a symlinked file or folder is refused.
+  The folder keeps the assembly name, the handler name and the log prefix unambiguous, and
+  selecting it by runtime identifier is what lets one mod serve Windows, Linux and macOS. The
+  bridge assembly itself is built per mod (`RimWorldRustBridge.<ModName>`) so multiple Rust mods
+  can coexist.

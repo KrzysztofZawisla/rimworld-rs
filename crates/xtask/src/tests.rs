@@ -17,6 +17,81 @@ fn finds_the_mods_through_cargo() {
 }
 
 #[test]
+fn maps_target_triples_to_the_platform_folders_the_bridge_loads() {
+    let windows = NativeTarget::for_triple("x86_64-pc-windows-msvc", "my_mod").expect("windows");
+    assert_eq!(windows.rid, "win-x64");
+    assert_eq!(windows.file_name, "my_mod.dll");
+
+    let linux = NativeTarget::for_triple("x86_64-unknown-linux-gnu", "my_mod").expect("linux");
+    assert_eq!(linux.rid, "linux-x64");
+    assert_eq!(linux.file_name, "libmy_mod.so");
+
+    let intel_mac = NativeTarget::for_triple("x86_64-apple-darwin", "my_mod").expect("intel mac");
+    assert_eq!(intel_mac.rid, "osx-x64");
+    assert_eq!(intel_mac.file_name, "libmy_mod.dylib");
+
+    let apple_silicon = NativeTarget::for_triple("aarch64-apple-darwin", "my_mod").expect("apple silicon");
+    assert_eq!(apple_silicon.rid, "osx-arm64");
+
+    assert!(NativeTarget::for_triple("wasm32-unknown-unknown", "my_mod").is_err());
+    assert!(NativeTarget::for_triple("riscv64-unknown-linux-gnu", "my_mod").is_err());
+}
+
+#[test]
+fn the_host_target_uses_the_running_platform() {
+    let host = NativeTarget::host("my_mod");
+    assert_eq!(host.rid, host_rid());
+    assert_eq!(host.file_name, host_native_name("my_mod"));
+    assert!(host.output_dir(Path::new("target")).ends_with(Path::new("target").join("release")));
+}
+
+#[test]
+fn picks_the_cross_linker_for_each_target() {
+    // The host's own linker handles its operating system, including the other macOS architecture.
+    assert_eq!(CrossTool::pick("aarch64-apple-darwin", "osx", true, true), CrossTool::None);
+    assert_eq!(CrossTool::pick("x86_64-apple-darwin", "osx", false, false), CrossTool::None);
+
+    // Cross-OS Linux and macOS: zigbuild when it is there, plain cargo for a linker the machine configured.
+    assert_eq!(CrossTool::pick("x86_64-unknown-linux-gnu", "osx", true, false), CrossTool::Zigbuild);
+    assert_eq!(CrossTool::pick("aarch64-apple-darwin", "win", true, false), CrossTool::Zigbuild);
+    assert_eq!(CrossTool::pick("x86_64-unknown-linux-gnu", "osx", false, false), CrossTool::None);
+
+    // MSVC is not a zig target: cargo-xwin supplies the CRT, the SDK and clang-cl.
+    assert_eq!(CrossTool::pick("x86_64-pc-windows-msvc", "osx", true, true), CrossTool::Xwin);
+    assert_eq!(CrossTool::pick("x86_64-pc-windows-msvc", "osx", true, false), CrossTool::None);
+
+    // Native Windows stays plain cargo, and windows-gnu is left to a configured MinGW linker.
+    assert_eq!(CrossTool::pick("x86_64-pc-windows-msvc", "win", true, true), CrossTool::None);
+    assert_eq!(CrossTool::pick("x86_64-pc-windows-gnu", "osx", true, true), CrossTool::None);
+
+    // The cargo invocation each one stands for.
+    assert_eq!(CrossTool::None.cargo_args(), ["build"]);
+    assert_eq!(CrossTool::Zigbuild.cargo_args(), ["zigbuild"]);
+    assert_eq!(CrossTool::Xwin.cargo_args(), ["xwin", "build"]);
+}
+
+#[test]
+fn the_shipping_matrix_covers_every_platform_the_game_runs_on() {
+    let targets = native_targets(&[], true, "my_mod").expect("matrix");
+    let mut rids: Vec<&str> = targets.iter().map(|target| target.rid.as_str()).collect();
+    rids.sort();
+    assert_eq!(rids, vec!["linux-x64", "osx-arm64", "osx-x64", "win-x64"]);
+
+    let duplicate = native_targets(
+        &["x86_64-unknown-linux-gnu".to_string(), "x86_64-unknown-linux-gnu".to_string()],
+        false,
+        "my_mod",
+    )
+    .expect("one target");
+    assert_eq!(duplicate.len(), 1, "a triple named twice is built once");
+
+    let same_platform =
+        native_targets(&["x86_64-pc-windows-gnu".to_string(), "x86_64-pc-windows-msvc".to_string()], false, "my_mod")
+            .expect("one platform");
+    assert_eq!(same_platform.len(), 1, "two triples for one runtime identifier produce one folder");
+}
+
+#[test]
 fn converts_mod_names() {
     assert_eq!("HelloWorld".to_snake_case(), "hello_world");
     assert_eq!("already_snake".to_snake_case(), "already_snake");
@@ -104,7 +179,7 @@ fn package_writes_a_readable_zip_archive() {
     let archive = directory.path().join("mod.zip");
     let entries = vec![
         ("About/About.xml".to_string(), b"<ModMetaData/>".to_vec()),
-        ("Rust/lib.dll".to_string(), vec![1u8, 2, 3, 4]),
+        ("Rust/win-x64/lib.dll".to_string(), vec![1u8, 2, 3, 4]),
     ];
 
     write_zip(&archive, &entries).expect("zip");
@@ -116,7 +191,7 @@ fn package_writes_a_readable_zip_archive() {
     let mut about = String::new();
     reader.by_name("About/About.xml").expect("About/About.xml").read_to_string(&mut about).expect("read");
     assert_eq!(about, "<ModMetaData/>");
-    assert_eq!(reader.by_name("Rust/lib.dll").expect("Rust/lib.dll").size(), 4);
+    assert_eq!(reader.by_name("Rust/win-x64/lib.dll").expect("Rust/win-x64/lib.dll").size(), 4);
 
     drop(reader);
     let bytes = fs::read(&archive).expect("read");

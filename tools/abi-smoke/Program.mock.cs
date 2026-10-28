@@ -27,6 +27,7 @@ internal static partial class Program
         {
             "log" => HandleLog(request),
             "game_info" => "{\"ok\":true,\"result\":{\"hasGame\":true,\"tick\":1234,\"programState\":\"Playing\",\"currentMapId\":1,\"harness\":\"mock\",\"maps\":[{\"id\":1,\"biome\":\"TemperateForest\",\"tile\":42,\"sizeX\":100,\"sizeZ\":100,\"colonists\":3,\"isPlayerHome\":true}]}}",
+            "dlc_dashboard" => "{\"ok\":true,\"result\":{\"capabilities\":{\"base\":true,\"royalty\":false,\"ideology\":false,\"biotech\":false,\"anomaly\":false,\"odyssey\":false},\"defRegistry\":[],\"royalty\":null,\"ideology\":null,\"biotech\":null,\"anomaly\":null,\"odyssey\":null}}",
             "def_names" => "{\"ok\":true,\"result\":[\"Steel\",\"Silver\",\"WoodLog\"]}",
             "def_types" => "{\"ok\":true,\"result\":[\"HediffDef\",\"ThingDef\"]}",
             "def_info" => KnownDefs.Contains(StringArg(request, "defName"))

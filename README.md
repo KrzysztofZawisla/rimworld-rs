@@ -8,7 +8,7 @@ as a normal mod assembly, and the tooling to build and install Rust mods:
 | Path | What it is |
 | --- | --- |
 | `crates/rimworld-rs` | The Rust SDK: `Mod` trait, events, host commands, C ABI. |
-| `bridge/` | The C# bridge (`RimWorldRustBridge.<Mod>.dll`): loads the mod's `Rust/<lib>.dll` (one regular file, confined to the mod root), forwards game events into Rust and executes the commands Rust asks for. |
+| `bridge/` | The C# bridge (`RimWorldRustBridge.<Mod>.dll`): loads the mod's `Rust/<rid>/<lib>` (one regular file, confined to the mod root), forwards game events into Rust and executes the commands Rust asks for. |
 | `crates/xtask` | `cargo xtask build/install/package/new/doctor/run` tooling; mod source lives in its own project, passed with `--path`. |
 | `examples/hello-rust-mod` | A complete mod using every part of the SDK. |
 | `tools/abi-smoke` | A C# harness that drives the ABI with a mock host, no game required. |
@@ -33,10 +33,11 @@ is in [Releases](#releases)).
 
 ## Quick start
 
-```powershell
+```console
 cargo xtask setup               # optional: copy the game's reference assemblies into game-refs/
 cargo xtask doctor              # checks the game, the toolchain and Harmony
 cargo xtask build               # builds the example mod into build/HelloRustMod/
+cargo xtask build --all-targets # ...with one native library per platform
 cargo xtask install             # ...and copies it to <game>/Mods/HelloRustMod/
 cargo xtask run -- -quicktest   # optional: launch the game into a fast test map
 ```
@@ -46,7 +47,7 @@ lines into `Player.log` (the game's save-data folder).
 
 For a thorough **in-game self-test of the whole API** there is a second example:
 
-```powershell
+```console
 cargo xtask install api-test-mod
 ```
 
@@ -133,7 +134,7 @@ rimworld_rs::export_mod!(MyMod);
 A mod lives in `mods/<Name>/` in this repository by default and is registered in the workspace. A mod can
 also live in a project of its own: pass `--path <ModDir>`. Both are built by the same commands.
 
-```powershell
+```console
 # default: mods/MyFirstMod, registered in this repository's workspace
 cargo xtask new MyFirstMod
 cargo xtask build MyFirstMod
@@ -149,10 +150,12 @@ cargo xtask new MyFirstMod --comp --job --itab
 cargo xtask new MyFirstMod --path <ModDir> --comp --job --itab
 
 # other things the tooling does:
-cargo xtask gen-defs MyFirstMod                  # Rust constants for every def name
+cargo xtask gen-defs MyFirstMod                  # Rust constants for every def name of your installation
 cargo xtask gen-defs --path <ModDir>
 cargo xtask watch-log --tail 40                  # follow Player.log, filtered to [Rust]/[selftest]
+cargo xtask build --all-targets                  # native libraries for Windows, Linux and macOS
 cargo xtask package MyFirstMod                   # dist/MyFirstMod-<version>.zip
+cargo xtask package MyFirstMod --all-targets     # one Workshop zip with every platform
 cargo xtask package --path <ModDir>              # <ModDir>/dist/MyFirstMod-<version>.zip
 cargo xtask clean                                # remove the repository build/, dist/, generated defs
 cargo xtask clean --path <ModDir>                # remove that project's build/, dist/, generated defs
@@ -177,21 +180,53 @@ is answered instead of taking the game down. An external mod owns its workspace 
 `Cargo.toml` carries the same `[profile.release]` (the scaffold writes it); cargo reads profiles from the
 workspace root only.
 
+## Cross-platform builds
+
+`cargo xtask build` builds the native library for the machine running the command. Add targets
+explicitly, or use the shipping matrix that covers every platform the game runs on:
+
+```console
+cargo xtask build --target x86_64-unknown-linux-gnu
+cargo xtask build --all-targets        # win-x64, linux-x64, osx-x64 and osx-arm64
+cargo xtask package --all-targets      # one zip carrying every platform
+```
+
+Each target lands in its own `Rust/<rid>/` folder, so a single mod (and a single Steam Workshop
+item) serves every platform. Every cross target needs its Rust standard library
+(`rustup target add <triple>`). `cargo xtask build` picks the cross linker itself: `cargo-zigbuild`
+(`cargo install cargo-zigbuild`, with `zig` on `PATH`) for Linux and macOS, so both build from
+Windows, Linux or macOS, and `cargo-xwin` (`cargo install --locked cargo-xwin`, with clang-cl from a
+full LLVM installation - `brew install llvm` on macOS) for the MSVC Windows target, which zig does
+not cover. Without the matching tool a target falls back to plain `cargo build`, which needs a
+linker configured on the machine; otherwise build that target on its own operating system. The C#
+bridge stays one managed assembly, because the game loads `Assemblies/*.dll` flat; only the Rust
+cdylib differs per platform.
+
+The game's own layout differs by platform and `cargo xtask doctor` prints what it resolved: Windows
+keeps the assemblies next to `Data/`, Linux keeps them in `<game>/*_Data/Managed`, and macOS keeps
+them in `<game>/RimWorld.app/Contents/MacOS` with the def XML in `<game>/Data`. Local mods go to
+`<game>/Mods` on every platform, so `install` writes the same folder on all three.
+
 ## How it works
 
 ```
 RimWorld (WaylithCLR, .NET 10)
   ├── <mod>/Assemblies/RimWorldRustBridge.<Mod>.dll      (C#, loaded by the game)
-  │     ├── Verse.Mod subclass     -> loads <mod>/Rust/<lib>.dll, calls rwrs_init
+  │     ├── Verse.Mod subclass     -> loads <mod>/Rust/<rid>/<lib>, calls rwrs_init
   │     ├── Game/Map components    -> forward tick/lifecycle events (JSON over the C ABI)
   │     └── host callback          -> executes Rust commands: log, defs, spawn, letter,
   │                                   settings, Harmony patches, object reflection
-  └── <mod>/Rust/<lib>.dll                               (Rust, your mod)
+  └── <mod>/Rust/<rid>/<lib>                             (Rust, one per platform)
 ```
 
-The bridge loads exactly one regular `.dll` from `<mod>/Rust/`: the resolved path must stay inside
-the mod root, and a symlinked file or `Rust` folder is refused. Anything else is a load error in the
-game log, never a library from somewhere else on the machine.
+`<rid>` is the .NET runtime identifier of the running game: `win-x64`, `linux-x64`, `osx-x64`
+or `osx-arm64`. A Rust cdylib is native machine code, so it cannot be shared between operating
+systems or architectures; the bridge (managed IL) picks the folder that matches the running
+game. One mod folder therefore ships every platform, and one Steam Workshop item is enough.
+
+The bridge loads exactly one regular file from `<mod>/Rust/<rid>/`: the resolved path must stay
+inside the mod root, and a symlinked file or `Rust/<rid>` folder is refused. Anything else is a
+load error in the game log, never a library from somewhere else on the machine.
 
 All events and commands are small UTF-8 JSON messages; complex managed objects are passed as
 **handles** (`{"$ref": n, "$type": "..."}`) that stay valid for the duration of one dispatch.
@@ -231,7 +266,7 @@ package cannot ship one.
 
 ## Testing without the game
 
-```powershell
+```console
 cargo xtask test        # runs everything below, in one go
 ```
 
@@ -283,7 +318,7 @@ that and keep the package out of every command that would compile it.
 
 Secret scanning is local, not CI:
 
-```powershell
+```console
 cargo xtask secrets            # gitleaks over the whole git history
 cargo xtask secrets --staged   # the pre-commit mode
 ```
@@ -295,7 +330,7 @@ The pre-commit hook runs the staged scan once it is enabled with `git config cor
 
 ## In-game smoke test
 
-```powershell
+```console
 cargo xtask smoke
 ```
 
@@ -305,8 +340,8 @@ success it prints the `N passed, M failed, K skipped` summary and leaves the gam
 
 The individual tools also run standalone:
 
-```powershell
-dotnet run --project tools/abi-smoke -- build/HelloRustMod/Rust/hello_rust_mod.dll
+```console
+dotnet run --project tools/abi-smoke -- build/HelloRustMod/Rust/<rid>/<lib>
 dotnet run --project tools/abi-smoke -- --contract game-refs
 cargo xtask secrets
 cargo xtask secrets --staged
@@ -324,9 +359,9 @@ a published crate could only ever be half of a mod, and a prebuilt bridge cannot
 be compiled for the game version you actually run.
 
 So everyone builds from source: clone this repository (or use it as a template), run `cargo xtask setup` once so
-the bridge has reference assemblies, then `cargo xtask build --path <ModDir>` / `cargo xtask install --path
-<ModDir>` for a mod in its own project (the examples build with the same commands without `--path`). `cargo
-xtask package --path <ModDir>` zips a finished mod for the Workshop, and that archive is the only thing meant to
+the bridge has reference assemblies, then `cargo xtask build` / `cargo xtask install` (with `--path <ModDir>`
+for a mod in its own project; the examples need no `--path`). `cargo xtask package --all-targets` zips a
+finished mod with one native library per platform for the Workshop, and that archive is the only thing meant to
 leave your machine.
 
 A mod that lives in its own cargo workspace points at the SDK with a path or git dependency

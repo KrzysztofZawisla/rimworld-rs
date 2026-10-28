@@ -20,8 +20,8 @@ pub(crate) fn smoke() -> Result<()> {
     }
 
     println!("==> installing the example mods");
-    build(Some("hello-rust-mod"), None, Mode::Install)?;
-    build(Some("api-test-mod"), None, Mode::Install)?;
+    build(Some("hello-rust-mod"), None, Mode::Install, &[], false)?;
+    build(Some("api-test-mod"), None, Mode::Install, &[], false)?;
 
     let mut path = newest_log(log_paths());
     let mut offset = path.as_ref().and_then(|path| fs::metadata(path).ok()).map(|metadata| metadata.len()).unwrap_or(0);
@@ -110,7 +110,19 @@ fn game_is_running() -> bool {
             .unwrap_or(false)
     }
 
-    #[cfg(not(windows))]
+    #[cfg(unix)]
+    {
+        // The macOS bundle and the Linux build both run a process named after the game.
+        ["RimWorld", "RimWorldLinux"].iter().any(|name| {
+            std::process::Command::new("pgrep")
+                .args(["-x", name])
+                .status()
+                .map(|status| status.success())
+                .unwrap_or(false)
+        })
+    }
+
+    #[cfg(not(any(windows, unix)))]
     {
         false
     }

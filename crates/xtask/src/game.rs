@@ -8,8 +8,50 @@ use crate::*;
 
 pub(crate) const WORKSHOP_APP_ID: &str = "294100";
 
-pub(crate) const DEFAULT_GAME_DIRS: &[&str] =
-    &[r"C:\Program Files (x86)\Steam\steamapps\common\RimWorld", r"C:\Program Files\Steam\steamapps\common\RimWorld"];
+/// The player's home directory: `USERPROFILE` on Windows, `HOME` elsewhere.
+pub(crate) fn home_dir() -> Option<PathBuf> {
+    #[cfg(windows)]
+    {
+        env::var_os("USERPROFILE").map(PathBuf::from)
+    }
+
+    #[cfg(not(windows))]
+    {
+        env::var_os("HOME").map(PathBuf::from)
+    }
+}
+
+/// The usual Steam locations of the game on the platforms it runs on. `RIMWORLD_DIR` is the escape
+/// hatch for every other layout.
+pub(crate) fn default_game_dirs() -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+
+    #[cfg(windows)]
+    {
+        dirs.push(PathBuf::from(r"C:\Program Files (x86)\Steam\steamapps\common\RimWorld"));
+        dirs.push(PathBuf::from(r"C:\Program Files\Steam\steamapps\common\RimWorld"));
+    }
+
+    #[cfg(target_os = "linux")]
+    if let Some(home) = home_dir() {
+        dirs.push(home.join(".steam").join("steam").join("steamapps").join("common").join("RimWorld"));
+        dirs.push(home.join(".local").join("share").join("Steam").join("steamapps").join("common").join("RimWorld"));
+    }
+
+    #[cfg(target_os = "macos")]
+    if let Some(home) = home_dir() {
+        dirs.push(
+            home.join("Library")
+                .join("Application Support")
+                .join("Steam")
+                .join("steamapps")
+                .join("common")
+                .join("RimWorld"),
+        );
+    }
+
+    dirs
+}
 
 /// Assemblies the C# bridge compiles against; keep in sync with bridge/RimWorld.Rust.Bridge.csproj.
 ///
@@ -71,24 +113,127 @@ pub(crate) fn repo_root() -> PathBuf {
 pub(crate) fn game_dir() -> Result<PathBuf> {
     if let Ok(from_env) = env::var("RIMWORLD_DIR") {
         let dir = PathBuf::from(from_env);
-        if dir.join("Assembly-CSharp.dll").exists() {
-            return Ok(dir);
+        if let Some(install) = install_root(&dir) {
+            return Ok(install);
         }
 
-        return Err(missing(format!("RIMWORLD_DIR points to {}, but Assembly-CSharp.dll is not there", dir.display())));
+        return Err(missing(format!(
+            "RIMWORLD_DIR points to {}, but no RimWorld installation (a Data folder plus Assembly-CSharp.dll) is there",
+            dir.display()
+        )));
     }
 
-    for candidate in DEFAULT_GAME_DIRS {
-        let dir = PathBuf::from(candidate);
-        if dir.join("Assembly-CSharp.dll").exists() {
-            return Ok(dir);
+    for candidate in default_game_dirs() {
+        if let Some(install) = install_root(&candidate) {
+            return Ok(install);
         }
     }
 
     Err(missing("RimWorld was not found; set the RIMWORLD_DIR environment variable to the game folder"))
 }
 
+/// The installation root, given either the root, a folder inside it (the `.app` bundle, the folder with
+/// the assemblies) or the root itself. Every platform keeps the def XML under `<root>/Data`; only the
+/// assemblies move: at the root on Windows, into the bundle on macOS and into `*_Data/Managed` on the
+/// older Linux layout.
+pub(crate) fn install_root(path: &Path) -> Option<PathBuf> {
+    let path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    if is_installation(&path) {
+        return Some(path);
+    }
+
+    path.ancestors().skip(1).find(|candidate| is_installation(candidate)).map(Path::to_path_buf)
+}
+
+fn is_installation(path: &Path) -> bool {
+    path.join("Data").is_dir() && assemblies_dir(path).is_some()
+}
+
+/// The folder holding the game's managed assemblies (`Assembly-CSharp.dll` and the framework the bridge
+/// compiles against). This is what `--contract`, `--targets` and the bridge build take.
+pub(crate) fn assemblies_dir(game: &Path) -> Option<PathBuf> {
+    let mut candidates: Vec<PathBuf> = vec![game.to_path_buf()];
+
+    if let Some(app) = macos_app_bundle(game) {
+        candidates.push(app.join("Contents").join("MacOS"));
+        candidates.push(app.join("Contents").join("Resources").join("Data").join("Managed"));
+    }
+
+    if let Ok(entries) = fs::read_dir(game) {
+        let mut folders: Vec<PathBuf> = entries
+            .flatten()
+            .map(|entry| entry.path())
+            .filter(|path| path.is_dir() && path.to_string_lossy().ends_with("_Data"))
+            .collect();
+        folders.sort();
+        for folder in folders {
+            candidates.push(folder.join("Managed"));
+        }
+    }
+
+    candidates.into_iter().find(|dir| dir.join("Assembly-CSharp.dll").is_file())
+}
+
+/// The `.app` bundle of the macOS build, whether the given path is the bundle itself or the install root.
+pub(crate) fn macos_app_bundle(game: &Path) -> Option<PathBuf> {
+    #[cfg(target_os = "macos")]
+    {
+        if game.extension().is_some_and(|extension| extension == "app") {
+            return Some(game.to_path_buf());
+        }
+
+        let mut bundles: Vec<PathBuf> = fs::read_dir(game)
+            .ok()?
+            .flatten()
+            .map(|entry| entry.path())
+            .filter(|path| path.extension().is_some_and(|extension| extension == "app"))
+            .collect();
+        bundles.sort();
+        bundles.into_iter().next()
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = game;
+        None
+    }
+}
+
+/// The game's own executable for this platform. Its folder is where the game resolves its files from.
+pub(crate) fn game_executable(game: &Path) -> Option<PathBuf> {
+    #[cfg(windows)]
+    {
+        let executable = game.join("RimWorld.exe");
+        executable.is_file().then_some(executable)
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        ["RimWorldLinux", "RimWorld", "RimWorldLinux.x86_64"].into_iter().find_map(|name| {
+            let executable = game.join(name);
+            executable.is_file().then_some(executable)
+        })
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let contents = macos_app_bundle(game)?.join("Contents");
+        ["RimWorld", "RimWorldMac"].into_iter().find_map(|name| {
+            let executable = contents.join("MacOS").join(name);
+            executable.is_file().then_some(executable)
+        })
+    }
+
+    #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
+    {
+        let _ = game;
+        None
+    }
+}
+
 pub(crate) fn mods_folder(game: &Path) -> PathBuf {
+    // This build keeps the official content in `Data/` and loads local mods from `<game>/Mods` on
+    // every platform, so the folder is the same one Windows has always used.
     game.join("Mods")
 }
 
@@ -108,7 +253,12 @@ pub(crate) fn reference_source() -> Result<PathBuf> {
     }
 
     match game_dir() {
-        Ok(game) => Ok(game),
+        Ok(game) => assemblies_dir(&game).ok_or_else(|| {
+            missing(format!(
+                "no Assembly-CSharp.dll in {}; run `cargo xtask setup` once to copy the reference assemblies into game-refs/",
+                game.display()
+            ))
+        }),
         Err(error) => Err(missing(format!(
             "{error}; run `cargo xtask setup` once to copy the reference assemblies into game-refs/"
         ))),
@@ -155,16 +305,18 @@ pub(crate) fn assembly_name(path: &Path) -> Option<String> {
 /// repository: locally, for compiling, never redistributed.
 pub(crate) fn setup(directory: Option<PathBuf>) -> Result<()> {
     let game = match directory {
-        Some(path) => path,
+        Some(path) => install_root(&path).ok_or_else(|| {
+            missing(format!(
+                "{} does not look like a RimWorld installation (no Data folder and no Assembly-CSharp.dll)",
+                path.display()
+            ))
+        })?,
         None => game_dir()?,
     };
 
-    if !game.join("Assembly-CSharp.dll").exists() {
-        return Err(missing(format!(
-            "{} does not look like a RimWorld installation (no Assembly-CSharp.dll)",
-            game.display()
-        )));
-    }
+    let assemblies = assemblies_dir(&game).ok_or_else(|| {
+        missing(format!("{} does not look like a RimWorld installation (no Assembly-CSharp.dll)", game.display()))
+    })?;
 
     let target = game_refs_dir();
     fs::create_dir_all(&target)?;
@@ -172,7 +324,7 @@ pub(crate) fn setup(directory: Option<PathBuf>) -> Result<()> {
     let mut bytes = 0u64;
     let mut absent = Vec::new();
     for name in REFERENCE_ASSEMBLIES {
-        let source = game.join(name);
+        let source = assemblies.join(name);
         if !source.exists() {
             absent.push(*name);
             continue;
@@ -216,11 +368,24 @@ pub(crate) fn setup(directory: Option<PathBuf>) -> Result<()> {
 pub(crate) fn doctor() -> Result<()> {
     let root = repo_root();
     println!("repository : {}", root.display());
+    println!("platform   : {}", host_rid());
+    match which::which("cargo-zigbuild") {
+        Ok(path) => println!("zigbuild   : {} (Linux and macOS cross targets link with zig)", path.display()),
+        Err(_) => println!("zigbuild   : not found (Linux and macOS cross targets need cargo-zigbuild or a linker)"),
+    }
+    match which::which("cargo-xwin") {
+        Ok(path) => println!("xwin       : {} (the MSVC Windows target builds away from Windows)", path.display()),
+        Err(_) => println!("xwin       : not found (the MSVC Windows target needs cargo-xwin or a Windows machine)"),
+    }
 
     match game_dir() {
         Ok(game) => {
             println!("game       : {}", game.display());
             println!("version    : {}", game_version(&game));
+            match assemblies_dir(&game) {
+                Some(assemblies) => println!("assemblies : {}", assemblies.display()),
+                None => println!("assemblies : not found (no Assembly-CSharp.dll)"),
+            }
             let mods = mods_folder(&game);
             println!(
                 "mods folder: {} ({})",

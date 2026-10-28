@@ -105,12 +105,12 @@ pub(crate) fn test_all() -> Result<()> {
     println!("==> building the test fixture");
     run(Command::new("cargo").args(["build", "--release", "-p", "rimworld-rs-testmod"]).current_dir(&root))?;
 
-    let mut example = root.join("target").join("release").join("hello_rust_mod.dll");
+    let mut example = root.join("target").join("release").join(host_native_name("hello_rust_mod"));
     match reference_source() {
         Ok(references) => {
             println!("==> building the example mod (with the C# bridge, references: {})", references.display());
-            build(None, None, Mode::Build)?;
-            example = root.join("build").join("HelloRustMod").join("Rust").join("hello_rust_mod.dll");
+            build(None, None, Mode::Build, &[], false)?;
+            example = native_in_build(&root, "HelloRustMod", "hello_rust_mod");
         }
         Err(error) => println!("    skipping the C# bridge build: {error}"),
     }
@@ -133,7 +133,7 @@ pub(crate) fn test_all() -> Result<()> {
     println!("==> ABI smoke test against the example mod");
     run(Command::new("dotnet").args(["run", "--project", "tools/abi-smoke", "--"]).arg(&example).current_dir(&root))?;
 
-    let fixture = root.join("target").join("release").join("rimworld_rs_testmod.dll");
+    let fixture = root.join("target").join("release").join(host_native_name("rimworld_rs_testmod"));
     println!("==> ABI smoke test against the fixture (patch outcomes, panic recovery)");
     run(Command::new("dotnet")
         .args(["run", "--project", "tools/abi-smoke", "--"])
@@ -147,13 +147,13 @@ pub(crate) fn test_all() -> Result<()> {
         let self_test = match reference_source() {
             Ok(_) => {
                 println!("==> building the in-game self-test mod (with the C# bridge and its companion)");
-                build(Some("api-test-mod"), None, Mode::Build)?;
-                root.join("build").join("ApiTestMod").join("Rust").join("api_test_mod.dll")
+                build(Some("api-test-mod"), None, Mode::Build, &[], false)?;
+                native_in_build(&root, "ApiTestMod", "api_test_mod")
             }
             Err(_) => {
                 println!("==> building the in-game self-test mod (native only)");
                 run(Command::new("cargo").args(["build", "--release", "-p", "api-test-mod"]).current_dir(&root))?;
-                root.join("target").join("release").join("api_test_mod.dll")
+                root.join("target").join("release").join(host_native_name("api_test_mod"))
             }
         };
 

@@ -441,6 +441,7 @@ thing def (or the other way around) is refused with a message that names the rig
 
 | `op` | Request fields | Result |
 | --- | --- | --- |
+| `dlc_dashboard` | — | `{capabilities, defRegistry, royalty, ideology, biotech, anomaly, odyssey}` — the active expansions, the def registry the bridge sees and each expansion's section (`null` when it is not active) |
 | `pawn_titles` | `ref` | `{titles:[{defName, label, factionDefName, factionName}], seniorDefName, hasRoyalty}` |
 | `pawn_set_title` | `ref`, `title` | `{title, has}` (the player's faction, no rewards, no letter) |
 | `pawn_psyfocus` | `ref` | `{psyfocus, target, band, needsPsyfocus}` |

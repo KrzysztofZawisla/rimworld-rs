@@ -37,8 +37,8 @@ fn read<T: DeserializeOwned>(value: Value) -> Result<T> {
 }
 
 mod companion;
-mod dlc;
 mod core;
+mod dlc;
 pub use core::*;
 mod harmony;
 mod map;

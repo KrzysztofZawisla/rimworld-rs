@@ -163,6 +163,11 @@ pub struct CellInfo {
     pub roofed: bool,
     pub temperature: f32,
     pub light: f32,
+    /// The room's vacuum reading; `0` outdoors or in a room without vacuum.
+    pub vacuum: f32,
+    /// The highest `fillPercent` of a thing on the cell. This is static cover, not a direction-sensitive
+    /// combat cover value (the game's cover is relative to a pawn and a target).
+    pub cover: f32,
     pub room_id: i32,
     pub room_label: Option<String>,
     pub zone_label: Option<String>,

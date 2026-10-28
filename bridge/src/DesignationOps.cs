@@ -502,18 +502,58 @@ internal static class DesignationOps
 
     private static Dictionary<string, object> ZoneEntry(Zone zone)
     {
+        List<IntVec3> cells = zone.Cells;
+        int minX = cells != null && cells.Count > 0 ? cells.Min(cell => cell.x) : 0;
+        int maxX = cells != null && cells.Count > 0 ? cells.Max(cell => cell.x) : 0;
+        int minZ = cells != null && cells.Count > 0 ? cells.Min(cell => cell.z) : 0;
+        int maxZ = cells != null && cells.Count > 0 ? cells.Max(cell => cell.z) : 0;
         var entry = new Dictionary<string, object>
         {
+            ["id"] = zone.ID,
             ["handle"] = zone,
             ["label"] = zone.label,
             ["typeName"] = zone.GetType().Name,
-            ["cells"] = zone.Cells?.Count ?? 0,
+            ["cells"] = cells?.Count ?? 0,
+            ["x"] = minX,
+            ["z"] = minZ,
+            ["w"] = maxX - minX + 1,
+            ["h"] = maxZ - minZ + 1,
         };
         StorageSettings settings = (zone as IStoreSettingsParent)?.GetStoreSettings();
         if (settings != null)
         {
             entry["priority"] = settings.Priority.ToString();
             entry["allowedDefCount"] = settings.filter?.AllowedDefCount ?? 0;
+        }
+
+        if (zone is Zone_Growing growing)
+        {
+            entry["plant"] = growing.GetPlantDefToGrow()?.defName;
+            entry["allowSow"] = growing.allowSow;
+            Map map = zone.Map;
+            int count = 0;
+            int blightCount = 0;
+            float fertility = 0f;
+            float light = 0f;
+            if (cells != null)
+            {
+                foreach (IntVec3 cell in cells)
+                {
+                    count++;
+                    fertility += map?.fertilityGrid?.FertilityAt(cell) ?? 0f;
+                    light += map?.glowGrid?.VisualGlowAt(cell).a ?? 0f;
+                    Plant plant = map == null ? null : cell.GetPlant(map);
+                    if (plant != null && plant.Blighted)
+                    {
+                        blightCount++;
+                    }
+                }
+            }
+
+            entry["fertility"] = count > 0 ? fertility / count : 0f;
+            entry["light"] = count > 0 ? light / count : 0f;
+            entry["blight"] = blightCount > 0;
+            entry["blightCount"] = blightCount;
         }
 
         return entry;

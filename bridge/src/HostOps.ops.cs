@@ -712,6 +712,8 @@ internal static partial class HostOps
                 return WorldOps.TraderGoods(request);
             case "thing_prices":
                 return WorldOps.Prices(request);
+            case "dlc_dashboard":
+                return DlcOps.Snapshot();
             case "map_haulables":
                 return ThingOps.Haulables(request);
             default:

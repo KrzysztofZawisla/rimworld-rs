@@ -24,6 +24,19 @@ internal static partial class ThingOps
 
         Room room = cell.GetRoom(map);
         Zone zone = map.zoneManager?.ZoneAt(cell);
+        float cover = 0f;
+        List<Thing> things = map.thingGrid?.ThingsListAt(cell);
+        if (things != null)
+        {
+            foreach (Thing thing in things)
+            {
+                if (thing?.def != null && thing.def.fillPercent > cover)
+                {
+                    cover = thing.def.fillPercent;
+                }
+            }
+        }
+
         var info = new Dictionary<string, object>
         {
             ["terrainDefName"] = cell.GetTerrain(map)?.defName,
@@ -32,6 +45,8 @@ internal static partial class ThingOps
             ["roofed"] = map.roofGrid?.Roofed(cell) ?? false,
             ["temperature"] = GenTemperature.GetTemperatureForCell(cell, map),
             ["light"] = map.glowGrid?.VisualGlowAt(cell).a ?? 0f,
+            ["vacuum"] = room?.Vacuum ?? 0f,
+            ["cover"] = cover,
             ["roomId"] = room?.ID ?? -1,
             ["roomLabel"] = room?.Role?.label,
             ["zoneLabel"] = zone?.label,

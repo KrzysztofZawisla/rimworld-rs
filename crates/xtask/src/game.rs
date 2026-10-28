@@ -370,8 +370,12 @@ pub(crate) fn doctor() -> Result<()> {
     println!("repository : {}", root.display());
     println!("platform   : {}", host_rid());
     match which::which("cargo-zigbuild") {
-        Ok(path) => println!("zigbuild   : {} (cross-OS targets link with zig)", path.display()),
-        Err(_) => println!("zigbuild   : not found (cross-OS targets need cargo-zigbuild or a linker)"),
+        Ok(path) => println!("zigbuild   : {} (Linux and macOS cross targets link with zig)", path.display()),
+        Err(_) => println!("zigbuild   : not found (Linux and macOS cross targets need cargo-zigbuild or a linker)"),
+    }
+    match which::which("cargo-xwin") {
+        Ok(path) => println!("xwin       : {} (the MSVC Windows target builds away from Windows)", path.display()),
+        Err(_) => println!("xwin       : not found (the MSVC Windows target needs cargo-xwin or a Windows machine)"),
     }
 
     match game_dir() {

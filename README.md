@@ -193,12 +193,14 @@ cargo xtask package --all-targets      # one zip carrying every platform
 
 Each target lands in its own `Rust/<rid>/` folder, so a single mod (and a single Steam Workshop
 item) serves every platform. Every cross target needs its Rust standard library
-(`rustup target add <triple>`). When `cargo-zigbuild` is installed (`cargo install cargo-zigbuild`,
-with `zig` on `PATH`), `cargo xtask build` uses it automatically for cross-OS targets, so Linux and
-both macOS architectures build from Windows, Linux or macOS. The MSVC Windows target is not a zig
-target, so building it away from Windows needs `cargo-xwin` (or a Windows machine). The C# bridge
-stays one managed assembly, because the game loads `Assemblies/*.dll` flat; only the Rust cdylib
-differs per platform.
+(`rustup target add <triple>`). `cargo xtask build` picks the cross linker itself: `cargo-zigbuild`
+(`cargo install cargo-zigbuild`, with `zig` on `PATH`) for Linux and macOS, so both build from
+Windows, Linux or macOS, and `cargo-xwin` (`cargo install --locked cargo-xwin`, with clang-cl from a
+full LLVM installation - `brew install llvm` on macOS) for the MSVC Windows target, which zig does
+not cover. Without the matching tool a target falls back to plain `cargo build`, which needs a
+linker configured on the machine; otherwise build that target on its own operating system. The C#
+bridge stays one managed assembly, because the game loads `Assemblies/*.dll` flat; only the Rust
+cdylib differs per platform.
 
 The game's own layout differs by platform and `cargo xtask doctor` prints what it resolved: Windows
 keeps the assemblies next to `Data/`, Linux keeps them in `<game>/*_Data/Managed`, and macOS keeps

@@ -46,6 +46,31 @@ fn the_host_target_uses_the_running_platform() {
 }
 
 #[test]
+fn picks_the_cross_linker_for_each_target() {
+    // The host's own linker handles its operating system, including the other macOS architecture.
+    assert_eq!(CrossTool::pick("aarch64-apple-darwin", "osx", true, true), CrossTool::None);
+    assert_eq!(CrossTool::pick("x86_64-apple-darwin", "osx", false, false), CrossTool::None);
+
+    // Cross-OS Linux and macOS: zigbuild when it is there, plain cargo for a linker the machine configured.
+    assert_eq!(CrossTool::pick("x86_64-unknown-linux-gnu", "osx", true, false), CrossTool::Zigbuild);
+    assert_eq!(CrossTool::pick("aarch64-apple-darwin", "win", true, false), CrossTool::Zigbuild);
+    assert_eq!(CrossTool::pick("x86_64-unknown-linux-gnu", "osx", false, false), CrossTool::None);
+
+    // MSVC is not a zig target: cargo-xwin supplies the CRT, the SDK and clang-cl.
+    assert_eq!(CrossTool::pick("x86_64-pc-windows-msvc", "osx", true, true), CrossTool::Xwin);
+    assert_eq!(CrossTool::pick("x86_64-pc-windows-msvc", "osx", true, false), CrossTool::None);
+
+    // Native Windows stays plain cargo, and windows-gnu is left to a configured MinGW linker.
+    assert_eq!(CrossTool::pick("x86_64-pc-windows-msvc", "win", true, true), CrossTool::None);
+    assert_eq!(CrossTool::pick("x86_64-pc-windows-gnu", "osx", true, true), CrossTool::None);
+
+    // The cargo invocation each one stands for.
+    assert_eq!(CrossTool::None.cargo_args(), ["build"]);
+    assert_eq!(CrossTool::Zigbuild.cargo_args(), ["zigbuild"]);
+    assert_eq!(CrossTool::Xwin.cargo_args(), ["xwin", "build"]);
+}
+
+#[test]
 fn the_shipping_matrix_covers_every_platform_the_game_runs_on() {
     let targets = native_targets(&[], true, "my_mod").expect("matrix");
     let mut rids: Vec<&str> = targets.iter().map(|target| target.rid.as_str()).collect();

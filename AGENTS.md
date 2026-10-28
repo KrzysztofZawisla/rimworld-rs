@@ -350,7 +350,8 @@ without it both commands print a SKIP with the reason.
   platform. A new platform means a target in `SHIPPING_TARGETS`/`NativeTarget::for_triple` in
   `crates/xtask`, the matching identifier in `NativeHost.cs`, and a doc row. Cross-OS targets use
   `cargo zigbuild` automatically when `cargo-zigbuild` is installed; the MSVC Windows target is not
-  a zig target and stays with cargo.
+  a zig target, so it uses `cargo xwin build` when `cargo-xwin` is installed and plain cargo (a
+  linker configured on the machine) otherwise.
 - **A type the XML or the save file names is generated per mod, never shared.** The bridge ships one copy per mod
   and the game resolves a patch's `Class` - and a save's component - across *every* loaded assembly by load order,
   so naming a shared bridge class (settings, `RustThingCompProperties`, `RustGizmoCompProperties`, the game and map

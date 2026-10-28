@@ -34,9 +34,11 @@
   (`Assembly-CSharp.dll`, `UnityStubs.dll`, the .NET 10 framework facades) into the gitignored
   `game-refs/` folder; without that step the build reads them directly from your installation.
   These files belong to the game: they are local-only and must never be committed or redistributed.
-- **For cross-platform libraries**: `rustup target add <triple>` for each target, and
-  `cargo install cargo-zigbuild` with `zig` on `PATH`. `cargo xtask build` uses it automatically
-  when compiling for an operating system other than the host.
+- **For cross-platform libraries**: `rustup target add <triple>` for each target,
+  `cargo install cargo-zigbuild` with `zig` on `PATH` for Linux and macOS, and
+  `cargo install --locked cargo-xwin` with LLVM's `clang-cl` for the MSVC Windows target.
+  `cargo xtask build` uses them automatically when compiling for an operating system other than
+  the host; without them it falls back to plain `cargo build` and a linker you configured.
 
 ## The commands
 

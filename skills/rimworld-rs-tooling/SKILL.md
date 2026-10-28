@@ -132,8 +132,9 @@ or a non-zero failed count in the summary.
 - **The native library is per platform.** A Rust cdylib is machine code: `cargo xtask build` writes
   `build/<ModName>/Rust/<rid>/<lib>` (`win-x64`, `linux-x64`, `osx-x64`, `osx-arm64`) and the bridge picks the
   folder for the running game. `--all-targets` builds the shipping matrix; cross-OS targets use `cargo zigbuild`
-  automatically when `cargo-zigbuild` is installed, and the C# bridge stays one managed assembly because the game
-  loads `Assemblies/*.dll` flat.
+  automatically when `cargo-zigbuild` is installed, the MSVC Windows target uses `cargo xwin build` when
+  `cargo-xwin` is installed, and the C# bridge stays one managed assembly because the game loads
+  `Assemblies/*.dll` flat.
 - **Cargo profiles are read from the workspace root only.** A `[profile.release]` in a member is ignored with a
   warning. The examples and `mods/` use this repository's shipping profile (fat LTO, one codegen unit,
   `panic = "unwind"`), and an external mod's own workspace root carries the same profile — `cargo xtask new

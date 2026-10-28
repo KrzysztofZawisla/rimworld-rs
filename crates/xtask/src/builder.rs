@@ -32,20 +32,16 @@ pub(crate) fn build(
     let library = info.package.replace('-', "_");
     let natives = native_targets(targets, all_targets, &library)?;
     for native in &natives {
-        let zigbuild = native.uses_zigbuild();
+        let tool = native.cross_tool();
         let mut command = Command::new("cargo");
-        command.arg(if zigbuild { "zigbuild" } else { "build" });
+        command.args(tool.cargo_args());
         command.args(["--release", "--manifest-path"]).arg(info.dir.join("Cargo.toml")).args(["-p", &info.package]);
         if let Some(triple) = &native.triple {
             ensure_target_installed(triple)?;
             command.args(["--target", triple]);
         }
 
-        println!(
-            "==> compiling the native library for {}{}",
-            native.rid,
-            if zigbuild { " (cargo zigbuild)" } else { "" }
-        );
+        println!("==> compiling the native library for {}{}", native.rid, tool.label());
         run(command.current_dir(&info.workspace_root))?;
 
         let produced = native.output_dir(&info.target_dir).join(&native.file_name);

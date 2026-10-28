@@ -64,21 +64,74 @@ impl NativeTarget {
         })
     }
 
-    /// Whether this target needs a cross linker. `cargo-zigbuild` supplies one for Linux and macOS
-    /// (zig carries libc and a Mach-O linker); the MSVC Windows target is not a zig target, so it is
-    /// left to cargo and needs a Windows machine or `cargo-xwin`.
-    pub(crate) fn uses_zigbuild(&self) -> bool {
+    /// The cargo invocation that links this target: plain cargo when the host toolchain can, a
+    /// cross linker when it cannot and the tool is installed.
+    pub(crate) fn cross_tool(&self) -> CrossTool {
         let Some(triple) = &self.triple else {
-            return false;
+            return CrossTool::None;
         };
 
-        target_os(triple) != host_os() && !triple.contains("windows") && which::which("cargo-zigbuild").is_ok()
+        CrossTool::pick(triple, host_os(), which::which("cargo-zigbuild").is_ok(), which::which("cargo-xwin").is_ok())
     }
 
     pub(crate) fn output_dir(&self, target_dir: &Path) -> PathBuf {
         match &self.triple {
             Some(triple) => target_dir.join(triple).join("release"),
             None => target_dir.join("release"),
+        }
+    }
+}
+
+/// The tool that links a cross target. The host's own linker handles the same operating system
+/// (including macOS on the other architecture); an operating system the host cannot link for needs
+/// one of the two cross linkers, or a linker configured on the machine.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum CrossTool {
+    /// `cargo build`, with the host toolchain and whatever linker is configured.
+    None,
+    /// `cargo zigbuild`: zig carries libc and a linker for Linux and macOS.
+    Zigbuild,
+    /// `cargo xwin build`: cargo-xwin fetches the MSVC CRT and Windows SDK and links with clang-cl.
+    Xwin,
+}
+
+impl CrossTool {
+    /// The decision without asking the machine, so the matrix is testable.
+    pub(crate) fn pick(triple: &str, host: &str, zigbuild: bool, xwin: bool) -> Self {
+        let target = target_os(triple);
+        if target == host {
+            return Self::None;
+        }
+
+        if target == "win" {
+            // Zig does not target the MSVC ABI. windows-gnu stays with a MinGW linker the machine
+            // configured; the shipping target is MSVC, and cargo-xwin is what builds it away from
+            // Windows.
+            return if triple.contains("msvc") && xwin { Self::Xwin } else { Self::None };
+        }
+
+        if zigbuild {
+            Self::Zigbuild
+        } else {
+            Self::None
+        }
+    }
+
+    /// The cargo arguments that run the build with this tool.
+    pub(crate) fn cargo_args(self) -> &'static [&'static str] {
+        match self {
+            Self::None => &["build"],
+            Self::Zigbuild => &["zigbuild"],
+            Self::Xwin => &["xwin", "build"],
+        }
+    }
+
+    /// What the build log says after the target, empty for a plain `cargo build`.
+    pub(crate) fn label(self) -> &'static str {
+        match self {
+            Self::None => "",
+            Self::Zigbuild => " (cargo zigbuild)",
+            Self::Xwin => " (cargo xwin)",
         }
     }
 }

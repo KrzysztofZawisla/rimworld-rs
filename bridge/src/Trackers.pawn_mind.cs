@@ -102,13 +102,15 @@ internal static partial class Trackers
 
     /// <summary>
     /// Sets a pawn's psylink level through the game's own `Hediff_Level.SetLevelTo` and answers with what
-    /// the tracker reports afterwards. A pawn without a psylink is refused: the game grants that hediff
-    /// through its own events, and a level written onto nothing would be a silent no-op.
+    /// the pawn has afterwards. The psylink is read with the game's own `PawnUtility.GetMainPsylinkSource`:
+    /// `Pawn_PsychicEntropyTracker.Psylink` caches its answer per tick, so a psylink that `pawn_hediff_add`
+    /// granted earlier in the same tick would not be seen there. A pawn without a psylink is refused: a
+    /// level written onto nothing would be a silent no-op.
     /// </summary>
     public static object SetPsylink(JsonElement request)
     {
         Pawn pawn = Resolve(request);
-        Hediff_Psylink psylink = pawn.psychicEntropy?.Psylink;
+        Hediff_Psylink psylink = pawn.GetMainPsylinkSource();
         if (psylink == null)
         {
             throw new BridgeException($"'{pawn.LabelShort}' has no psylink to set a level on");

@@ -525,18 +525,53 @@ internal static class EnvironmentOps
                 continue;
             }
 
+            CellRect extents = room.ExtentsClose;
+            // Exact cells are compact enough for proper rooms and let the phone draw the real shape.
+            // The huge outdoor "room" is skipped (the overlay filters it too) and a cap keeps a modded
+            // megastructure from turning one room into a full-map payload.
+            List<IntVec3> roomCells = room.ProperRoom && room.CellCount <= 2000
+                ? room.Cells.Take(2000).ToList()
+                : null;
             rooms.Add(new Dictionary<string, object>
             {
+                ["id"] = room.ID,
+                ["x"] = extents.minX,
+                ["z"] = extents.minZ,
+                ["w"] = extents.Width,
+                ["h"] = extents.Height,
+                ["roomCells"] = roomCells?.Select(cell => new[] { cell.x, cell.z }).ToList(),
                 ["role"] = room.Role?.defName,
                 ["roleLabel"] = room.Role?.label,
                 ["cells"] = room.CellCount,
                 ["temperature"] = room.Temperature,
                 ["outdoor"] = room.UsesOutdoorTemperature,
+                ["beauty"] = RoomStat(room, RoomStatDefOf.Beauty),
+                ["cleanliness"] = RoomStat(room, RoomStatDefOf.Cleanliness),
+                ["space"] = RoomStat(room, RoomStatDefOf.Space),
+                ["impressiveness"] = RoomStat(room, RoomStatDefOf.Impressiveness),
+                ["openRoofCount"] = room.OpenRoofCount,
+                ["vacuum"] = room.Vacuum,
+                ["prison"] = room.IsPrisonCell,
+                ["proper"] = room.ProperRoom,
+                ["fogged"] = room.Fogged,
                 ["mapId"] = map.uniqueID,
             });
         }
 
         return rooms;
+    }
+
+    private static float RoomStat(Room room, RoomStatDef stat)
+    {
+        try
+        {
+            return room.GetStat(stat);
+        }
+        catch (Exception)
+        {
+            // A modded room can fail one stat without making the whole room read fail.
+            return 0f;
+        }
     }
 
     /// <summary>

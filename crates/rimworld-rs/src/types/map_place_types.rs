@@ -1,11 +1,8 @@
-//! Theme: map_place_types. Split from `types.rs`.
-#![allow(unused_imports, unused_macros)] // the imports and the macros are the module's shared vocabulary, used across the theme files
+#![allow(unused_macros)] // the imports and the macros are the module's shared vocabulary, used across the theme files
 
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Map, Value};
+use serde::Deserialize;
 
 use super::*;
-use crate::{host, Result};
 
 /// A thing found by [`crate::Context::map_things_in_radius`].
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -160,10 +157,23 @@ pub struct DesignationInfo {
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct ZoneInfo {
+    pub id: i32,
     pub handle: Option<ObjRef>,
     pub label: Option<String>,
     pub type_name: Option<String>,
     pub cells: i32,
+    pub x: i32,
+    pub z: i32,
+    pub w: i32,
+    pub h: i32,
+    /// Growing zones only: what is planted and whether sowing is allowed.
+    pub plant: Option<String>,
+    pub allow_sow: Option<bool>,
+    /// Growing zones only, averaged over the zone's cells.
+    pub fertility: Option<f32>,
+    pub light: Option<f32>,
+    pub blight: Option<bool>,
+    pub blight_count: Option<i32>,
     /// Storage zones only: their priority and how many defs they accept.
     pub priority: Option<String>,
     pub allowed_def_count: Option<i32>,
@@ -171,6 +181,25 @@ pub struct ZoneInfo {
     pub had_cell: bool,
     /// Set by [`crate::Context::map_zone_delete`].
     pub deleted: bool,
+}
+
+/// How much of a zone is occupied by item stacks.
+///
+/// `fill` is occupied cells / cells. The game has no capacity value for a stockpile: capacity
+/// depends on stack limits, item sizes and the storage filter, so this reports the measurable facts
+/// instead of pretending there is one exact percentage.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct ZoneOccupancy {
+    pub label: Option<String>,
+    pub cells: i32,
+    pub occupied_cells: i32,
+    /// The number of item stacks on the zone's cells.
+    pub stacks: i32,
+    /// The summed `stackCount` of those stacks.
+    pub items: i32,
+    /// Occupied cells divided by the zone's cells, in 0.0..=1.0.
+    pub fill: f32,
 }
 
 /// A named area of a map.
@@ -196,13 +225,30 @@ pub struct AreaCells {
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct RoomInfo {
+    pub id: i32,
     /// The room role's def name (`None` for a room the game has not classified).
     pub role: Option<String>,
     pub role_label: Option<String>,
     pub cells: i32,
+    /// The room's game bounds (`ExtentsClose`), not a fitted polygon.
+    pub x: i32,
+    pub z: i32,
+    pub w: i32,
+    pub h: i32,
+    /// Exact room cells for a proper room, when the bridge kept them (`[x, z]` pairs).
+    pub room_cells: Option<Vec<[i32; 2]>>,
     pub temperature: f32,
     /// True when the room's temperature is the weather's business, not a building's.
     pub outdoor: bool,
+    pub beauty: f32,
+    pub cleanliness: f32,
+    pub space: f32,
+    pub impressiveness: f32,
+    pub open_roof_count: i32,
+    pub vacuum: f32,
+    pub prison: bool,
+    pub proper: bool,
+    pub fogged: bool,
     pub map_id: i32,
 }
 

@@ -1,4 +1,3 @@
-//! Themes of `subsystems.rs`, the file this module was split out of.
 //! Typed wrappers for the game's own subsystems, on top of the generic handle route.
 //!
 //! A mod can reach *any* member of *any* game type through handles (`ctx.type_get`, `ctx.ref_get`,

@@ -1,0 +1,76 @@
+//! Generated wrapper for `Verse.AI.Pawn_JobTracker`.
+#![allow(dead_code, unused_macros, unused_imports, clippy::should_implement_trait)]
+
+use crate::context::Context;
+use crate::subsystems_macros::*;
+use crate::types::ObjRef;
+use crate::Result;
+use serde_json::Value;
+
+wrapper!(
+    /// The game's `Verse.AI.Pawn_JobTracker`, reached through `Verse.Pawn.jobs`.
+    VerseAIJobTracker, "Verse.Pawn", "Verse.AI.Pawn_JobTracker", "jobs",
+    [
+        "pawn",
+        "curJob",
+        "curDriver",
+        "jobQueue",
+        "posture",
+        "startingNewJob",
+        "debugLog",
+        "HandlingFacing",
+        "DeterminingNextJob",
+        "StartedFormingCaravanTick",
+        "ExposeData",
+        "Notify_WorkTypeDisabled",
+        "Notify_JoyKindDisabled",
+        "JobTrackerTick",
+        "JobTrackerTickInterval",
+        "AllJobs",
+        "StartJob",
+        "EndCurrentOrQueuedJob",
+        "SuspendCurrentJob",
+        "EndCurrentJob",
+        "CaptureAndClearJobQueue",
+        "RestoreCapturedJobs",
+        "ClearQueuedJobs",
+        "ReleaseReservations",
+        "CheckForJobOverride",
+        "StopAll",
+        "TryOpportunisticJob",
+        "SetFormingCaravanTick",
+        "IsCurrentJobPlayerInterruptible",
+        "TryTakeOrderedJobPrioritizedWork",
+        "TryTakeOrderedJob",
+        "Notify_TuckedIntoBed",
+        "Notify_DamageTaken",
+        "Notify_MasterDraftedOrUndrafted",
+        "Notify_MasterStartedFieldWork",
+        "DrawLinesBetweenTargets",
+        "DebugLogEvent",
+        "ClearDriver",
+    ]
+);
+
+impl<'a> VerseAIJobTracker<'a> {
+    object_reader!(pawn, "pawn", "reads `pawn`.");
+    object_reader!(cur_job, "curJob", "reads `curJob`.");
+    object_reader!(cur_driver, "curDriver", "reads `curDriver`.");
+    object_reader!(job_queue, "jobQueue", "reads `jobQueue`.");
+    object_reader!(posture, "posture", "reads `posture`.");
+    flag_reader!(starting_new_job, "startingNewJob", "reads `startingNewJob`.");
+    flag_reader!(debug_log, "debugLog", "reads `debugLog`.");
+    flag_reader!(handling_facing, "HandlingFacing", "reads `HandlingFacing`.");
+    flag_reader!(determining_next_job, "DeterminingNextJob", "reads `DeterminingNextJob`.");
+    number_reader!(started_forming_caravan_tick, "StartedFormingCaravanTick", "reads `StartedFormingCaravanTick`.");
+    object_reader!(all_jobs, "AllJobs", "reads `AllJobs`.");
+    object_reader!(capture_and_clear_job_queue, "CaptureAndClearJobQueue", "reads `CaptureAndClearJobQueue`.");
+    flag_reader!(is_current_job_player_interruptible, "IsCurrentJobPlayerInterruptible", "reads `IsCurrentJobPlayerInterruptible`.");
+}
+
+impl Context {
+    /// The game's `Verse.Pawn.jobs`, as a [VerseAIJobTracker].
+    pub fn verse_aijob_tracker(&self, pawn: &ObjRef) -> Result<VerseAIJobTracker<'_>> {
+        Ok(VerseAIJobTracker::new(self, self.pawn_tracker(pawn, VerseAIJobTracker::ACCESSOR)?))
+    }
+}

@@ -8,9 +8,14 @@ it; changes require bumping `ABI_VERSION` in `crates/rimworld-rs/src/abi/mod.rs`
 
 - Calling convention: platform C (`extern "C"` / `CallingConvention.Cdecl`).
 - Strings and buffers are `(pointer, length)` pairs in UTF-8. Lengths are `u32`.
+- A buffer longer than `i32::MAX` is refused on both sides: the managed bridge copies responses
+  into an `int`-sized array, and the Rust side does not create a `RwrsBuf` it cannot hand over.
 - **Structs are passed through pointers, never by value.** On x64 the MS ABI passes 16-byte
   structs by reference; a signature mismatch there corrupts the heap instead of failing loudly.
 - Each side frees only what it allocated.
+- A panic in a Rust handler is caught at the ABI boundary and answered with a failed response; a
+  native response buffer that cannot be produced leaves `response_out` empty and returns a
+  non-zero code instead of letting the bridge read uninitialized memory.
 
 ## Exports (Rust -> bridge)
 
@@ -117,16 +122,17 @@ objects: `ctx.pawn_health`, `ctx.pawn_hediff_set`, `ctx.pawn_skills`, `ctx.pawn_
 `ctx.pawn_mind_state`, `ctx.pawn_job_tracker`, `ctx.pawn_mechanitor`, `ctx.pawn_learning`, `ctx.map_weather_manager`,
 `ctx.map_terrain_grid`, `ctx.map_pathing`, `ctx.map_lord_manager`, `ctx.map_pawns`, `ctx.game_time`,
 `ctx.game_research`, `ctx.game_quests`, `ctx.game_factions`, `ctx.world_grid`, `ctx.world_info` and the rest —
-**142 wrappers over 3257 named members** (about a third of `Assembly-CSharp.dll`'s declared members), plus typed
+**133 wrappers over 4265 named members**, plus typed
 wrappers for the objects a handle points at (`Hediff`, `Gene`, `Ability`, `Job`, `Bill`, `Zone`, `Area`, `Room`,
 `Designation`, `Fire`, `Filth`, `Plant`, `Apparel`, `Quest`, `Faction`, `Caravan`, `Settlement`, ...).
 Each wrapper declares the game's type it wraps, the type it hangs off, that type's accessor and every member it
 names, and `cargo xtask test` verifies all of it against the assembly
-(`142 subsystem wrapper(s), 3257 member name(s), 0 wrong`, plus the shape rule: a member read with `ref_get` is a
+(`133 subsystem wrapper(s), 4265 member name(s), 0 wrong`, plus the shape rule: a member read with `ref_get` is a
 field, a property or a zero-argument method; a method that takes arguments must be called, and a def argument
-travels as a handle). `crates/rimworld-rs/src/subsystems_extra.rs` is **generated** from the installation's own
-metadata — `cargo xtask gen-subsystems` reads every member of every type it wraps and writes the wrappers from
-those names, so nothing there can be guessed wrong and a game update is one command.
+travels as a handle). `crates/rimworld-rs/src/subsystems_extra/` is **generated** from the installation's own
+metadata — `cargo xtask gen-subsystems` reads every member of every type it wraps and writes one file per
+wrapper, so nothing there can be guessed wrong and a game update is one command. `cargo xtask test` runs
+`gen-subsystems --check`, which fails when the recorded directory no longer matches the generator.
 `ctx.member_scan()` + `cargo xtask coverage <Type>` say what is left to the generic route.
 
 The in-game self-test reads through every wrapper family once (`examples/api-test-mod`: "the typed subsystem
@@ -136,7 +142,7 @@ caught.
 The in-game self-test asserts `missing == 0` on every run (`examples/api-test-mod`), which is what keeps
 this claim true as the game changes: a renamed or newly-shaped member fails there, not in a mod.
 
-### Pawns (`crates/rimworld-rs/src/values.rs`)
+### Pawns (`crates/rimworld-rs/src/values/pawn.rs`)
 
 Every pawn operation takes `ref` (the pawn handle); the actions are listed in `ChangesTheGame`.
 
@@ -363,6 +369,7 @@ this reason when something asks for it:
 | `map_zone_add_cell` | `ref` (a zone), `mapId`, `x`, `z` | the zone's entry after the call (a cell of another zone is refused) |
 | `map_zone_remove_cell` | `ref`, `x`, `z` | the zone's entry plus `hadCell` |
 | `map_zone_delete` | `ref` | the zone's entry plus `deleted` |
+| `zone_occupancy` | `ref` (a zone) | `{label?, cells, occupiedCells, stacks, items, fill}` — item stacks on the zone's own cells; `fill` is occupied cells / cells (the game has no capacity value) |
 | `storage_settings` | `ref` (a stockpile zone or a storage thing) | `{label, priority, allowedDefCount, allowedDefs}` (up to 64 defs) |
 | `storage_set_priority` | `ref`, `priority` (`Unstored`/`Low`/`Normal`/`Preferred`/`Important`/`Critical`) | `{label, before, after}` |
 | `storage_allow` | `ref`, `defName`, `allow` | `{label, defName, before, after, allowedDefCount}` |
@@ -434,6 +441,7 @@ thing def (or the other way around) is refused with a message that names the rig
 
 | `op` | Request fields | Result |
 | --- | --- | --- |
+| `dlc_dashboard` | — | `{capabilities, defRegistry, royalty, ideology, biotech, anomaly, odyssey}` — the active expansions, the def registry the bridge sees and each expansion's section (`null` when it is not active) |
 | `pawn_titles` | `ref` | `{titles:[{defName, label, factionDefName, factionName}], seniorDefName, hasRoyalty}` |
 | `pawn_set_title` | `ref`, `title` | `{title, has}` (the player's faction, no rewards, no letter) |
 | `pawn_psyfocus` | `ref` | `{psyfocus, target, band, needsPsyfocus}` |
@@ -514,8 +522,10 @@ save data.
 
 ### User interface
 
-`ui_message`, `ui_dialog` and `ui_window_open` are **main thread only**; the bridge refuses other
-threads with a clear error (instead of crashing). `ui_dialog` opens a `Dialog_MessageBox`;
+Every host call runs from inside a Rust dispatch. A call from outside one — for example from a
+background thread a mod started — is refused with a clear error instead of touching the game
+concurrently. `ui_message`, `ui_dialog` and `ui_window_open` additionally require Unity's main
+thread, which the bridge checks separately; `ui_dialog` opens a `Dialog_MessageBox`;
 `ui_window_open` opens a window the mod describes in Rust (labels, buttons, checkboxes, sliders,
 text fields) that the bridge renders with `Listing_Standard`.
 
@@ -562,8 +572,8 @@ order and a failing entry reports its index.
 
 Dictionaries and lists returned by host commands (`game_info`, `def_info`, `def_names`, ...) are
 serialized as JSON objects/arrays. Everything else that is not a primitive becomes a handle:
-handles are allocated per dispatch and invalid afterwards, and reading them later returns
-`object reference n is not valid anymore`.
+handles are allocated per dispatch and invalid afterwards; an id from another dispatch is refused
+as well, and reading a handle later returns `object reference n is not valid anymore`.
 
 `Verse.TaggedString` (the type behind most labels, descriptions and letter texts) is serialized as
 a plain string in both directions — `def_get(..., "LabelCap")` returns a string, and method

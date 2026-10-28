@@ -1,0 +1,71 @@
+//! Generated wrapper for `RimWorld.Pawn_MechanitorTracker`.
+#![allow(dead_code, unused_macros, unused_imports, clippy::should_implement_trait)]
+
+use crate::context::Context;
+use crate::subsystems_macros::*;
+use crate::types::ObjRef;
+use crate::Result;
+use serde_json::Value;
+
+wrapper!(
+    /// The game's `RimWorld.Pawn_MechanitorTracker`, reached through `Verse.Pawn.mechanitor`.
+    RimWorldMechanitorTracker, "Verse.Pawn", "RimWorld.Pawn_MechanitorTracker", "mechanitor",
+    [
+        "controlGroups",
+        "OverseenPawns",
+        "ControlledPawns",
+        "UsedBandwidth",
+        "UsedBandwidthFromSubjects",
+        "UsedBandwidthFromGestation",
+        "TotalBandwidth",
+        "TotalAvailableControlGroups",
+        "ActiveMechBills",
+        "Pawn",
+        "AnySelectedDraftedMechs",
+        "CanControlMechs",
+        "CanOverseeSubject",
+        "GetControlGroup",
+        "AssignPawnControlGroup",
+        "UnassignPawnFromAnyControlGroup",
+        "Notify_PawnSpawned",
+        "Notify_BandwidthChanged",
+        "CheckAvailableBandwidthForBills",
+        "Notify_MechlinkRemoved",
+        "Notify_ChangedGuestStatus",
+        "Notify_ApparelChanged",
+        "Notify_HediffStateChange",
+        "Notify_ChangedFaction",
+        "Notify_Downed",
+        "Notify_DeSpawned",
+        "UndraftAllMechs",
+        "HasBandwidthForBill",
+        "HasBandwidthToResurrect",
+        "DrawCommandRadius",
+        "CanCommandTo",
+        "GetGizmos",
+        "ExposeData",
+    ]
+);
+
+impl<'a> RimWorldMechanitorTracker<'a> {
+    objects_reader!(control_groups, "controlGroups", "reads `controlGroups`.");
+    objects_reader!(overseen_pawns, "OverseenPawns", "reads `OverseenPawns`.");
+    objects_reader!(controlled_pawns, "ControlledPawns", "reads `ControlledPawns`.");
+    number_reader!(used_bandwidth, "UsedBandwidth", "reads `UsedBandwidth`.");
+    number_reader!(used_bandwidth_from_subjects, "UsedBandwidthFromSubjects", "reads `UsedBandwidthFromSubjects`.");
+    number_reader!(used_bandwidth_from_gestation, "UsedBandwidthFromGestation", "reads `UsedBandwidthFromGestation`.");
+    number_reader!(total_bandwidth, "TotalBandwidth", "reads `TotalBandwidth`.");
+    number_reader!(total_available_control_groups, "TotalAvailableControlGroups", "reads `TotalAvailableControlGroups`.");
+    objects_reader!(active_mech_bills, "ActiveMechBills", "reads `ActiveMechBills`.");
+    object_reader!(pawn, "Pawn", "reads `Pawn`.");
+    flag_reader!(any_selected_drafted_mechs, "AnySelectedDraftedMechs", "reads `AnySelectedDraftedMechs`.");
+    object_reader!(can_control_mechs, "CanControlMechs", "reads `CanControlMechs`.");
+    object_reader!(get_gizmos, "GetGizmos", "reads `GetGizmos`.");
+}
+
+impl Context {
+    /// The game's `Verse.Pawn.mechanitor`, as a [RimWorldMechanitorTracker].
+    pub fn rim_world_mechanitor_tracker(&self, pawn: &ObjRef) -> Result<RimWorldMechanitorTracker<'_>> {
+        Ok(RimWorldMechanitorTracker::new(self, self.pawn_tracker(pawn, RimWorldMechanitorTracker::ACCESSOR)?))
+    }
+}

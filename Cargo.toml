@@ -28,7 +28,8 @@ serde_json = "1"
 #   - `panic = "unwind"` is deliberate and must stay: a mod's panic has to leave the game running, which is
 #     `rwrs_dispatch` catching it at the FFI boundary - `panic = "abort"` would replace that with a crash.
 # Only this manifest has an effect: cargo reads profiles from the workspace root alone, and a `[profile]` table
-# in `crates/*`, `examples/*` or `mods/*` would be ignored with a warning (they inherit this one).
+# in a member manifest would be ignored with a warning (members inherit this one). A mod in its own project owns
+# its workspace root, so that project's manifest (or the one `cargo xtask new --path` writes) carries the profile.
 [profile.release]
 opt-level = 3
 lto = "fat"

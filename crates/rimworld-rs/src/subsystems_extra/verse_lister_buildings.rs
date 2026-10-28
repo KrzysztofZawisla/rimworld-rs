@@ -1,0 +1,57 @@
+//! Generated wrapper for `Verse.ListerBuildings`.
+#![allow(dead_code, unused_macros, unused_imports, clippy::should_implement_trait)]
+
+use crate::context::Context;
+use crate::subsystems_macros::*;
+use crate::types::ObjRef;
+use crate::Result;
+use serde_json::Value;
+
+wrapper!(
+    /// The game's `Verse.ListerBuildings`, reached through `Verse.Map.listerBuildings`.
+    VerseListerBuildings, "Verse.Map", "Verse.ListerBuildings", "listerBuildings",
+    [
+        "allBuildingsColonist",
+        "allBuildingsNonColonist",
+        "allBuildingsColonistCombatTargets",
+        "allBuildingsColonistElecFire",
+        "allBuildingsAnimalPenMarkers",
+        "allBuildingsHitchingPosts",
+        "Track",
+        "Add",
+        "Remove",
+        "RegisterInstallBlueprint",
+        "DeregisterInstallBlueprint",
+        "ColonistsHaveBuilding",
+        "ColonistsHaveBuilding",
+        "ColonistsHaveResearchBench",
+        "ColonistsHaveBuildingWithPowerOn",
+        "AllBuildingsColonistOfDef",
+        "AllBuildingsColonistOfGroup",
+        "AllBuildingsColonistOfClass",
+        "AllColonistBuildingsOfType",
+        "AllBuildingsNonColonistOfDef",
+        "TryGetReinstallBlueprint",
+        "Notify_FactionRemoved",
+        "Dispose",
+    ]
+);
+
+impl<'a> VerseListerBuildings<'a> {
+    objects_reader!(all_buildings_colonist, "allBuildingsColonist", "reads `allBuildingsColonist`.");
+    objects_reader!(all_buildings_non_colonist, "allBuildingsNonColonist", "reads `allBuildingsNonColonist`.");
+    object_reader!(all_buildings_colonist_combat_targets, "allBuildingsColonistCombatTargets", "reads `allBuildingsColonistCombatTargets`.");
+    object_reader!(all_buildings_colonist_elec_fire, "allBuildingsColonistElecFire", "reads `allBuildingsColonistElecFire`.");
+    object_reader!(all_buildings_animal_pen_markers, "allBuildingsAnimalPenMarkers", "reads `allBuildingsAnimalPenMarkers`.");
+    object_reader!(all_buildings_hitching_posts, "allBuildingsHitchingPosts", "reads `allBuildingsHitchingPosts`.");
+    flag_reader!(colonists_have_research_bench, "ColonistsHaveResearchBench", "reads `ColonistsHaveResearchBench`.");
+    object_reader!(all_buildings_colonist_of_class, "AllBuildingsColonistOfClass", "reads `AllBuildingsColonistOfClass`.");
+    object_reader!(all_colonist_buildings_of_type, "AllColonistBuildingsOfType", "reads `AllColonistBuildingsOfType`.");
+}
+
+impl Context {
+    /// The game's `Verse.Map.listerBuildings`, as a [VerseListerBuildings].
+    pub fn verse_lister_buildings(&self, map_id: i32) -> Result<VerseListerBuildings<'_>> {
+        Ok(VerseListerBuildings::new(self, self.map_system(map_id, VerseListerBuildings::ACCESSOR)?))
+    }
+}

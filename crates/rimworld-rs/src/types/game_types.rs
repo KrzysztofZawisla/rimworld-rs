@@ -1,11 +1,6 @@
-//! Theme: game_types. Split from `types.rs`.
-#![allow(unused_imports, unused_macros)] // the imports and the macros are the module's shared vocabulary, used across the theme files
+#![allow(unused_macros)] // the imports and the macros are the module's shared vocabulary, used across the theme files
 
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Map, Value};
-
-use super::*;
-use crate::{host, Result};
 
 /// A research project after the game moved it forward.
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -280,6 +275,7 @@ pub enum SettingKind {
     Int,
     Float,
     String,
+    Token,
 }
 
 /// One field of the mod options window. Values are stored as strings in the mod's config file.
@@ -340,6 +336,19 @@ impl SettingSpec {
             key: key.to_string(),
             label: label.to_string(),
             kind: SettingKind::String,
+            default: default.to_string(),
+            min: None,
+            max: None,
+        }
+    }
+}
+
+impl SettingSpec {
+    pub fn token(key: &str, label: &str, default: &str) -> SettingSpec {
+        SettingSpec {
+            key: key.to_string(),
+            label: label.to_string(),
+            kind: SettingKind::Token,
             default: default.to_string(),
             min: None,
             max: None,

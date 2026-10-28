@@ -1,11 +1,6 @@
-//! Theme: map_terrain_types. Split from `types.rs`.
-#![allow(unused_imports, unused_macros)] // the imports and the macros are the module's shared vocabulary, used across the theme files
+#![allow(unused_macros)] // the imports and the macros are the module's shared vocabulary, used across the theme files
 
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Map, Value};
-
-use super::*;
-use crate::{host, Result};
+use serde::Deserialize;
 
 /// The temperature a room took from `Context::map_set_room_temperature`.
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -168,6 +163,11 @@ pub struct CellInfo {
     pub roofed: bool,
     pub temperature: f32,
     pub light: f32,
+    /// The room's vacuum reading; `0` outdoors or in a room without vacuum.
+    pub vacuum: f32,
+    /// The highest `fillPercent` of a thing on the cell. This is static cover, not a direction-sensitive
+    /// combat cover value (the game's cover is relative to a pawn and a target).
+    pub cover: f32,
     pub room_id: i32,
     pub room_label: Option<String>,
     pub zone_label: Option<String>,

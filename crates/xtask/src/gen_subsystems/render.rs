@@ -1,0 +1,368 @@
+use std::path::Path;
+
+use crate::*;
+
+/// The wrapper's name for a game type: `RimWorld.Pawn_GeneTracker` -> `PawnGeneTracker`.
+pub(crate) fn wrapper_name(kind: &str) -> String {
+    let short = kind.rsplit('.').next().unwrap_or(kind);
+    let short = short.trim_start_matches("Pawn_");
+    let mut name = String::new();
+    for (index, part) in kind.split('.').enumerate() {
+        let part = if index > 0 && part.starts_with("Pawn_") { short } else { part };
+        let mut chars = part.chars();
+        if let Some(first) = chars.next() {
+            name.extend(first.to_uppercase());
+            name.push_str(chars.as_str());
+        }
+    }
+
+    name
+}
+
+/// `CamelCase` (and the odd `lowerCamel`) to `snake_case`.
+pub(crate) fn snake(name: &str) -> String {
+    let mut out = String::new();
+    let mut previous_lower = false;
+    for character in name.chars() {
+        if character.is_uppercase() {
+            if previous_lower {
+                out.push('_');
+            }
+
+            out.extend(character.to_lowercase());
+            previous_lower = false;
+        } else {
+            out.push(character);
+            previous_lower = character.is_lowercase() || character.is_ascii_digit();
+        }
+    }
+
+    out
+}
+
+/// Which reader a member's own type calls for.
+pub(crate) fn reader_for(member_type: &str) -> &'static str {
+    if member_type == "bool" {
+        "flag_reader"
+    } else if ["byte", "sbyte", "short", "ushort", "int", "uint", "long", "ulong", "float", "double", "decimal"]
+        .contains(&member_type)
+    {
+        "number_reader"
+    } else if member_type == "string" || member_type.contains("TaggedString") {
+        "text_reader"
+    } else if member_type.contains("List`1") || member_type.ends_with("[]") {
+        "objects_reader"
+    } else {
+        "object_reader"
+    }
+}
+
+/// A value from the game's assembly, written into generated Rust as a string literal: it is data, never
+/// source, so a quote, a backslash or a control character in a name cannot end the literal early.
+pub(crate) fn rust_string(value: &str) -> String {
+    let mut escaped = String::with_capacity(value.len());
+    for character in value.chars() {
+        match character {
+            '"' => escaped.push_str("\\\""),
+            '\\' => escaped.push_str("\\\\"),
+            '\n' => escaped.push_str("\\n"),
+            '\r' => escaped.push_str("\\r"),
+            '\t' => escaped.push_str("\\t"),
+            control if control.is_control() => escaped.push_str(&format!("\\u{{{:x}}}", control as u32)),
+            other => escaped.push(other),
+        }
+    }
+
+    escaped
+}
+
+/// A member name turned into a Rust identifier: whatever is not an ASCII letter, a digit or `_` becomes `_`,
+/// and a leading digit gets one in front, so a generated reader cannot be anything but an identifier.
+pub(crate) fn rust_identifier(name: &str) -> String {
+    let mut identifier: String = name
+        .chars()
+        .map(|character| if character.is_ascii_alphanumeric() || character == '_' { character } else { '_' })
+        .collect();
+    if identifier.is_empty() || identifier.starts_with(|character: char| character.is_ascii_digit()) {
+        identifier.insert(0, '_');
+    }
+
+    identifier
+}
+
+/// Renders the generated module as a map of relative path to contents.
+///
+/// The pure half of the writer: the tests run it without touching the repository, and `--check`
+/// compares its result with the directory that is checked in.
+pub(crate) fn render_subsystems(
+    rows: &[(String, String, String, String, Vec<MemberDump>)],
+) -> Result<std::collections::BTreeMap<String, String>> {
+    let mut files = std::collections::BTreeMap::new();
+    let mut module = String::new();
+    module.push_str(HEADER);
+
+    for (wrapper, parent, kind, accessor, members) in rows {
+        let name = snake(wrapper);
+        let mut definition = String::new();
+        definition.push_str(&format!("//! Generated wrapper for `{kind}`.\n"));
+        definition.push_str(FILE_HEADER);
+
+        let listed: Vec<String> = members
+            .iter()
+            .filter(|member| member.visibility != "private")
+            .map(|member| format!("        \"{}\",\n", rust_string(&member.name)))
+            .collect();
+        definition.push_str(&format!(
+            "wrapper!(\n    /// The game's `{kind}`, reached through `{parent}.{accessor}`.\n    {wrapper}, \"{}\", \"{}\", \"{}\",\n    [\n{}    ]\n);\n",
+            rust_string(parent),
+            rust_string(kind),
+            rust_string(accessor),
+            listed.concat()
+        ));
+
+        let mut readers = String::new();
+        let mut used: Vec<String> = Vec::new();
+        for member in members {
+            if member.visibility == "private" || member.is_static {
+                continue;
+            }
+
+            if member.kind == "method" && member.arity.unwrap_or(0) > 0 {
+                continue;
+            }
+
+            if member.kind == "method" && member.member_type == "void" {
+                continue;
+            }
+
+            let mut name = rust_identifier(&snake(&member.name));
+            while used.contains(&name) {
+                name.push('_');
+            }
+
+            used.push(name.clone());
+            let reads = rust_string(&format!("reads `{}`.", member.name));
+            readers.push_str(&format!(
+                "    {}!({name}, \"{}\", \"{reads}\");\n",
+                reader_for(&member.member_type),
+                rust_string(&member.name)
+            ));
+        }
+
+        let readers_block = format!("\nimpl<'a> {wrapper}<'a> {{\n{readers}}}\n");
+
+        let mut constructor = String::new();
+        if !accessor.is_empty() {
+            let method = snake(wrapper);
+            let signature_and_route = match parent.as_str() {
+                "Verse.Pawn" => Some((
+                    format!("pub fn {method}(&self, pawn: &ObjRef) -> Result<{wrapper}<'_>>"),
+                    format!("self.pawn_tracker(pawn, {wrapper}::ACCESSOR)?"),
+                )),
+                "Verse.Map" => Some((
+                    format!("pub fn {method}(&self, map_id: i32) -> Result<{wrapper}<'_>>"),
+                    format!("self.map_system(map_id, {wrapper}::ACCESSOR)?"),
+                )),
+                "Verse.Find" => Some((
+                    format!("pub fn {method}(&self) -> Result<{wrapper}<'_>>"),
+                    format!("self.game_system({wrapper}::ACCESSOR)?"),
+                )),
+                "RimWorld.Planet.World" => Some((
+                    format!("pub fn {method}(&self) -> Result<{wrapper}<'_>>"),
+                    format!("self.world_system({wrapper}::ACCESSOR)?"),
+                )),
+                "Verse.Game" => Some((
+                    format!("pub fn {method}(&self) -> Result<{wrapper}<'_>>"),
+                    format!("self.subsystem_of_game({wrapper}::ACCESSOR)?"),
+                )),
+                _ => None,
+            };
+
+            if let Some((signature, route)) = signature_and_route {
+                constructor.push_str(&format!(
+                    "\nimpl Context {{\n    /// The game's `{parent}.{accessor}`, as a [{wrapper}].\n    {signature} {{\n        Ok({wrapper}::new(self, {route}))\n    }}\n}}\n"
+                ));
+            }
+        }
+
+        let line_count = definition.lines().count() + readers_block.lines().count() + constructor.lines().count();
+        if line_count > 400 {
+            // A wrapper with many readers becomes a directory: the type and its constructor stay in
+            // `mod.rs`, the readers in `readers.rs`, so neither file outgrows the generated rule.
+            files.insert(format!("{name}/mod.rs"), format!("{definition}{constructor}\nmod readers;\n"));
+            files.insert(
+                format!("{name}/readers.rs"),
+                format!("//! Reader methods for the `{kind}` wrapper.\n{FILE_HEADER}use super::*;\n{readers_block}"),
+            );
+        } else {
+            files.insert(format!("{name}.rs"), format!("{definition}{readers_block}{constructor}"));
+        }
+
+        module.push_str(&format!("mod {name};\npub use {name}::*;\n"));
+    }
+
+    files.insert("mod.rs".to_string(), module);
+    Ok(files)
+}
+
+/// Writes the generated module, or checks that the recorded one matches the generator.
+pub(crate) fn write_subsystems(rows: &[(String, String, String, String, Vec<MemberDump>)], check: bool) -> Result<()> {
+    let files = render_subsystems(rows)?;
+    let dir = repo_root().join("crates").join("rimworld-rs").join("src").join("subsystems_extra");
+
+    if check {
+        let existing = read_subsystem_files(&dir)?;
+        let mut problems = Vec::new();
+        for (path, contents) in &files {
+            match existing.get(path) {
+                None => problems.push(format!("missing {path}")),
+                Some(actual) if actual != contents => problems.push(format!("changed {path}")),
+                Some(_) => {}
+            }
+        }
+        for path in existing.keys() {
+            if !files.contains_key(path) {
+                problems.push(format!("extra {path}"));
+            }
+        }
+
+        if problems.is_empty() {
+            println!("subsystems_extra is up to date ({} file(s))", files.len());
+            return Ok(());
+        }
+
+        for problem in &problems {
+            println!("  {problem}");
+        }
+        return Err(missing("subsystems_extra is out of date; run `cargo xtask gen-subsystems`"));
+    }
+
+    if dir.exists() {
+        std::fs::remove_dir_all(&dir).map_err(|error| missing(format!("removing {}: {error}", dir.display())))?;
+    }
+    std::fs::create_dir_all(&dir).map_err(|error| missing(format!("creating {}: {error}", dir.display())))?;
+    for (path, contents) in &files {
+        let path = dir.join(path);
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)
+                .map_err(|error| missing(format!("creating {}: {error}", parent.display())))?;
+        }
+        std::fs::write(&path, contents).map_err(|error| missing(format!("writing {}: {error}", path.display())))?;
+    }
+    println!("wrote {} ({} file(s))", dir.display(), files.len());
+    Ok(())
+}
+
+/// Reads the recorded generated directory as a map of relative path to contents.
+fn read_subsystem_files(dir: &Path) -> Result<std::collections::BTreeMap<String, String>> {
+    let mut files = std::collections::BTreeMap::new();
+    if !dir.exists() {
+        return Ok(files);
+    }
+
+    for entry in walkdir::WalkDir::new(dir) {
+        let entry = entry.map_err(|error| missing(format!("reading {}: {error}", dir.display())))?;
+        if !entry.file_type().is_file()
+            || entry.path().extension().and_then(|extension| extension.to_str()) != Some("rs")
+        {
+            continue;
+        }
+
+        let relative = entry
+            .path()
+            .strip_prefix(dir)
+            .map_err(|error| missing(format!("reading {}: {error}", entry.path().display())))?
+            .to_string_lossy()
+            .replace('\\', "/");
+        let contents = std::fs::read_to_string(entry.path())
+            .map_err(|error| missing(format!("reading {}: {error}", entry.path().display())))?;
+        files.insert(relative, contents);
+    }
+
+    Ok(files)
+}
+
+/// The per-wrapper header: the imports and the lint policy every generated file carries.
+pub(crate) const FILE_HEADER: &str = r#"#![allow(dead_code, unused_macros, unused_imports, clippy::should_implement_trait)]
+
+use crate::context::Context;
+use crate::subsystems_macros::*;
+use crate::types::ObjRef;
+use crate::Result;
+use serde_json::Value;
+
+"#;
+
+/// The module's own documentation, so a regenerated file explains itself the same way.
+pub(crate) const HEADER: &str = r#"//! Typed wrappers for the rest of the game's own subsystems and for the objects a handle points at,
+//! generated from the assembly's metadata, so every name here exists.
+//!
+//! Same contract as `crate::subsystems`: each wrapper declares the game's type it wraps (`TYPE`), the type
+//! it hangs off (`PARENT`) and that type's member (`ACCESSOR`), and every member it names - all verified by
+//! `cargo xtask test` against the real assembly, and read in game by `examples/api-test-mod`.
+//!
+//! This file is generated by `cargo xtask gen-subsystems`: edit the generator, not this file. The reader
+//! macros it emits are allowed to be unused depending on what the game exposes, and a game member whose
+//! name collides with a trait method is allowed to exist.
+#![allow(dead_code, unused_macros, unused_imports, clippy::should_implement_trait)]
+#![deny(unsafe_code)] // no unsafe outside the FFI layer (abi.rs, host.rs, dispatch.rs)
+
+use crate::context::Context;
+use crate::subsystems_macros::*;
+use crate::types::ObjRef;
+use crate::Result;
+use serde_json::Value;
+
+"#;
+// ---------------------------------------------------------------- formatting and linters
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn member(name: &str) -> MemberDump {
+        MemberDump {
+            name: name.to_string(),
+            kind: "field".to_string(),
+            is_static: false,
+            visibility: "public".to_string(),
+            member_type: "int".to_string(),
+            arity: None,
+        }
+    }
+
+    #[test]
+    fn a_large_wrapper_is_split_into_a_directory() {
+        let members: Vec<MemberDump> = (0..420).map(|index| member(&format!("field_{index}"))).collect();
+        let rows = vec![(
+            "TestWrapper".to_string(),
+            "Verse.Pawn".to_string(),
+            "Verse.TestWrapper".to_string(),
+            "test".to_string(),
+            members,
+        )];
+        let files = render_subsystems(&rows).expect("render");
+        assert!(files.contains_key("test_wrapper/mod.rs"));
+        assert!(files.contains_key("test_wrapper/readers.rs"));
+        assert!(!files.contains_key("test_wrapper.rs"));
+        assert!(files["test_wrapper/mod.rs"].contains("mod readers;"));
+        assert!(files["mod.rs"].contains("mod test_wrapper;"));
+        assert!(!files["test_wrapper/mod.rs"].contains("Theme:"));
+        assert!(!files["test_wrapper/readers.rs"].contains("Theme:"));
+    }
+
+    #[test]
+    fn a_small_wrapper_stays_one_file() {
+        let rows = vec![(
+            "TestWrapper".to_string(),
+            "Verse.Pawn".to_string(),
+            "Verse.TestWrapper".to_string(),
+            "test".to_string(),
+            vec![member("field")],
+        )];
+        let files = render_subsystems(&rows).expect("render");
+        assert!(files.contains_key("test_wrapper.rs"));
+        assert!(!files.contains_key("test_wrapper/mod.rs"));
+        assert!(!files["test_wrapper.rs"].contains("Theme:"));
+    }
+}

@@ -1,0 +1,40 @@
+//! Generated wrapper for `Verse.AI.Pawn_Thinker`.
+#![allow(dead_code, unused_macros, unused_imports, clippy::should_implement_trait)]
+
+use crate::context::Context;
+use crate::subsystems_macros::*;
+use crate::types::ObjRef;
+use crate::Result;
+use serde_json::Value;
+
+wrapper!(
+    /// The game's `Verse.AI.Pawn_Thinker`, reached through `Verse.Pawn.thinker`.
+    VerseAIThinker, "Verse.Pawn", "Verse.AI.Pawn_Thinker", "thinker",
+    [
+        "pawn",
+        "MainThinkTree",
+        "MainThinkNodeRoot",
+        "ConstantThinkTree",
+        "ConstantThinkNodeRoot",
+        "TryGetMainTreeThinkNode",
+        "GetMainTreeThinkNode",
+        "ExposeData",
+    ]
+);
+
+impl<'a> VerseAIThinker<'a> {
+    object_reader!(pawn, "pawn", "reads `pawn`.");
+    object_reader!(main_think_tree, "MainThinkTree", "reads `MainThinkTree`.");
+    object_reader!(main_think_node_root, "MainThinkNodeRoot", "reads `MainThinkNodeRoot`.");
+    object_reader!(constant_think_tree, "ConstantThinkTree", "reads `ConstantThinkTree`.");
+    object_reader!(constant_think_node_root, "ConstantThinkNodeRoot", "reads `ConstantThinkNodeRoot`.");
+    object_reader!(try_get_main_tree_think_node, "TryGetMainTreeThinkNode", "reads `TryGetMainTreeThinkNode`.");
+    object_reader!(get_main_tree_think_node, "GetMainTreeThinkNode", "reads `GetMainTreeThinkNode`.");
+}
+
+impl Context {
+    /// The game's `Verse.Pawn.thinker`, as a [VerseAIThinker].
+    pub fn verse_aithinker(&self, pawn: &ObjRef) -> Result<VerseAIThinker<'_>> {
+        Ok(VerseAIThinker::new(self, self.pawn_tracker(pawn, VerseAIThinker::ACCESSOR)?))
+    }
+}

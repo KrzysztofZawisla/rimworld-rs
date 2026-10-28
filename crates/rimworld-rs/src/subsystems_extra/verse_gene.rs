@@ -1,0 +1,56 @@
+//! Generated wrapper for `Verse.Gene`.
+#![allow(dead_code, unused_macros, unused_imports, clippy::should_implement_trait)]
+
+use crate::context::Context;
+use crate::subsystems_macros::*;
+use crate::types::ObjRef;
+use crate::Result;
+use serde_json::Value;
+
+wrapper!(
+    /// The game's `Verse.Gene`, reached through `.`.
+    VerseGene, "", "Verse.Gene", "",
+    [
+        "def",
+        "pawn",
+        "loadID",
+        "overriddenByGene",
+        "passionPreAdd",
+        "Label",
+        "LabelCap",
+        "Overridden",
+        "Active",
+        "DisabledWorkTypes",
+        "PostMake",
+        "PostAdd",
+        "PostRemove",
+        "Tick",
+        "TickInterval",
+        "OverrideBy",
+        "NewPassionForOnRemoval",
+        "Notify_IngestedThing",
+        "Notify_NewColony",
+        "Notify_PawnDied",
+        "Reset",
+        "GetGizmos",
+        "SpecialDisplayStats",
+        "GetUniqueLoadID",
+        "ExposeData",
+    ]
+);
+
+impl<'a> VerseGene<'a> {
+    object_reader!(def, "def", "reads `def`.");
+    object_reader!(pawn, "pawn", "reads `pawn`.");
+    number_reader!(load_id, "loadID", "reads `loadID`.");
+    object_reader!(overridden_by_gene, "overriddenByGene", "reads `overriddenByGene`.");
+    object_reader!(passion_pre_add, "passionPreAdd", "reads `passionPreAdd`.");
+    text_reader!(label, "Label", "reads `Label`.");
+    text_reader!(label_cap, "LabelCap", "reads `LabelCap`.");
+    flag_reader!(overridden, "Overridden", "reads `Overridden`.");
+    flag_reader!(active, "Active", "reads `Active`.");
+    object_reader!(disabled_work_types, "DisabledWorkTypes", "reads `DisabledWorkTypes`.");
+    object_reader!(get_gizmos, "GetGizmos", "reads `GetGizmos`.");
+    object_reader!(special_display_stats, "SpecialDisplayStats", "reads `SpecialDisplayStats`.");
+    text_reader!(get_unique_load_id, "GetUniqueLoadID", "reads `GetUniqueLoadID`.");
+}

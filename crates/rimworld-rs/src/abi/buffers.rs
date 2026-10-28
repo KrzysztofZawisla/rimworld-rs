@@ -19,7 +19,8 @@ impl Buf {
     /// Allocates a buffer for `data`. Release it with [`Buf::free`].
     pub fn from_bytes(data: Vec<u8>) -> Buf {
         let boxed = data.into_boxed_slice();
-        let len = boxed.len() as u32;
+        let len = u32::try_from(boxed.len()).expect("a buffer larger than u32 cannot cross the ABI");
+        assert!(len <= i32::MAX as u32, "the bridge cannot copy a buffer larger than i32::MAX");
         let ptr = Box::into_raw(boxed) as *mut u8;
         Buf { ptr, len }
     }

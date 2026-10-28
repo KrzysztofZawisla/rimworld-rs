@@ -29,5 +29,10 @@ which = "4.4.2"
 quick-xml = "0.42.0"
 cargo_metadata = "0.23.1"
 
+[package.metadata.cargo-machete]
+# Not named directly: `syn` needs proc-macro2's `span-locations` feature for the line/column numbers
+# the layout rule counts, so the dependency is real even though no `proc_macro2::` path appears here.
+ignored = ["proc-macro2"]
+
 [dev-dependencies]
 tempfile = "3.27.0"

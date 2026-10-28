@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using System.Threading;
 
 namespace RustBridge;
 
@@ -38,8 +39,9 @@ internal sealed class RefTable
         public int GetHashCode(object value) => RuntimeHelpers.GetHashCode(value);
     }
 
+    private static int nextId;
     private readonly Dictionary<object, int> ids = new(ReferenceComparer.Instance);
-    private readonly List<object> items = new();
+    private readonly Dictionary<int, object> items = new();
 
     public int Add(object value)
     {
@@ -48,20 +50,22 @@ internal sealed class RefTable
             return existing;
         }
 
-        int id = items.Count;
-        items.Add(value);
+        // The id is unique for the process, not just for this table: a handle kept past its
+        // dispatch must not resolve to an unrelated object of the next table.
+        int id = Interlocked.Increment(ref nextId);
+        items.Add(id, value);
         ids[value] = id;
         return id;
     }
 
     public object Get(int id)
     {
-        if (id < 0 || id >= items.Count)
+        if (!items.TryGetValue(id, out object value))
         {
             throw new BridgeException($"object reference {id} is not valid anymore");
         }
 
-        return items[id];
+        return value;
     }
 
     public void Clear()
@@ -73,9 +77,10 @@ internal sealed class RefTable
 
 /// <summary>
 /// Thread local scope that owns the <see cref="RefTable"/> for the currently executing dispatch.
-/// Nested dispatches keep the outer table alive. A patch call that a host call triggers from
-/// inside a Rust handler is not dispatched while the Rust side is busy: it is queued instead
-/// (see <see cref="RustHost.QueueNestedPatch"/>).
+/// Nested dispatches without a handle table keep the outer table alive; a nested dispatch that
+/// brings its own table is refused, because its $ref numbers belong to that table. A patch call
+/// that a host call triggers from inside a Rust handler is not dispatched while the Rust side is
+/// busy: it is queued instead (see <see cref="RustHost.QueueNestedPatch"/>).
 /// </summary>
 internal static class RefContext
 {
@@ -96,11 +101,22 @@ internal static class RefContext
     /// <summary>Enters a dispatch, optionally reusing the table of a queued patch call.</summary>
     public static IDisposable Enter(RefTable table)
     {
-        if (depth++ == 0)
+        if (depth > 0)
         {
-            current = table ?? new RefTable();
+            if (table != null)
+            {
+                // The payload of the nested event was built against its own table, so resolving its
+                // $ref numbers against the outer table would reach the wrong objects. Queue it.
+                throw new BridgeException(
+                    "a handle-carrying dispatch cannot start while another dispatch is running; queue the event instead");
+            }
+
+            depth++;
+            return new Scope();
         }
 
+        depth = 1;
+        current = table ?? new RefTable();
         return new Scope();
     }
 

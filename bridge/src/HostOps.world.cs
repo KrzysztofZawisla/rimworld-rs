@@ -72,10 +72,9 @@ internal static partial class HostOps
             throw new BridgeException($"{cell} is outside map {mapId}");
         }
 
-        // Defs that are made from stuff need one: without it the game logs "madeFromStuff but
-        // stuff=null" and assigns a default anyway, so pick the default ourselves.
-        Thing thing = ThingMaker.MakeThing(def, GenStuff.DefaultStuffFor(def));
-        GenSpawn.Spawn(thing, cell, map, Rot4.North, WipeMode.Vanish);
+        // The def overload is the game's own spawn path (and what a Harmony patch on Spawn sees);
+        // making the Thing by hand would bypass it.
+        Thing thing = GenSpawn.Spawn(def, cell, map, WipeMode.Vanish);
         return thing;
     }
     private static void SendLetter(JsonElement request)

@@ -57,8 +57,8 @@ internal static partial class Program
         }
 
         var bridge = new SortedSet<string>(StringComparer.Ordinal);
-        // The router is one file of a family since the layout rule split it: every `HostOps*.cs` counts, or the
-        // check would see no bridge operation at all and report the whole SDK as missing.
+        // The router is one file of a family: every `HostOps*.cs` counts, or the check would see no bridge
+        // operation at all and report the whole SDK as missing.
         string bridgeSource = Path.Combine(repo, "bridge", "src");
         string hostOps = string.Empty;
         foreach (string file in Directory.Exists(bridgeSource)
@@ -133,7 +133,7 @@ internal static partial class Program
         // that text directly: handing it to File.Exists/File.ReadAllText treated source code as a path, both
         // guards were false, and the two maps stayed empty - the check then reported every collected operation
         // as "checked by field name" while comparing none of them.
-        var helpers = new Dictionary<string, string>(StringComparer.Ordinal);
+        var helpers = new Dictionary<string, (string[] Parameters, string Body)>(StringComparer.Ordinal);
         if (hostOps.Length > 0)
         {
             foreach (Match helper in Regex.Matches(
@@ -141,9 +141,71 @@ internal static partial class Program
                          @"(?:private|public|internal)\s+static\s+[A-Za-z_0-9<>\[\]., ]+\s+(?<name>[A-Za-z_0-9]+)\s*\((?<params>[^)]*)\)\s*\{(?<body>.*?)\n    \}",
                          RegexOptions.Singleline))
             {
-                helpers[helper.Groups["name"].Value] = helper.Groups["body"].Value;
+                string[] parameters = helper.Groups["params"].Value
+                    .Split(',')
+                    .Select(parameter => parameter.Trim())
+                    .Where(parameter => parameter.Length > 0)
+                    .Select(parameter => parameter.Split(' ')[^1])
+                    .ToArray();
+                helpers[helper.Groups["name"].Value] = (parameters, helper.Groups["body"].Value);
             }
         }
+
+        // The names a piece of C# reads from the request, following helper calls to any depth: the router hands
+        // the request to a helper and the helper may hand it on again (`def_set` -> `DefSet` -> `ResolveDef`).
+        // A helper can also take the property name as its own argument (`ReadCell(request, "center")`), so a
+        // literal passed for a parameter the helper reads by name counts as a field of that operation.
+        static SortedSet<string> ReadFields(
+            string body,
+            Dictionary<string, (string[] Parameters, string Body)> helpers,
+            HashSet<string> active)
+        {
+            var fields = new SortedSet<string>(StringComparer.Ordinal);
+            foreach (Match read in Regex.Matches(
+                         body,
+                         @"JsonArgs\.\w+\(\s*[A-Za-z_.()]*request\s*,\s*""(?<key>[A-Za-z_0-9]+)"""))
+            {
+                fields.Add(read.Groups["key"].Value);
+            }
+
+            foreach (Match read in Regex.Matches(
+                         body,
+                         @"request\.(?:Try)?GetProperty\(\s*""(?<key>[A-Za-z_0-9]+)"""))
+            {
+                fields.Add(read.Groups["key"].Value);
+            }
+
+            foreach (Match call in Regex.Matches(body, @"(?<name>[A-Za-z_0-9]+)\((?<args>[^()]*)\)"))
+            {
+                string name = call.Groups["name"].Value;
+                if (!helpers.TryGetValue(name, out (string[] Parameters, string Body) helper) || !active.Add(name))
+                {
+                    continue;
+                }
+
+                fields.UnionWith(ReadFields(helper.Body, helpers, active));
+                active.Remove(name);
+
+                string[] arguments = call.Groups["args"].Value.Split(',');
+                for (int index = 0; index < arguments.Length && index < helper.Parameters.Length; index++)
+                {
+                    Match literal = Regex.Match(arguments[index].Trim(), "^\"(?<value>[A-Za-z_0-9]+)\"$");
+                    if (!literal.Success)
+                    {
+                        continue;
+                    }
+
+                    string parameter = Regex.Escape(helper.Parameters[index]);
+                    if (Regex.IsMatch(helper.Body, @"(?:Try)?GetProperty\(\s*" + parameter + @"\s*[,)]"))
+                    {
+                        fields.Add(literal.Groups["value"].Value);
+                    }
+                }
+            }
+
+            return fields;
+        }
+
         var bridgeFields = new Dictionary<string, SortedSet<string>>(StringComparer.Ordinal);
         if (hostOps.Length > 0)
         {
@@ -152,28 +214,10 @@ internal static partial class Program
                          @"(?<labels>(?:case ""[a-z_0-9]+"":\s*)+)(?<body>.*?)(?=case ""[a-z_0-9]+"":|default:|\z)",
                          RegexOptions.Singleline))
             {
-                var fields = new SortedSet<string>(StringComparer.Ordinal);
-                foreach (Match read in Regex.Matches(
-                             block.Groups["body"].Value,
-                             @"JsonArgs\.\w+\(\s*[A-Za-z_.()]*request\s*,\s*""(?<key>[A-Za-z_0-9]+)"""))
-                {
-                    fields.Add(read.Groups["key"].Value);
-                }
-
-                // A case usually hands the request to a helper - `Trackers.SetTitle(request)` - and the fields
-                // are read there, so one level of helper resolution is part of reading the bridge's side.
-                foreach (Match call in Regex.Matches(block.Groups["body"].Value, @"(?<name>[A-Za-z_0-9]+)\("))
-                {
-                    if (!helpers.TryGetValue(call.Groups["name"].Value, out string helper))
-                    {
-                        continue;
-                    }
-
-                    foreach (Match read in Regex.Matches(helper, @"JsonArgs\.\w+\(\s*[A-Za-z_.()]*request\s*,\s*""(?<key>[A-Za-z_0-9]+)"""))
-                    {
-                        fields.Add(read.Groups["key"].Value);
-                    }
-                }
+                SortedSet<string> fields = ReadFields(
+                    block.Groups["body"].Value,
+                    helpers,
+                    new HashSet<string>(StringComparer.Ordinal));
                 foreach (Match label in Regex.Matches(block.Groups["labels"].Value, @"""(?<op>[a-z_0-9]+)"""))
                 {
                     bridgeFields[label.Groups["op"].Value] = fields;
@@ -211,8 +255,7 @@ internal static partial class Program
 
         // Every operation needs a case of its own in the mock host: either a real answer or a refusal with a
         // reason. Without one the mock answers "success with null" and an offline check passes without proof.
-        // the mock host is a family of files since the layout rule split this one: reading a single path made
-        // every operation look unmocked
+        // The mock host is a family of files, so every `Program*.cs` in this directory is read.
         var withoutMock = new List<string>();
         string mockText = string.Empty;
         string mockDirectory = Path.Combine(repo, "tools", "abi-smoke");

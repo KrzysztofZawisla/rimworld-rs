@@ -1,0 +1,34 @@
+//! The self-test suite.
+
+mod caravan;
+mod cells;
+mod combat;
+mod comp;
+mod construction_planet_and_diagnostics;
+mod designations;
+mod environment;
+mod environment_power;
+mod events;
+mod finish;
+mod handle_members_and_health;
+mod handles;
+mod harmony;
+mod health_and_world_rules;
+mod health_items_and_policies;
+mod lords_training_and_records;
+mod pawn_look_and_camera;
+mod pawns_planet;
+mod plants_trade;
+mod run;
+mod saved_data_defs_and_drawing;
+mod settings;
+mod setup;
+mod thing_details;
+mod things_maps_and_pawns;
+mod tick;
+mod time_beds_and_accessors;
+mod typed_subsystems;
+mod ui;
+mod work;
+mod world;
+mod world_writes_and_quests;

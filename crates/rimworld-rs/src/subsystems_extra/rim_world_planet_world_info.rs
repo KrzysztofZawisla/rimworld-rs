@@ -1,0 +1,52 @@
+//! Generated wrapper for `RimWorld.Planet.WorldInfo`.
+#![allow(dead_code, unused_macros, unused_imports, clippy::should_implement_trait)]
+
+use crate::context::Context;
+use crate::subsystems_macros::*;
+use crate::types::ObjRef;
+use crate::Result;
+use serde_json::Value;
+
+wrapper!(
+    /// The game's `RimWorld.Planet.WorldInfo`, reached through `RimWorld.Planet.World.info`.
+    RimWorldPlanetWorldInfo, "RimWorld.Planet.World", "RimWorld.Planet.WorldInfo", "info",
+    [
+        "name",
+        "planetCoverage",
+        "seedString",
+        "persistentRandomValue",
+        "overallRainfall",
+        "overallTemperature",
+        "overallPopulation",
+        "landmarkDensity",
+        "initialMapSize",
+        "factions",
+        "pollution",
+        "FileNameNoExtension",
+        "Seed",
+        "ExposeData",
+    ]
+);
+
+impl<'a> RimWorldPlanetWorldInfo<'a> {
+    text_reader!(name, "name", "reads `name`.");
+    number_reader!(planet_coverage, "planetCoverage", "reads `planetCoverage`.");
+    text_reader!(seed_string, "seedString", "reads `seedString`.");
+    number_reader!(persistent_random_value, "persistentRandomValue", "reads `persistentRandomValue`.");
+    object_reader!(overall_rainfall, "overallRainfall", "reads `overallRainfall`.");
+    object_reader!(overall_temperature, "overallTemperature", "reads `overallTemperature`.");
+    object_reader!(overall_population, "overallPopulation", "reads `overallPopulation`.");
+    object_reader!(landmark_density, "landmarkDensity", "reads `landmarkDensity`.");
+    object_reader!(initial_map_size, "initialMapSize", "reads `initialMapSize`.");
+    objects_reader!(factions, "factions", "reads `factions`.");
+    number_reader!(pollution, "pollution", "reads `pollution`.");
+    text_reader!(file_name_no_extension, "FileNameNoExtension", "reads `FileNameNoExtension`.");
+    number_reader!(seed, "Seed", "reads `Seed`.");
+}
+
+impl Context {
+    /// The game's `RimWorld.Planet.World.info`, as a [RimWorldPlanetWorldInfo].
+    pub fn rim_world_planet_world_info(&self) -> Result<RimWorldPlanetWorldInfo<'_>> {
+        Ok(RimWorldPlanetWorldInfo::new(self, self.world_system(RimWorldPlanetWorldInfo::ACCESSOR)?))
+    }
+}

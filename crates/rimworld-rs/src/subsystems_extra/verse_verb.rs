@@ -1,0 +1,168 @@
+//! Generated wrapper for `Verse.Verb`.
+#![allow(dead_code, unused_macros, unused_imports, clippy::should_implement_trait)]
+
+use crate::context::Context;
+use crate::subsystems_macros::*;
+use crate::types::ObjRef;
+use crate::Result;
+use serde_json::Value;
+
+wrapper!(
+    /// The game's `Verse.Verb`, reached through `.`.
+    VerseVerb, "", "Verse.Verb", "",
+    [
+        "verbProps",
+        "verbTracker",
+        "maneuver",
+        "tool",
+        "caster",
+        "controlGroup",
+        "loadID",
+        "state",
+        "currentTarget",
+        "currentDestination",
+        "burstShotsLeft",
+        "ticksToNextBurstShot",
+        "lastShotTick",
+        "surpriseAttack",
+        "canHitNonTargetPawnsNow",
+        "preventFriendlyFire",
+        "nonInterruptingSelfCast",
+        "castCompleteCallback",
+        "DirectOwner",
+        "ImplementOwnerType",
+        "EquipmentCompSource",
+        "ReloadableCompSource",
+        "VerbOwner_ChargedCompSource",
+        "EquipmentSource",
+        "HediffCompSource",
+        "HediffSource",
+        "TerrainSource",
+        "TerrainDefSource",
+        "Caster",
+        "CasterPawn",
+        "GetVerb",
+        "CasterIsPawn",
+        "Targetable",
+        "MultiSelect",
+        "HidePawnTooltips",
+        "CurrentTarget",
+        "CurrentDestination",
+        "LastShotTick",
+        "targetParams",
+        "DestinationSelector",
+        "ShotsPerBurst",
+        "UIIcon",
+        "Bursting",
+        "IsMeleeAttack",
+        "BuggedAfterLoading",
+        "WarmingUp",
+        "WarmupStance",
+        "WarmupTime",
+        "WarmupTicksLeft",
+        "WarmupProgress",
+        "ReportLabel",
+        "EffectiveRange",
+        "AimAngleOverride",
+        "NonInterruptingSelfCast",
+        "TicksBetweenBurstShots",
+        "BurstShotCount",
+        "IsStillUsableBy",
+        "IsUsableOn",
+        "ExposeData",
+        "GetUniqueLoadID",
+        "CalculateUniqueLoadID",
+        "CalculateUniqueLoadID",
+        "TryStartCastOn",
+        "TryStartCastOn",
+        "WarmupComplete",
+        "VerbTick",
+        "BurstingTick",
+        "AddEffecterToMaintain",
+        "AddEffecterToMaintain",
+        "Available",
+        "TryCastNextBurstShot",
+        "OrderForceTarget",
+        "TryCastShot",
+        "Notify_PickedUp",
+        "Reset",
+        "Notify_EquipmentLost",
+        "HighlightFieldRadiusAroundTarget",
+        "CanHitTarget",
+        "ValidateTarget",
+        "DrawHighlight",
+        "DrawHighlightFieldRadiusAroundTarget",
+        "OnGUI",
+        "CanHitTargetFrom",
+        "ApparelPreventsShooting",
+        "FirstApparelPreventingShooting",
+        "TryFindShootLineFromTo",
+        "OutOfRange",
+        "ToString",
+    ]
+);
+
+impl<'a> VerseVerb<'a> {
+    object_reader!(verb_props, "verbProps", "reads `verbProps`.");
+    object_reader!(verb_tracker, "verbTracker", "reads `verbTracker`.");
+    object_reader!(maneuver, "maneuver", "reads `maneuver`.");
+    object_reader!(tool, "tool", "reads `tool`.");
+    object_reader!(caster, "caster", "reads `caster`.");
+    object_reader!(control_group, "controlGroup", "reads `controlGroup`.");
+    text_reader!(load_id, "loadID", "reads `loadID`.");
+    object_reader!(state, "state", "reads `state`.");
+    object_reader!(current_target, "currentTarget", "reads `currentTarget`.");
+    object_reader!(current_destination, "currentDestination", "reads `currentDestination`.");
+    number_reader!(burst_shots_left, "burstShotsLeft", "reads `burstShotsLeft`.");
+    number_reader!(ticks_to_next_burst_shot, "ticksToNextBurstShot", "reads `ticksToNextBurstShot`.");
+    number_reader!(last_shot_tick, "lastShotTick", "reads `lastShotTick`.");
+    flag_reader!(surprise_attack, "surpriseAttack", "reads `surpriseAttack`.");
+    flag_reader!(can_hit_non_target_pawns_now, "canHitNonTargetPawnsNow", "reads `canHitNonTargetPawnsNow`.");
+    flag_reader!(prevent_friendly_fire, "preventFriendlyFire", "reads `preventFriendlyFire`.");
+    flag_reader!(non_interrupting_self_cast, "nonInterruptingSelfCast", "reads `nonInterruptingSelfCast`.");
+    object_reader!(cast_complete_callback, "castCompleteCallback", "reads `castCompleteCallback`.");
+    object_reader!(direct_owner, "DirectOwner", "reads `DirectOwner`.");
+    object_reader!(implement_owner_type, "ImplementOwnerType", "reads `ImplementOwnerType`.");
+    object_reader!(equipment_comp_source, "EquipmentCompSource", "reads `EquipmentCompSource`.");
+    object_reader!(reloadable_comp_source, "ReloadableCompSource", "reads `ReloadableCompSource`.");
+    object_reader!(verb_owner_charged_comp_source, "VerbOwner_ChargedCompSource", "reads `VerbOwner_ChargedCompSource`.");
+    object_reader!(equipment_source, "EquipmentSource", "reads `EquipmentSource`.");
+    object_reader!(hediff_comp_source, "HediffCompSource", "reads `HediffCompSource`.");
+    object_reader!(hediff_source, "HediffSource", "reads `HediffSource`.");
+    object_reader!(terrain_source, "TerrainSource", "reads `TerrainSource`.");
+    object_reader!(terrain_def_source, "TerrainDefSource", "reads `TerrainDefSource`.");
+    object_reader!(caster_, "Caster", "reads `Caster`.");
+    object_reader!(caster_pawn, "CasterPawn", "reads `CasterPawn`.");
+    object_reader!(get_verb, "GetVerb", "reads `GetVerb`.");
+    flag_reader!(caster_is_pawn, "CasterIsPawn", "reads `CasterIsPawn`.");
+    flag_reader!(targetable, "Targetable", "reads `Targetable`.");
+    flag_reader!(multi_select, "MultiSelect", "reads `MultiSelect`.");
+    flag_reader!(hide_pawn_tooltips, "HidePawnTooltips", "reads `HidePawnTooltips`.");
+    object_reader!(current_target_, "CurrentTarget", "reads `CurrentTarget`.");
+    object_reader!(current_destination_, "CurrentDestination", "reads `CurrentDestination`.");
+    number_reader!(last_shot_tick_, "LastShotTick", "reads `LastShotTick`.");
+    object_reader!(target_params, "targetParams", "reads `targetParams`.");
+    object_reader!(destination_selector, "DestinationSelector", "reads `DestinationSelector`.");
+    number_reader!(shots_per_burst, "ShotsPerBurst", "reads `ShotsPerBurst`.");
+    object_reader!(uiicon, "UIIcon", "reads `UIIcon`.");
+    flag_reader!(bursting, "Bursting", "reads `Bursting`.");
+    flag_reader!(is_melee_attack, "IsMeleeAttack", "reads `IsMeleeAttack`.");
+    flag_reader!(bugged_after_loading, "BuggedAfterLoading", "reads `BuggedAfterLoading`.");
+    flag_reader!(warming_up, "WarmingUp", "reads `WarmingUp`.");
+    object_reader!(warmup_stance, "WarmupStance", "reads `WarmupStance`.");
+    number_reader!(warmup_time, "WarmupTime", "reads `WarmupTime`.");
+    number_reader!(warmup_ticks_left, "WarmupTicksLeft", "reads `WarmupTicksLeft`.");
+    number_reader!(warmup_progress, "WarmupProgress", "reads `WarmupProgress`.");
+    text_reader!(report_label, "ReportLabel", "reads `ReportLabel`.");
+    number_reader!(effective_range, "EffectiveRange", "reads `EffectiveRange`.");
+    object_reader!(aim_angle_override, "AimAngleOverride", "reads `AimAngleOverride`.");
+    flag_reader!(non_interrupting_self_cast_, "NonInterruptingSelfCast", "reads `NonInterruptingSelfCast`.");
+    number_reader!(ticks_between_burst_shots, "TicksBetweenBurstShots", "reads `TicksBetweenBurstShots`.");
+    number_reader!(burst_shot_count, "BurstShotCount", "reads `BurstShotCount`.");
+    text_reader!(get_unique_load_id, "GetUniqueLoadID", "reads `GetUniqueLoadID`.");
+    flag_reader!(available, "Available", "reads `Available`.");
+    flag_reader!(try_cast_shot, "TryCastShot", "reads `TryCastShot`.");
+    flag_reader!(apparel_prevents_shooting, "ApparelPreventsShooting", "reads `ApparelPreventsShooting`.");
+    object_reader!(first_apparel_preventing_shooting, "FirstApparelPreventingShooting", "reads `FirstApparelPreventingShooting`.");
+    text_reader!(to_string, "ToString", "reads `ToString`.");
+}

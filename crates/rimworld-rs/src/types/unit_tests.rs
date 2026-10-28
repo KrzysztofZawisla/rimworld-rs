@@ -1,17 +1,10 @@
-//! Theme: unit_tests. Split from `types.rs`.
-#![allow(unused_imports, unused_macros)] // the imports and the macros are the module's shared vocabulary, used across the theme files
-
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Map, Value};
-
-use super::*;
-use crate::{host, Result};
+#![allow(unused_macros)] // the imports and the macros are the module's shared vocabulary, used across the theme files
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use serde_json::json;
+    use serde_json::{json, Map, Value};
 
-    use super::*;
+    use crate::types::*;
 
     #[test]
     fn patch_call_parses_a_full_payload() {
@@ -65,6 +58,30 @@ pub(crate) mod tests {
         assert_eq!(value["skipOriginal"], Value::Bool(false));
         assert!(value.get("result").is_none());
         assert!(value.get("args").is_none());
+    }
+
+    #[test]
+    fn zone_occupancy_parses_a_bridge_payload() {
+        let value = json!({
+            "label": "Stockpile",
+            "cells": 40,
+            "occupiedCells": 31,
+            "stacks": 54,
+            "items": 1240,
+            "fill": 0.775
+        });
+
+        let occupancy: ZoneOccupancy = serde_json::from_value(value).expect("occupancy");
+        assert_eq!(occupancy.label.as_deref(), Some("Stockpile"));
+        assert_eq!(occupancy.cells, 40);
+        assert_eq!(occupancy.occupied_cells, 31);
+        assert_eq!(occupancy.stacks, 54);
+        assert_eq!(occupancy.items, 1240);
+        assert!((occupancy.fill - 0.775).abs() < f32::EPSILON);
+
+        let empty: ZoneOccupancy = serde_json::from_value(json!({})).expect("defaulted occupancy");
+        assert_eq!(empty.cells, 0);
+        assert_eq!(empty.fill, 0.0);
     }
 
     #[test]
@@ -192,8 +209,9 @@ pub(crate) mod tests {
     /// the smallest payload that breaks it, which the deterministic generator above cannot do.
     mod properties {
         use proptest::prelude::*;
+        use serde_json::{json, Value};
 
-        use super::*;
+        use crate::types::*;
 
         /// An arbitrary JSON value: leaves of every kind the bridge writes, nested to a depth, and free to be
         /// nonsense - which is exactly what a lenient parser has to survive.

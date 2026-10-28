@@ -44,6 +44,12 @@ internal static partial class HostOps
     }
     private static object Execute(string op, JsonElement request)
     {
+        if (!RefContext.IsDispatching)
+        {
+            throw new BridgeException(
+                $"host operation '{op}' was called outside a Rust dispatch (for example from a background thread); the game is single-threaded");
+        }
+
         if (RustHost.Current?.InsideScribe == true && ChangesTheGame(op))
         {
             throw new BridgeException(
@@ -654,6 +660,8 @@ internal static partial class HostOps
                 return DesignationOps.UndesignateThing(request);
             case "map_zones":
                 return DesignationOps.Zones(request);
+            case "zone_occupancy":
+                return DesignationOps.ZoneOccupancy(request);
             case "storage_settings":
                 return DesignationOps.Storage(request);
             case "storage_set_priority":
@@ -704,6 +712,8 @@ internal static partial class HostOps
                 return WorldOps.TraderGoods(request);
             case "thing_prices":
                 return WorldOps.Prices(request);
+            case "dlc_dashboard":
+                return DlcOps.Snapshot();
             case "map_haulables":
                 return ThingOps.Haulables(request);
             default:

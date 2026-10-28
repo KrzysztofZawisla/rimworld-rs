@@ -39,7 +39,7 @@ targets <Type> --members <text>` prints the ready-to-paste call for what you fin
 ## Managed-only (needs a C# companion)
 
 A native library cannot define a CLR type, so these are written in C# (the bridge talks to them with
-`companion_call`; `cargo xtask new --comp --job --itab` scaffolds working samples):
+`companion_call`; `cargo xtask new --path <DIR> --comp --job --itab` scaffolds working samples):
 
 - your own `HediffComp`, `JobDriver`, `ITab`, `Window`, `WorldObject`, render node, section layer or
   precept/ritual *instance* when it must run C# of its own (a plain `ThingComp` does **not** need one
@@ -89,7 +89,7 @@ of possibility.
 | Mood and social (`RimWorld.Thought*`, 293) | memories added/removed, needs read/set, mood read, relations read | `ThoughtWorker` classes (companion), situation thoughts, opinion depth (opinions, social fights) |
 | Trade (`RimWorld.Trade*`, 17) | a trader's kind, name, currency and stock read (`pawn_trader`, `pawn_trader_goods`), the game's own price formula with a neutral trader (`thing_prices`) | a live `TradeDeal` (the trade window is the game's own), generating a trader's stock for a trader of your own, `Transferable` bookkeeping |
 | Designations (4 types) | read, add and remove them, for cells and for things | a designation with game behaviour of its own (`WorkGiver` classes are a companion), batch designation through the game's designators (blueprint-style drag) |
-| Storage | a storage's priority and filter read and changed (`storage_settings`, `storage_set_priority`, `storage_allow`), zones listed, a stockpile zone created and edited | hauling *jobs* (`ListerHaul` is readable), `StorageGroup` logic, growing/fishing zones beyond the stockpile preset |
+| Storage | a storage's priority and filter read and changed (`storage_settings`, `storage_set_priority`, `storage_allow`), zones listed, a stockpile zone created and edited, a zone's item occupancy read (`zone_occupancy`) | hauling *jobs* (`ListerHaul` is readable), `StorageGroup` logic, a theoretical fill percentage (capacity depends on stack limits and item sizes), growing/fishing zones beyond the stockpile preset |
 | Environment | weather read/set, temperature read (and set: a room's, or one cell's with the game's own controller), heat pushed in, fire lit/read/put out, filth made/read, gas read and added, power nets read, flickable switches moved, roofs put on and taken off, roof read, glow/pollution read, zones read, rooms read | changing terrain, plant growth and snow, vacuum (this build has no vacuum grid) |
 | Plants, animals, farming | a plant's growth read and set, what a pawn is as an animal (kind, tamed, tameable, life stage), the game's own `Tame` job | sowing and harvesting as *jobs* (reachable through `job_make` with the game's job defs), butchering, herds and pens, growth simulation of a mod's own |
 | Combat | damage, death, hediffs read, faction hostility, `Pawn.Kill`, equipment and verbs read, `thing_equip`, `pawn_attack` (melee) | ranged aiming and cover, `Projectile` handling, a raid as a party, combat AI decisions, apparel effects |

@@ -1,0 +1,45 @@
+//! Generated wrapper for `Verse.Pawn_DrawTracker`.
+#![allow(dead_code, unused_macros, unused_imports, clippy::should_implement_trait)]
+
+use crate::context::Context;
+use crate::subsystems_macros::*;
+use crate::types::ObjRef;
+use crate::Result;
+use serde_json::Value;
+
+wrapper!(
+    /// The game's `Verse.Pawn_DrawTracker`, reached through `Verse.Pawn.drawer`.
+    VerseDrawTracker, "Verse.Pawn", "Verse.Pawn_DrawTracker", "drawer",
+    [
+        "tweener",
+        "leaner",
+        "renderer",
+        "ui",
+        "DrawPos",
+        "SeededYOffset",
+        "ProcessPostTickVisuals",
+        "DrawShadowAt",
+        "Notify_Spawned",
+        "Notify_WarmingCastAlongLine",
+        "Notify_DamageApplied",
+        "Notify_DamageDeflected",
+        "Notify_MeleeAttackOn",
+        "Notify_DebugAffected",
+    ]
+);
+
+impl<'a> VerseDrawTracker<'a> {
+    object_reader!(tweener, "tweener", "reads `tweener`.");
+    object_reader!(leaner, "leaner", "reads `leaner`.");
+    object_reader!(renderer, "renderer", "reads `renderer`.");
+    object_reader!(ui, "ui", "reads `ui`.");
+    object_reader!(draw_pos, "DrawPos", "reads `DrawPos`.");
+    number_reader!(seeded_yoffset, "SeededYOffset", "reads `SeededYOffset`.");
+}
+
+impl Context {
+    /// The game's `Verse.Pawn.drawer`, as a [VerseDrawTracker].
+    pub fn verse_draw_tracker(&self, pawn: &ObjRef) -> Result<VerseDrawTracker<'_>> {
+        Ok(VerseDrawTracker::new(self, self.pawn_tracker(pawn, VerseDrawTracker::ACCESSOR)?))
+    }
+}

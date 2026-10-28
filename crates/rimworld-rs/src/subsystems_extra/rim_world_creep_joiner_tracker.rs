@@ -1,0 +1,75 @@
+//! Generated wrapper for `RimWorld.Pawn_CreepJoinerTracker`.
+#![allow(dead_code, unused_macros, unused_imports, clippy::should_implement_trait)]
+
+use crate::context::Context;
+use crate::subsystems_macros::*;
+use crate::types::ObjRef;
+use crate::Result;
+use serde_json::Value;
+
+wrapper!(
+    /// The game's `RimWorld.Pawn_CreepJoinerTracker`, reached through `Verse.Pawn.creepjoiner`.
+    RimWorldCreepJoinerTracker, "Verse.Pawn", "RimWorld.Pawn_CreepJoinerTracker", "creepjoiner",
+    [
+        "form",
+        "benefit",
+        "downside",
+        "aggressive",
+        "rejection",
+        "speaker",
+        "quest",
+        "spokeToSignal",
+        "timeoutAt",
+        "joinedTick",
+        "IsOnEntryLord",
+        "Disabled",
+        "Pawn",
+        "CanTriggerAggressive",
+        "Notify_Created",
+        "TickInterval",
+        "Notify_ChangedFaction",
+        "Notify_DuplicatedFrom",
+        "Notify_Arrested",
+        "Notify_Released",
+        "Notify_PrisonBreakout",
+        "GetGizmos",
+        "GetInspectString",
+        "Notify_CreepJoinerSpokenTo",
+        "Notify_CreepJoinerAttacked",
+        "Notify_CreepJoinerKilled",
+        "Notify_CreepJoinerRejected",
+        "DoDownside",
+        "DoRejection",
+        "DoAggressive",
+        "DoLeave",
+        "DoSurgicalInspection",
+        "GetFloatMenuOptions",
+        "ExposeData",
+    ]
+);
+
+impl<'a> RimWorldCreepJoinerTracker<'a> {
+    object_reader!(form, "form", "reads `form`.");
+    object_reader!(benefit, "benefit", "reads `benefit`.");
+    object_reader!(downside, "downside", "reads `downside`.");
+    object_reader!(aggressive, "aggressive", "reads `aggressive`.");
+    object_reader!(rejection, "rejection", "reads `rejection`.");
+    object_reader!(speaker, "speaker", "reads `speaker`.");
+    object_reader!(quest, "quest", "reads `quest`.");
+    text_reader!(spoke_to_signal, "spokeToSignal", "reads `spokeToSignal`.");
+    number_reader!(timeout_at, "timeoutAt", "reads `timeoutAt`.");
+    number_reader!(joined_tick, "joinedTick", "reads `joinedTick`.");
+    flag_reader!(is_on_entry_lord, "IsOnEntryLord", "reads `IsOnEntryLord`.");
+    flag_reader!(disabled, "Disabled", "reads `Disabled`.");
+    object_reader!(pawn, "Pawn", "reads `Pawn`.");
+    flag_reader!(can_trigger_aggressive, "CanTriggerAggressive", "reads `CanTriggerAggressive`.");
+    object_reader!(get_gizmos, "GetGizmos", "reads `GetGizmos`.");
+    text_reader!(get_inspect_string, "GetInspectString", "reads `GetInspectString`.");
+}
+
+impl Context {
+    /// The game's `Verse.Pawn.creepjoiner`, as a [RimWorldCreepJoinerTracker].
+    pub fn rim_world_creep_joiner_tracker(&self, pawn: &ObjRef) -> Result<RimWorldCreepJoinerTracker<'_>> {
+        Ok(RimWorldCreepJoinerTracker::new(self, self.pawn_tracker(pawn, RimWorldCreepJoinerTracker::ACCESSOR)?))
+    }
+}

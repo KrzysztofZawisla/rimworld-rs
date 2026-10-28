@@ -27,6 +27,7 @@ internal static partial class Program
         {
             "log" => HandleLog(request),
             "game_info" => "{\"ok\":true,\"result\":{\"hasGame\":true,\"tick\":1234,\"programState\":\"Playing\",\"currentMapId\":1,\"harness\":\"mock\",\"maps\":[{\"id\":1,\"biome\":\"TemperateForest\",\"tile\":42,\"sizeX\":100,\"sizeZ\":100,\"colonists\":3,\"isPlayerHome\":true}]}}",
+            "dlc_dashboard" => "{\"ok\":true,\"result\":{\"capabilities\":{\"base\":true,\"royalty\":false,\"ideology\":false,\"biotech\":false,\"anomaly\":false,\"odyssey\":false},\"defRegistry\":[],\"royalty\":null,\"ideology\":null,\"biotech\":null,\"anomaly\":null,\"odyssey\":null}}",
             "def_names" => "{\"ok\":true,\"result\":[\"Steel\",\"Silver\",\"WoodLog\"]}",
             "def_types" => "{\"ok\":true,\"result\":[\"HediffDef\",\"ThingDef\"]}",
             "def_info" => KnownDefs.Contains(StringArg(request, "defName"))
@@ -53,6 +54,7 @@ internal static partial class Program
             "thing_designate" => "{\"ok\":true,\"result\":{\"changed\":true,\"defName\":\"Haul\",\"label\":\"steel\"}}",
             "thing_undesignate" => "{\"ok\":true,\"result\":{\"changed\":false,\"reason\":\"nothing was designated on that thing\",\"defName\":\"Haul\",\"label\":\"steel\"}}",
             "map_zones" => MockZones(),
+            "zone_occupancy" => "{\"ok\":true,\"result\":{\"label\":\"Stockpile\",\"cells\":4,\"occupiedCells\":3,\"stacks\":5,\"items\":120,\"fill\":0.75}}",
             "storage_settings" => $"{{\"ok\":true,\"result\":{{\"label\":\"Shelf\",\"priority\":\"{MockStoragePriority}\",\"allowedDefCount\":3,\"allowedDefs\":[\"Steel\",\"Silver\"]}}}}",
             "storage_set_priority" => HandleStoragePriority(request),
             "storage_allow" => HandleStorageAllow(request),

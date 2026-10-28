@@ -150,6 +150,74 @@ internal static class DesignationOps
         return list;
     }
 
+    /// <summary>
+    /// How much of a zone is occupied by item stacks. The game has no native "fill" for a stockpile:
+    /// a zone is a set of cells and its capacity depends on stack limits, item sizes and the storage
+    /// filter. This reports the facts that can be measured — zone cells, occupied cells, item stacks
+    /// and the total item count — plus `fill` as occupied cells / zone cells.
+    /// </summary>
+    public static object ZoneOccupancy(JsonElement request)
+    {
+        Zone zone = ResolveZone(request);
+        Map map = zone.zoneManager?.map;
+        if (map == null)
+        {
+            throw new BridgeException($"the zone '{zone.label}' has no map");
+        }
+
+        int cells = 0;
+        int occupiedCells = 0;
+        int stacks = 0;
+        int items = 0;
+        foreach (IntVec3 cell in zone.Cells)
+        {
+            if (map.zoneManager.ZoneAt(cell) != zone)
+            {
+                continue;
+            }
+
+            cells++;
+            List<Thing> things = map.thingGrid?.ThingsListAt(cell);
+            if (things == null)
+            {
+                continue;
+            }
+
+            bool holdsItems = false;
+            foreach (Thing thing in things)
+            {
+                if (thing == null || thing.Destroyed || thing.def == null)
+                {
+                    continue;
+                }
+
+                if (thing.def.category != ThingCategory.Item)
+                {
+                    continue;
+                }
+
+                holdsItems = true;
+                stacks++;
+                items += thing.stackCount;
+            }
+
+            if (holdsItems)
+            {
+                occupiedCells++;
+            }
+        }
+
+        return new Dictionary<string, object>
+        {
+            ["label"] = zone.label,
+            ["cells"] = cells,
+            ["occupiedCells"] = occupiedCells,
+            ["stacks"] = stacks,
+            ["items"] = items,
+            ["fill"] = cells > 0 ? (float)occupiedCells / cells : 0f,
+        };
+    }
+
     public static object Storage(JsonElement request)
     {
         StorageSettings settings = ResolveSettings(request, out string label);
@@ -434,18 +502,58 @@ internal static class DesignationOps
 
     private static Dictionary<string, object> ZoneEntry(Zone zone)
     {
+        List<IntVec3> cells = zone.Cells;
+        int minX = cells != null && cells.Count > 0 ? cells.Min(cell => cell.x) : 0;
+        int maxX = cells != null && cells.Count > 0 ? cells.Max(cell => cell.x) : 0;
+        int minZ = cells != null && cells.Count > 0 ? cells.Min(cell => cell.z) : 0;
+        int maxZ = cells != null && cells.Count > 0 ? cells.Max(cell => cell.z) : 0;
         var entry = new Dictionary<string, object>
         {
+            ["id"] = zone.ID,
             ["handle"] = zone,
             ["label"] = zone.label,
             ["typeName"] = zone.GetType().Name,
-            ["cells"] = zone.Cells?.Count ?? 0,
+            ["cells"] = cells?.Count ?? 0,
+            ["x"] = minX,
+            ["z"] = minZ,
+            ["w"] = maxX - minX + 1,
+            ["h"] = maxZ - minZ + 1,
         };
         StorageSettings settings = (zone as IStoreSettingsParent)?.GetStoreSettings();
         if (settings != null)
         {
             entry["priority"] = settings.Priority.ToString();
             entry["allowedDefCount"] = settings.filter?.AllowedDefCount ?? 0;
+        }
+
+        if (zone is Zone_Growing growing)
+        {
+            entry["plant"] = growing.GetPlantDefToGrow()?.defName;
+            entry["allowSow"] = growing.allowSow;
+            Map map = zone.Map;
+            int count = 0;
+            int blightCount = 0;
+            float fertility = 0f;
+            float light = 0f;
+            if (cells != null)
+            {
+                foreach (IntVec3 cell in cells)
+                {
+                    count++;
+                    fertility += map?.fertilityGrid?.FertilityAt(cell) ?? 0f;
+                    light += map?.glowGrid?.VisualGlowAt(cell).a ?? 0f;
+                    Plant plant = map == null ? null : cell.GetPlant(map);
+                    if (plant != null && plant.Blighted)
+                    {
+                        blightCount++;
+                    }
+                }
+            }
+
+            entry["fertility"] = count > 0 ? fertility / count : 0f;
+            entry["light"] = count > 0 ? light / count : 0f;
+            entry["blight"] = blightCount > 0;
+            entry["blightCount"] = blightCount;
         }
 
         return entry;

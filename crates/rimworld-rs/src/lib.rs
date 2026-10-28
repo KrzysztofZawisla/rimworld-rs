@@ -76,7 +76,7 @@ pub use types::{
     TraitAdded, TraitRemoved, Translation, TypeMember, TypeMemberAccessors, TypeMembers, UiAction, UiWidget, UiWindow,
     Uninstalled, UnpatchResult, VerbInfo, WealthInfo, WeatherSet, WeatherSnapshot, WorkPrioritySet, WorkSnapshot,
     WorldInfo, WorldLayer, WorldObjectCreated, WorldObjectInfo, WorldObjectRemoved, WorldRoute, WorldSnapshot,
-    WorldTilePollution, WorldTileSet, WorldTileSnapshot, XenotypeChange, ZoneInfo, ZonePlant,
+    WorldTilePollution, WorldTileSet, WorldTileSnapshot, XenotypeChange, ZoneInfo, ZoneOccupancy, ZonePlant,
 };
 pub use values::{IntVec3Ref, Map, Pawn, Thing, ThingComp};
 
@@ -130,7 +130,7 @@ pub mod prelude {
         UiWindow, Uninstalled, UnpatchResult, VerbInfo, WealthInfo, WeatherSet, WeatherSnapshot, WorkPrioritySet,
         WorkSnapshot, WorldGrid, WorldInfo, WorldLayer, WorldObjectCreated, WorldObjectInfo, WorldObjectRemoved,
         WorldObjects, WorldPawns, WorldRoute, WorldSnapshot, WorldTilePollution, WorldTileSet, WorldTileSnapshot,
-        XenotypeChange, ZoneInfo, ZonePlant,
+        XenotypeChange, ZoneInfo, ZoneOccupancy, ZonePlant,
     };
 }
 

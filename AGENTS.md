@@ -35,7 +35,9 @@ Instructions for AI agents working in this repository.
    installation must never be committed, staged or published. The bridge compiles against the
    player's local installation, or against the gitignored `game-refs/` copy that `cargo xtask
    setup` creates; `bin/`, `obj/`, `build/`, `dist/`, `target/` and `game-refs/` are local-only and
-   `.gitignore` is what keeps them out.
+   `.gitignore` is what keeps them out. `cargo xtask build` removes a game assembly it copied into
+   `Assemblies/` and then refuses the assembled output if one remains anywhere, including a stray
+   file under `mod/`.
    A *finding* is not game content: a def name in `bridge/names.json` or a member name in a
    generated wrapper is a recorded name, and names, signatures and formats are the only thing of
    the game this repository carries - no file from an installation is ever copied in.
@@ -59,6 +61,16 @@ Instructions for AI agents working in this repository.
    guessing, and keep working through the details until the result is correct and proven — take as
    long as necessary.
 
+8. **No local machine paths and no sensitive data in tracked files.**
+   Never write an absolute path that identifies the machine you run on — your home or user directory, a
+   drive-letter checkout of this project on your disk, your own Steam library, a username, a host name — or
+   a sensitive value (token, password, key, cookie, personal identifier) into `AGENTS.md`, `README.md`,
+   `docs/`, or any other tracked file. A standard, anonymous example such as
+   `C:\Steam\steamapps\common\RimWorld` is fine; the path from your machine is not. For anything else use
+   placeholders such as `<game-dir>`, `<mod-dir>`, `<sdk-checkout>` and `%USERPROFILE%`; concrete local
+   paths and secrets belong only in a gitignored local note, never in a tracked file. A local note
+   (`MODLOG.md`) may name a path when a finding needs it, but never a secret.
+
 ## What this project is
 
 A Rust SDK (`rimworld-rs`) plus a thin C# bridge and build tooling that lets people write
@@ -66,13 +78,16 @@ RimWorld mods in Rust:
 
 - `crates/rimworld-rs` — the Rust-facing SDK: `Mod` trait, events, host commands, FFI ABI.
 - `bridge/` — the C# bridge loaded by RimWorld as a normal mod assembly. It loads the native Rust
-  cdylib, forwards game lifecycle events into Rust and executes the commands Rust asks for
-  (logging, defs, spawning, letters, settings, Harmony patches, object reflection).
+  cdylib from `<mod>/Rust/` (exactly one regular file, path confined to the mod root, no
+  symlink/junction), forwards game lifecycle events into Rust and executes the commands Rust asks
+  for (logging, defs, spawning, letters, settings, Harmony patches, object reflection).
 - `crates/xtask` — build/install/scaffold tooling (`cargo xtask ...`).
 - `crates/rimworld-rs-testmod` — a cdylib fixture driven by `tools/abi-smoke`; not a real mod.
 - `examples/hello-rust-mod` — a complete, installable example mod.
-- `mods/` — user-created mods (`cargo xtask new <Name>` puts them here and registers them in the
-  workspace).
+- `mods/` — the default place for a user mod: `cargo xtask new <Name>` writes it here and registers it in
+  the workspace. A mod may also live in a project of its own; `build`/`install`/`package`/`gen-defs`/
+  `clean` take `--path <DIR>` for that, and its source never enters this repository. The mods tracked
+  here are the examples and `mods/`, which the gates use.
 - `tools/abi-smoke` — a C# harness that drives the real ABI against a mock host, without the game.
 - `docs/` — architecture, ABI, API and getting-started documentation.
 - `skills/` — installable agent skills describing this repository's tooling; `skills/README.md` documents
@@ -82,8 +97,19 @@ RimWorld mods in Rust:
 
 - Game root: the Steam installation of RimWorld. The tooling tries the usual Steam paths first and
   `RIMWORLD_DIR` names the folder when the game lives somewhere else.
-- Version: `1.7.4981 rev136`, running on **WaylithCLR** (`.NET 10` fork) with the
-  RocketWerkz "Brutal" engine. No Unity runtime; `UnityStubs.dll` emulates Unity APIs.
+- Platform layouts the tooling handles: Windows keeps the assemblies at the game root next to `Data/`;
+  Linux keeps the defs in `<game>/Data` and the assemblies in `<game>/*_Data/Managed`; macOS is a
+  `RimWorld.app` bundle inside `<game>`, with the defs in `<game>/Data` and the assemblies in
+  `<game>/RimWorld.app/Contents/MacOS`. Local mods go to `<game>/Mods` on every platform, and
+  `cargo xtask doctor` prints the roots it resolved.
+- Verified on macOS (1.7.4990, WaylithCLR .NET 10, Apple Silicon): `setup`, `build` (native `osx-arm64`
+  and `osx-x64`, the bridge and a companion), `install`, `run`, `watch-log`, `defs`, `targets`,
+  `coverage`, `--contract`, `--defs` and `--patches`; the game loaded
+  `Rust/osx-arm64/lib<mod>.dylib` and Harmony patched `Verse.Map.MapUpdate` in-game. The log is
+  `~/Library/Application Support/Ludeon Studios/RimWorld by Ludeon Studios/Logs/Player.log`.
+- Version: `1.7.4982 rev1280` on the Windows build, `1.7.4990 rev1069` verified on macOS, running on
+  **WaylithCLR** (`.NET 10` fork) with the RocketWerkz "Brutal" engine. No Unity runtime;
+  `UnityStubs.dll` emulates Unity APIs.
 - World creation, colony start and map generation run in the **engine**, not in the managed code: the `Verse`
   page classes, `Game.InitNewGame` and `MapGenerator.GenerateMap` install as Harmony patches and are then never
   called (six in-game runs, with `Verse.Log.Message` as the positive control - MODLOG). A mod cannot hook the
@@ -112,22 +138,27 @@ exactly how they were verified.
 
 ```powershell
 cargo xtask test                 # every check that does not need the game (fmt, clippy, tests, ABI, contract)
+cargo xtask smoke                # install both example mods, run -quicktest, fail on [selftest] FAIL
 cargo xtask fmt [--fix]          # check (or fix) Rust formatting; nightly rustfmt, see rustfmt.toml
 cargo xtask lint                 # clippy -D warnings, plus dotnet format where the game is installed
 cargo build --release            # builds the SDK, the fixture and the example mod cdylib
 cargo test                       # Rust unit tests (event routing, protocol, outcomes, xtask)
 cargo xtask doctor               # checks game paths, tools and Harmony availability
 cargo xtask setup                # copies the game's reference assemblies into game-refs/
-cargo xtask build [<mod>] [--target <triple>] [--all-targets]
-                                 # builds bridge + companion + one native library per target into build/<ModName>
-cargo xtask install [<mod>] [--target <triple>] [--all-targets]
+cargo xtask build [<mod>] [--path <DIR>] [--target <triple>] [--all-targets]
+                                 # bridge + companion + one native library per target into build/<ModName>
+cargo xtask install [<mod>] [--path <DIR>] [--target <triple>] [--all-targets]
                                  # builds and copies the mod into the game's Mods folder
-cargo xtask package [<mod>] [--target <triple>] [--all-targets]
+cargo xtask package [<mod>] [--path <DIR>] [--target <triple>] [--all-targets]
                                  # builds and zips the mod into dist/<ModName>-<version>.zip
-cargo xtask new <Name> [--comp] [--job] [--itab]
-                                 # scaffolds a mod (and the companion samples)
-cargo xtask remove <mod>         # deletes a scaffolded mod (folder + workspace entry)
-cargo xtask gen-defs [<mod>]     # writes <mod>/src/generated_defs.rs from the installed game
+cargo xtask new <Name> [--path <DIR>] [--comp] [--job] [--itab]
+                                 # scaffolds mods/<Name>/ (or an external --path project) + samples
+cargo xtask remove <mod>         # delete a mod under mods/ (folder + workspace entry)
+cargo xtask gen-defs [<mod>] [--path <DIR>] # writes <ModDir>/src/generated_defs/ from the installed game
+cargo xtask clean [--path <DIR>]  # removes build/, dist/ and generated defs (this repository without --path)
+cargo xtask secrets [--staged]   # gitleaks: full history (staged is the pre-commit mode)
+cargo xtask gen-subsystems [--check]
+                                 # regenerates (or verifies) crates/rimworld-rs/src/subsystems_extra/
 cargo xtask defs [--types T]     # lists the def names of the installation
 cargo xtask watch-log [--errors] [--grep <text>] [--tail <n>] [--once]
                                  # follows Player.log, filtered to [Rust]/[selftest] lines
@@ -147,9 +178,9 @@ dotnet run --project tools/abi-smoke -- --op-parity .                    # SDK o
 `cargo xtask test` also runs on a machine **without** RimWorld: stages that need game files print a SKIP with the
 reason and the rest runs normally, including the ABI smoke tests (they drive the native library with the mock
 host). The one thing such a run cannot simply skip is a mod that compiles against generated def names: rustfmt
-*reads* `<mod>/src/generated_defs.rs` to resolve `mod defs;` (it never compiles it), so without that file even
+*reads* `<mod>/src/generated_defs/mod.rs` to resolve `mod defs;` (it never compiles it), so without that file even
 `cargo fmt --check` fails. `cargo xtask fmt` writes the gitignored stub there first when no game is installed - a
-`compile_error!` naming `cargo xtask gen-defs`, which is what a hand-run `cargo build` then shows - and `cargo
+`compile_error!` naming `cargo xtask gen-defs --path <DIR>`, which is what a hand-run `cargo build` then shows - and `cargo
 xtask lint`/`test` leave that package out of every command that would compile it. Plain `cargo fmt --all` and
 `cargo clippy --workspace` cannot: those stop at the missing module before a single check runs, which is why the
 suite is the entry point.
@@ -160,37 +191,48 @@ own RimWorld installation, so a package would be half a mod. Everyone builds fro
 release tag belongs in this repository, and `cargo xtask package`'s mod zip is the only artifact meant to leave
 a machine.
 
-Release artifacts are the workspace `[profile.release]` in the root `Cargo.toml` (fat LTO, one codegen unit per
-crate, no debug info, `panic = "unwind"` so a mod's panic stays catchable at the FFI boundary): that profile is
-the shipping configuration, so nothing trades its code quality for a shorter compile, and a `[profile]` table in
-a member manifest stays out - cargo reads profiles from the workspace root only and ignores the rest with a
-warning.
+Release artifacts are the workspace `[profile.release]` in the root `Cargo.toml` for the examples and in an
+external mod's own workspace root for a `--path` build (the scaffold writes the same profile): fat LTO, one
+codegen unit per crate, no debug info, `panic = "unwind"` so a mod's panic stays catchable at the FFI boundary.
+That profile is the shipping configuration, so nothing trades its code quality for a shorter compile, and a
+`[profile]` table in a member manifest stays out - cargo reads profiles from the workspace root only and ignores
+the rest with a warning.
 
-`cargo xtask install` writes only inside the game's `Mods` folder and inside `build/`, and a mod name from
+`cargo xtask install` writes only inside the game's `Mods` folder and inside the mod's own workspace `build/`
+(or this repository's `build/` for the examples); `cargo xtask package` writes `<ModDir>/dist/`. A mod name from
 `[package.metadata.rimworld] mod-name` has to be one plain name (no separators, `..` or absolute prefix):
 it becomes a path segment, and the tool refuses a path that would leave the root it belongs to. `copy_tree`
 never follows a symlink, so a build output or a release zip contains the mod's own files only.
 `cargo xtask setup` writes only inside the gitignored `game-refs/` folder.
-`cargo xtask gen-defs` writes only `<mod>/src/generated_defs.rs` (also gitignored: it is derived
-from one installation); the gates write that same path when they must, with the stub described above.
+`cargo xtask gen-defs` writes only `<ModDir>/src/generated_defs/` (also gitignored: it is derived from one
+installation); the gates write that same directory for the examples when they must, with the stub described above.
 When a new host operation or event is added, extend `tools/abi-smoke` (and the fixture when the
 behaviour is patch-related) so the change is covered by `cargo xtask test`.
 
 ## File layout
 
-- **A file holds at most 800 lines and at most 40 items.** A file that outgrows either is split along **thematic**
-  lines by hand - `context/pawn.rs`, `context/map.rs`, `types/pawn.rs`, `subsystems/combat.rs`, `bridge/src/PawnOps.cs` -
-  never item by item. A mechanical split moves code without knowing what belongs together, and pays for it with
-  `#[path]` attributes, `pub(crate)` on private fields, and modules that no longer agree with their own name.
-  An `impl` block is not an item (it defines no name): holding a type's body is what it is for, and its size is
-  the line limit's business. Generated files (`subsystems_extra.rs`, `generated_defs.rs`, anything a tool writes)
-  and the roots cargo looks for (`lib.rs`, `main.rs`, `mod.rs`) are exempt: a tool or the crate decides their
-  contents, not this rule. `cargo xtask layout --check` measures both numbers for Rust and the line count for C#.
-  A file that has to be split is split by hand, one theme per module, and the module's header says which theme it
-  holds. The split helpers this repository once carried (`cargo xtask layout --split`, `tools/splits/*.txt`) are
-  gone: every file is inside the rule, and the decision belongs to the person reading the code, not to a spec.
+- **A hand-written file holds at most 500 lines and at most 40 items.** A file that outgrows either is split
+  along **thematic** lines by hand - `context/pawn.rs`, `context/map.rs`, `types/pawn.rs`,
+  `subsystems/combat.rs`, `bridge/src/PawnOps.cs` - never item by item. A mechanical split moves code without
+  knowing what belongs together, and pays for it with `#[path]` attributes, `pub(crate)` on private fields, and
+  modules that no longer agree with their own name. An `impl` block is not an item (it defines no name): holding
+  a type's body is what it is for, and its size is the line limit's business.
+  The roots cargo looks for (`lib.rs`, `main.rs`, `mod.rs`) hold at most **300 lines** and are measured by lines
+  alone: a root declares modules and re-exports, it does not hold the code. Generated files
+  (`subsystems_extra/`, `generated_defs/`, anything a tool writes) are measured by lines too, at the same 500
+  limit, but their item count is not counted: a generated constant is not an item the rule is meant to count,
+  and a generator that emits one huge file is exactly the defect this rule catches. `cargo xtask layout --check`
+  measures both numbers for hand-written Rust, the line count for roots and generated files, and the line count
+  for C#. It also checks the module tree: every `mod.rs` must declare every `.rs` file and module directory
+  next to it, and every declaration must have a file behind it. A file that has to be split is split by hand,
+  one theme per module, and the module's header says which theme it holds. The decision belongs to the person
+  reading the code, not to a spec.
 - **This is enforced, not a preference.** The check belongs in `cargo xtask test`, so an oversized file fails the gate
   the same way an unformatted file does.
+- **A split is not documented in the result.** No `//! Theme: ...`, no `//! ... Split from ...`, no
+  `// Split from main.rs`, and no "the file this module was split out of". A file states what it holds now;
+  how it came to exist is `git log`, not a comment. Generated files carry a current description too, never
+  the name of the file they replaced.
 
 ## Working rules
 
@@ -207,18 +249,31 @@ behaviour is patch-related) so the change is covered by `cargo xtask test`.
 
 `cargo xtask test` runs the gates first: `cargo fmt --all -- --check` (nightly, see `rustfmt.toml`), `cargo
 clippy --workspace --all-targets -- -D warnings`, a documentation pass (`cargo doc --workspace --no-deps`,
-which lists unresolved intra-doc links and missing doc comments), `cargo xtask layout --check` (no file over
-800 lines or 40 items), and `dotnet format --verify-no-changes` for the bridge where the game's reference
-assemblies are (a SKIP with the reason otherwise). That last one runs the project with `RimWorldAnalysisPass=1`,
+which lists unresolved intra-doc links and missing doc comments), `cargo xtask layout --check` (no hand-written
+file over 500 lines or 40 items, no root over 300 lines, no generated file over 500 lines), and
+`dotnet format --verify-no-changes` for the bridge where the game's reference
+assemblies are (a SKIP with the reason otherwise). The bridge sets `AnalysisLevel=latest-recommended`,
+treats compiler warnings as errors (`CodeAnalysisTreatWarningsAsErrors=false` leaves analyzer findings
+at their configured severity) and restores NuGet from the committed `bridge/packages.lock.json` with
+`RestoreLockedMode=true`. That last one runs the project with `RimWorldAnalysisPass=1`,
 which is what hands the tool's analyzer stages a framework reference to build a compilation from: without it
 they load no references, print "Required references were not loaded ..." (localized) and still exit 0, so the
 gate would report a green C# that only its whitespace pass ever looked at. `cargo xtask lint` fails loudly when
 that happens, so the analyzer half can never go missing quietly again.
 `cargo xtask fmt [--fix]` and `cargo xtask lint` run the pieces on their own.
 
-`git config core.hooksPath .githooks` once per clone enables the pre-commit hook, which runs the two gates
-cheap enough for every commit (`cargo xtask fmt`, which checks rather than fixes, and `cargo xtask layout
---check`). The rest is what `cargo xtask test` is for.
+The same suite also checks the generated output and the documentation: `gen-subsystems --check` renders
+`crates/rimworld-rs/src/subsystems_extra/` in memory and fails on a missing, changed or extra file; the def
+modules are checked for the 500-line / 396-constant generator limits; `cargo xtask layout --check` also
+verifies the module tree (every `mod.rs` declares every file and module directory next to it, and every
+declaration has a file); and every local Markdown link and every `crates/`/`examples/`/`docs/`/`bridge/`/
+`tools/`/`skills/` path in inline code must resolve. `cargo xtask smoke` is the in-game counterpart: it
+installs both example mods, launches `-quicktest`, and fails on `[selftest] FAIL` or a summary with a non-zero
+failed count.
+
+`git config core.hooksPath .githooks` once per clone enables the pre-commit hook, which runs the three gates
+cheap enough for every commit (`cargo xtask fmt`, which checks rather than fixes, `cargo xtask layout --check`,
+and `cargo xtask secrets --staged`). The rest is what `cargo xtask test` is for.
 
 Three more gates run on tools this repository expects but does not ship: `typos .` (its whitelist lives in
 `typos.toml`, and every word in it is a spelling of the game itself - the contract check verifies those names
@@ -227,6 +282,12 @@ against the real assembly, so correcting them would break the SDK), `cargo mache
 `cargo xtask test` still runs on a machine that has only Rust and .NET - a gate that cannot run says so instead
 of passing silently.
 
+Secret scanning is local, not CI: `cargo xtask secrets` runs gitleaks over the whole git history (the
+`.gitleaks.toml` extends gitleaks' default rules), and `cargo xtask secrets --staged` is what the pre-commit
+hook runs so a secret is stopped before it enters a commit. Install gitleaks 8.19+ (for example
+`winget install --id Gitleaks.Gitleaks`, or a release from <https://github.com/gitleaks/gitleaks#installing>);
+without it both commands print a SKIP with the reason.
+
 - **No `unsafe` outside the FFI layer**: `abi/` (its `mod.rs`, `buffers.rs` and `host.rs`), `host.rs`, `dispatch.rs` and `lib.rs` may use it; every
   other module carries `#![deny(unsafe_code)]` (the wrapper generator emits that header too).
 - **Documentation is API**: a new public item gets a doc comment, and a link that does not resolve is a
@@ -234,7 +295,9 @@ of passing silently.
 - **Generated wrappers come from the game, never from memory**: names from the game's XML and assembly metadata
   reach the generated Rust as *data* - every literal is escaped and every identifier sanitized - so a name that
   carries a quote or a dot can never become source. `cargo xtask gen-subsystems` reads the assembly through
-  `tools/abi-smoke --members-json` and writes `crates/rimworld-rs/src/subsystems_extra.rs`.
+  `tools/abi-smoke --members-json` and writes `crates/rimworld-rs/src/subsystems_extra/` (one file per wrapper,
+  re-exported by its `mod.rs`); `cargo xtask test` runs it with `--check`, so a recorded wrapper that no longer
+  matches the generator fails the gate instead of drifting.
 
 ## Conventions for changes
 
@@ -250,7 +313,7 @@ of passing silently.
   contract check, and everything with runtime behaviour needs a case in
   `examples/api-test-mod`. `cargo xtask test` runs all three layers, so a renamed type, member or
   def fails the test instead of failing in game.
-- **Mod def names in Rust should come from `cargo xtask gen-defs`** (`mod defs;` +
+- **Mod def names in Rust should come from `cargo xtask gen-defs --path <DIR>`** (`mod defs;` +
   `defs::thing_def::STEEL`), not from string literals: a renamed def then fails the build. Those
   modules are local, derived from one installation, and never committed.
 - **Every mod gets its own settings class.** `bridge/RimWorld.Rust.Bridge.csproj` generates
@@ -259,7 +322,7 @@ of passing silently.
   resolve the wrong assembly (`InvalidCastException: [A]RustBridge.RustModSettings cannot be cast to
   [B]RustBridge.RustModSettings` on save load). Never hand-write a settings class for a binding:
   go through the factory.
-- **The scaffolded samples are compile-checked.** `cargo xtask new --comp --job --itab` writes
+- **The scaffolded samples are compile-checked.** `cargo xtask new [--path <DIR>] --comp --job --itab` writes
   `ThingComp`, `JobDriver` and `ITab` samples whose game members are all in the contract list, so a
   new sample (or a change to one) needs its members added there too.
 - Keep the Rust SDK free of game-specific assumptions beyond the documented host operations; new
@@ -272,8 +335,8 @@ of passing silently.
   Guessing a member name is the bug class this project exists to prevent: a wrong name must fail
   `cargo xtask test`, never the running game.
 - Managed game types (`HediffComp`, `JobDriver`, `ITab`, `Window`, `WorldObject`, render nodes,
-  section layers) belong in a mod's **companion assembly** — `cargo xtask new` scaffolds one and
-  `cargo xtask build` compiles it next to the bridge. The bridge talks to it with `companion_call`;
+  section layers) belong in a mod's **companion assembly** — `cargo xtask new [--path <DIR>]` scaffolds one and
+  `cargo xtask build [<mod>] [--path <DIR>]` compiles it next to the bridge. The bridge talks to it with `companion_call`;
   the companion talks back with `Companion.Send`/`Request` (`docs/companion.md`). A *plain* thing
   component is the exception: the bridge hosts `RustThingComp` (`bridge/src/Comps.cs`, XML names the
   generated `RustBridge.RustThingCompProperties_<Mod>`), with spawn/despawn/tick/gizmos/inspect

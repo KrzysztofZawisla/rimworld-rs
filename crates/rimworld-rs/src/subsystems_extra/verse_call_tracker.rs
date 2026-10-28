@@ -1,0 +1,32 @@
+//! Generated wrapper for `Verse.Pawn_CallTracker`.
+#![allow(dead_code, unused_macros, unused_imports, clippy::should_implement_trait)]
+
+use crate::context::Context;
+use crate::subsystems_macros::*;
+use crate::types::ObjRef;
+use crate::Result;
+use serde_json::Value;
+
+wrapper!(
+    /// The game's `Verse.Pawn_CallTracker`, reached through `Verse.Pawn.caller`.
+    VerseCallTracker, "Verse.Pawn", "Verse.Pawn_CallTracker", "caller",
+    [
+        "pawn",
+        "CallTrackerTickInterval",
+        "DoCall",
+        "Notify_InAggroMentalState",
+        "Notify_DidMeleeAttack",
+        "Notify_Released",
+    ]
+);
+
+impl<'a> VerseCallTracker<'a> {
+    object_reader!(pawn, "pawn", "reads `pawn`.");
+}
+
+impl Context {
+    /// The game's `Verse.Pawn.caller`, as a [VerseCallTracker].
+    pub fn verse_call_tracker(&self, pawn: &ObjRef) -> Result<VerseCallTracker<'_>> {
+        Ok(VerseCallTracker::new(self, self.pawn_tracker(pawn, VerseCallTracker::ACCESSOR)?))
+    }
+}

@@ -1,39 +1,11 @@
-//! Theme: persist. Split from `context.rs`.
-#![allow(unused_imports)]
-
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{json, Value};
 
 use super::*;
 use crate::{
     host,
-    types::{
-        AbilityChange, AgeSet, AlertInfo, AlertPriority, AllowedArea, AnimalInfo, ApparelDropped, ApparelPolicySet,
-        ApparelStowed, ApparelWorn, AreaCells, AreaInfo, ArtTitle, AttackOrder, BackstorySet, BatterySet, BedSet,
-        BillChange, BillInfo, BillMove, BillSet, BuildingCompleted, CaravanChange, CaravanInfo, CaravanPause,
-        CaravanRoute, CellInfo, CellTemperature, ColorSpec, ConditionAdded, ConstructionCost, ContainmentRead,
-        Deconstructed, DefInfo, DesignationChange, DesignationInfo, DevelopmentInfo, DownCheck, DraftState,
-        EquipResult, EquipmentAdded, EquipmentDropped, FactionCreated, FactionRelationSet, FactionSet, FactionSnapshot,
-        FilthInfo, FilthMade, FireInfo, FireStart, FlickResult, FogState, ForbiddenState, FuelSet, GameInfo, GameSpeed,
-        GameTypeList, GasSnapshot, GeneChange, GeneSnapshot, HarmonyPatches, HeatPush, HediffAdded, HediffRemoved,
-        HediffSeveritySet, HediffsCleared, HitPointState, IdeoSet, IdeoSnapshot, IngredientAdded, InspirationCleared,
-        JobTarget, Jumped, KindSet, LabelSet, LetterKind, LookSet, LordChange, LordInfo, MechanitorInfo, MemberScan,
-        MentalStateForced, MessageKind, MethodRef, NameSet, NeedChange, ObjRef, PartRestored, PatchEntry, PatchKind,
-        PawnEquipment, PawnRecords, PlantInfo, PocketMap, PolicySet, PollutionSet, PositionSet, PowerSnapshot,
-        PreceptAdded, PreceptChange, PriceInfo, PrisonerInteraction, PrisonerStatus, PsyfocusSnapshot, PsylinkSet,
-        QualitySet, QuestChange, QuestGenerated, QuestSnapshot, RadiusQuery, RecordValue, RelationSet,
-        ResearchProgress, ResearchSnapshot, ResearchStarted, RitualVerdict, RoofState, RoomInfo, RoomTemperature,
-        RotSet, RotationState, SaveResult, SaveScope, ScheduleSet, SettingSpec, SettlementSnapshot, SkillLearned,
-        SkillPassion, SkillSet, SnowSet, StackSet, StorageAllowChange, StoragePriority, StoragePriorityChange,
-        StorageSettingsInfo, StoryTitleSet, StuffSet, SurgeryAdded, TameOrder, TerrainSet, ThingComponent,
-        ThingInRadius, ThingPower, ThoughtChange, TileFeature, TileMutators, TimeSnapshot, TitleChange, TitleSnapshot,
-        TraderGood, TraderInfo, TrainableState, TrainingInfo, TraitAdded, TraitRemoved, Translation, TypeMembers,
-        Uninstalled, UnpatchResult, VerbInfo, WealthInfo, WeatherSnapshot, WorkPrioritySet, WorldLayer,
-        WorldObjectCreated, WorldObjectInfo, WorldObjectRemoved, WorldRoute, WorldSnapshot, WorldTilePollution,
-        WorldTileSet, WorldTileSnapshot, XenotypeChange, ZoneInfo, ZonePlant,
-    },
-    values::{IntVec3Ref, Map, Pawn, Thing},
-    Error, Result,
+    types::{ObjRef, SaveScope},
+    Result,
 };
 
 impl Context {
@@ -107,7 +79,7 @@ impl Context {
     /// not set.
     ///
     /// The data is keyed by the thing's load id and lives in the mod's own save data (game scope),
-    /// so it survives save/load cycles, travels with the save file and works for any thing handle ÔÇö
+    /// so it survives save/load cycles, travels with the save file and works for any thing handle —
     /// with or without the bridge's `RustThingComp` attached.
     pub fn comp_state_get(&self, thing: &ObjRef, key: &str) -> Result<Option<String>> {
         let value = host::call("comp_state_get", json!({ "ref": thing.id, "key": key }))?;
@@ -117,7 +89,7 @@ impl Context {
 
 impl Context {
     /// Stores a string for one thing; `None` removes the key. Nothing cleans up after a thing is
-    /// destroyed ÔÇö use [`Context::comp_state_clear`] when the mod is done with it.
+    /// destroyed — use [`Context::comp_state_clear`] when the mod is done with it.
     pub fn comp_state_set(&self, thing: &ObjRef, key: &str, value: Option<&str>) -> Result<()> {
         host::call("comp_state_set", json!({ "ref": thing.id, "key": key, "value": value })).map(|_| ())
     }

@@ -1,0 +1,33 @@
+//! Generated wrapper for `Verse.Pawn_RotationTracker`.
+#![allow(dead_code, unused_macros, unused_imports, clippy::should_implement_trait)]
+
+use crate::context::Context;
+use crate::subsystems_macros::*;
+use crate::types::ObjRef;
+use crate::Result;
+use serde_json::Value;
+
+wrapper!(
+    /// The game's `Verse.Pawn_RotationTracker`, reached through `Verse.Pawn.rotationTracker`.
+    VerseRotationTracker, "Verse.Pawn", "Verse.Pawn_RotationTracker", "rotationTracker",
+    [
+        "Notify_Spawned",
+        "UpdateRotation",
+        "ProcessPostTickVisuals",
+        "FaceCell",
+        "Face",
+        "FaceTarget",
+        "RotFromAngleBiased",
+        "ExposeData",
+    ]
+);
+
+impl<'a> VerseRotationTracker<'a> {
+}
+
+impl Context {
+    /// The game's `Verse.Pawn.rotationTracker`, as a [VerseRotationTracker].
+    pub fn verse_rotation_tracker(&self, pawn: &ObjRef) -> Result<VerseRotationTracker<'_>> {
+        Ok(VerseRotationTracker::new(self, self.pawn_tracker(pawn, VerseRotationTracker::ACCESSOR)?))
+    }
+}

@@ -1,0 +1,34 @@
+//! Generated wrapper for `RimWorld.OutfitDatabase`.
+#![allow(dead_code, unused_macros, unused_imports, clippy::should_implement_trait)]
+
+use crate::context::Context;
+use crate::subsystems_macros::*;
+use crate::types::ObjRef;
+use crate::Result;
+use serde_json::Value;
+
+wrapper!(
+    /// The game's `RimWorld.OutfitDatabase`, reached through `Verse.Game.outfitDatabase`.
+    RimWorldOutfitDatabase, "Verse.Game", "RimWorld.OutfitDatabase", "outfitDatabase",
+    [
+        "AllOutfits",
+        "ExposeData",
+        "DefaultOutfit",
+        "SetDefault",
+        "TryDelete",
+        "MakeNewOutfit",
+    ]
+);
+
+impl<'a> RimWorldOutfitDatabase<'a> {
+    objects_reader!(all_outfits, "AllOutfits", "reads `AllOutfits`.");
+    object_reader!(default_outfit, "DefaultOutfit", "reads `DefaultOutfit`.");
+    object_reader!(make_new_outfit, "MakeNewOutfit", "reads `MakeNewOutfit`.");
+}
+
+impl Context {
+    /// The game's `Verse.Game.outfitDatabase`, as a [RimWorldOutfitDatabase].
+    pub fn rim_world_outfit_database(&self) -> Result<RimWorldOutfitDatabase<'_>> {
+        Ok(RimWorldOutfitDatabase::new(self, self.subsystem_of_game(RimWorldOutfitDatabase::ACCESSOR)?))
+    }
+}

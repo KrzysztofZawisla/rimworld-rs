@@ -1,7 +1,7 @@
 //! The reader macros and the small converters both wrapper modules share.
 //!
 //! They live here, apart from the wrappers themselves, so `cargo xtask gen-subsystems` can rewrite
-//! `subsystems_extra.rs` without carrying code of its own: the generated module only names members, and the
+//! `subsystems_extra/` without carrying code of its own: the generated module only names members, and the
 //! macros turn a name into a typed read.
 
 #![deny(unsafe_code)]
@@ -10,7 +10,7 @@
 // The reader set is fixed and shared across installations: a game build that exposes no whole-number member
 // leaves the `count` reader unused, and the converters a macro does not reach are unused with it. Trimming
 // them would make this module depend on one build, so they are allowed here on purpose.
-#![allow(unused_macros, unused_imports, dead_code)]
+#![allow(unused_macros, dead_code)]
 
 use serde_json::Value;
 
@@ -152,7 +152,6 @@ macro_rules! wrapper {
     };
 }
 
-pub(crate) use count_reader;
 pub(crate) use flag_reader;
 pub(crate) use number_reader;
 pub(crate) use object_reader;

@@ -1,0 +1,33 @@
+//! Generated wrapper for `RimWorld.ListerFilthInHomeArea`.
+#![allow(dead_code, unused_macros, unused_imports, clippy::should_implement_trait)]
+
+use crate::context::Context;
+use crate::subsystems_macros::*;
+use crate::types::ObjRef;
+use crate::Result;
+use serde_json::Value;
+
+wrapper!(
+    /// The game's `RimWorld.ListerFilthInHomeArea`, reached through `Verse.Map.listerFilthInHomeArea`.
+    RimWorldListerFilthInHomeArea, "Verse.Map", "RimWorld.ListerFilthInHomeArea", "listerFilthInHomeArea",
+    [
+        "FilthInHomeArea",
+        "RebuildAll",
+        "Notify_FilthSpawned",
+        "Notify_FilthDespawned",
+        "Notify_HomeAreaChanged",
+        "DebugString",
+    ]
+);
+
+impl<'a> RimWorldListerFilthInHomeArea<'a> {
+    objects_reader!(filth_in_home_area, "FilthInHomeArea", "reads `FilthInHomeArea`.");
+    text_reader!(debug_string, "DebugString", "reads `DebugString`.");
+}
+
+impl Context {
+    /// The game's `Verse.Map.listerFilthInHomeArea`, as a [RimWorldListerFilthInHomeArea].
+    pub fn rim_world_lister_filth_in_home_area(&self, map_id: i32) -> Result<RimWorldListerFilthInHomeArea<'_>> {
+        Ok(RimWorldListerFilthInHomeArea::new(self, self.map_system(map_id, RimWorldListerFilthInHomeArea::ACCESSOR)?))
+    }
+}

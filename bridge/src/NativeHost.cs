@@ -12,7 +12,7 @@ namespace RustBridge;
 internal struct NativeBuf
 {
     public IntPtr Ptr;
-    public int Len;
+    public uint Len;
 }
 
 [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -28,7 +28,7 @@ internal delegate uint InitFn(IntPtr hostApi);
 internal delegate uint DispatchFn(IntPtr eventPtr, int eventLen, IntPtr payloadPtr, int payloadLen, IntPtr responseOut);
 
 [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-internal delegate void FreeBufFn(IntPtr ptr, int len);
+internal delegate void FreeBufFn(IntPtr ptr, uint len);
 
 [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
 internal delegate uint HostCallFn(IntPtr userData, IntPtr requestPtr, int requestLen, IntPtr responseOut);
@@ -137,42 +137,12 @@ internal sealed class RustHost
 
     private static RustHost Create(string modName, string rootDir)
     {
-        string rustDir = Path.Combine(rootDir, "Rust");
-        if (!Directory.Exists(rustDir))
-        {
-            Log.Error($"[Rust] {modName}: the mod has no 'Rust' folder ({rustDir})");
-            return null;
-        }
-
-        string rid = NativeRuntimeIdentifier(modName);
-        if (rid == null)
+        string nativePath = ResolveNativeLibrary(modName, rootDir);
+        if (nativePath == null)
         {
             return null;
         }
 
-        string platformDir = Path.Combine(rustDir, rid);
-        if (!Directory.Exists(platformDir))
-        {
-            string[] shipped = Directory.GetDirectories(rustDir);
-            for (int i = 0; i < shipped.Length; i++)
-            {
-                shipped[i] = Path.GetFileName(shipped[i]);
-            }
-
-            Array.Sort(shipped, StringComparer.Ordinal);
-            string also = shipped.Length == 0 ? "the mod ships no platform folders" : $"it ships: {string.Join(", ", shipped)}";
-            Log.Error($"[Rust] {modName}: no native library for this platform ({rid}); expected {platformDir}; {also}");
-            return null;
-        }
-
-        string[] files = Directory.GetFiles(platformDir);
-        if (files.Length != 1)
-        {
-            Log.Error($"[Rust] {modName}: expected exactly one native library in {platformDir}, found {files.Length}");
-            return null;
-        }
-
-        string nativePath = files[0];
         IntPtr library = NativeLibrary.Load(nativePath);
 
         TypeHooks.Install();
@@ -206,23 +176,134 @@ internal sealed class RustHost
         var dispatch = Marshal.GetDelegateForFunctionPointer<DispatchFn>(NativeLibrary.GetExport(library, "rwrs_dispatch"));
         var freeBuf = Marshal.GetDelegateForFunctionPointer<FreeBufFn>(NativeLibrary.GetExport(library, "rwrs_free_buf"));
 
+        IntPtr hostCall = Marshal.GetFunctionPointerForDelegate(HostCallThunk);
         IntPtr hostApi = Marshal.AllocHGlobal(2 * IntPtr.Size);
-        Marshal.WriteIntPtr(hostApi, IntPtr.Zero);
-        Marshal.WriteIntPtr(hostApi + IntPtr.Size, Marshal.GetFunctionPointerForDelegate(HostCallThunk));
-
-        uint initResult = init(hostApi);
-        HostCallBuffers.Flush();
-        if (initResult != 0)
+        bool keepLibrary = false;
+        bool keepHostApi = false;
+        try
         {
-            Log.Error($"[Rust] {modName}: rwrs_init failed with code {initResult}");
-            NativeLibrary.Free(library);
+            Marshal.WriteIntPtr(hostApi, IntPtr.Zero);
+            Marshal.WriteIntPtr(hostApi + IntPtr.Size, hostCall);
+
+            uint initResult = init(hostApi);
+            HostCallBuffers.Flush();
+            if (initResult != 0)
+            {
+                Log.Error($"[Rust] {modName}: rwrs_init failed with code {initResult}");
+                return null;
+            }
+
+            var host = new RustHost(modName, dispatch, freeBuf);
+            Current = host;
+            Log.Message($"[Rust] {modName}: loaded {Path.GetFileName(nativePath)}");
+            keepLibrary = true;
+            keepHostApi = true;
+            return host;
+        }
+        finally
+        {
+            if (!keepHostApi)
+            {
+                Marshal.FreeHGlobal(hostApi);
+            }
+
+            if (!keepLibrary)
+            {
+                NativeLibrary.Free(library);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Resolves the one native library of this mod and refuses anything that is not a regular file inside
+    /// the mod's own `Rust/<rid>/` folder: a `..` or an absolute path, a symlink/junction, or a second
+    /// library. A library outside `<mod>/Rust/<rid>` would let a path mistake load a file from somewhere else
+    /// on the machine; the game already trusts a mod's code, so this is about keeping the load where the mod
+    /// says it is, not a sandbox.
+    /// </summary>
+    private static string ResolveNativeLibrary(string modName, string rootDir)
+    {
+        string root = Path.GetFullPath(rootDir);
+        string rootPrefix = root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+        string rustDir = Path.GetFullPath(Path.Combine(root, "Rust"));
+        string rustPrefix = rustDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+
+        if (!rustDir.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            Log.Error($"[Rust] {modName}: the Rust folder {rustDir} is outside the mod root {root}");
             return null;
         }
 
-        var host = new RustHost(modName, dispatch, freeBuf);
-        Current = host;
-        Log.Message($"[Rust] {modName}: loaded {Path.GetFileName(nativePath)}");
-        return host;
+        if (!Directory.Exists(rustDir))
+        {
+            Log.Error($"[Rust] {modName}: the mod has no 'Rust' folder ({rustDir})");
+            return null;
+        }
+
+        if ((File.GetAttributes(rustDir) & FileAttributes.ReparsePoint) != 0)
+        {
+            Log.Error($"[Rust] {modName}: the Rust folder is a symlink or junction ({rustDir}); refusing to load it");
+            return null;
+        }
+
+        string rid = NativeRuntimeIdentifier(modName);
+        if (rid == null)
+        {
+            return null;
+        }
+
+        string platformDir = Path.GetFullPath(Path.Combine(rustDir, rid));
+        string platformPrefix = platformDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+        if (!platformDir.StartsWith(rustPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            Log.Error($"[Rust] {modName}: the platform folder {platformDir} is outside {rustDir}; refusing to load it");
+            return null;
+        }
+
+        if (!Directory.Exists(platformDir))
+        {
+            string[] shipped = Directory.GetDirectories(rustDir);
+            for (int i = 0; i < shipped.Length; i++)
+            {
+                shipped[i] = Path.GetFileName(shipped[i]);
+            }
+
+            Array.Sort(shipped, StringComparer.Ordinal);
+            string also = shipped.Length == 0 ? "the mod ships no platform folders" : $"it ships: {string.Join(", ", shipped)}";
+            Log.Error($"[Rust] {modName}: no native library for this platform ({rid}); expected {platformDir}; {also}");
+            return null;
+        }
+
+        if ((File.GetAttributes(platformDir) & FileAttributes.ReparsePoint) != 0)
+        {
+            Log.Error($"[Rust] {modName}: the platform folder is a symlink or junction ({platformDir}); refusing to load it");
+            return null;
+        }
+
+        string[] files = Directory.GetFiles(platformDir);
+        if (files.Length != 1)
+        {
+            Log.Error($"[Rust] {modName}: expected exactly one native library in {platformDir}, found {files.Length}");
+            return null;
+        }
+
+        string nativePath = Path.GetFullPath(files[0]);
+        if (!nativePath.StartsWith(platformPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            Log.Error($"[Rust] {modName}: the native library {nativePath} is outside {platformDir}; refusing to load it");
+            return null;
+        }
+
+        if ((File.GetAttributes(nativePath) & FileAttributes.ReparsePoint) != 0)
+        {
+            Log.Error($"[Rust] {modName}: the native library is a symlink or junction ({nativePath}); refusing to load it");
+            return null;
+        }
+
+        return nativePath;
     }
 
     public bool ShouldDispatchTick()
@@ -378,7 +459,7 @@ internal sealed class RustHost
                 var buffer = new NativeBuf
                 {
                     Ptr = Marshal.ReadIntPtr(slot),
-                    Len = Marshal.ReadInt32(slot + IntPtr.Size),
+                    Len = (uint)Marshal.ReadInt32(slot + IntPtr.Size),
                 };
                 json = CopyAndFree(buffer);
             }
@@ -538,15 +619,39 @@ internal sealed class RustHost
 
     private string CopyAndFree(NativeBuf buffer)
     {
-        if (buffer.Ptr == IntPtr.Zero || buffer.Len <= 0)
+        if (buffer.Ptr == IntPtr.Zero)
         {
+            if (buffer.Len != 0)
+            {
+                Log.Error($"[Rust] the native response buffer has length {buffer.Len} but no pointer");
+                return "{\"ok\":false,\"error\":\"native response buffer has no pointer\"}";
+            }
+
             return "{\"ok\":true}";
         }
 
-        var bytes = new byte[buffer.Len];
-        Marshal.Copy(buffer.Ptr, bytes, 0, buffer.Len);
-        freeBufFn(buffer.Ptr, buffer.Len);
-        return Encoding.UTF8.GetString(bytes);
+        try
+        {
+            if (buffer.Len == 0)
+            {
+                return "{\"ok\":true}";
+            }
+
+            if (buffer.Len > int.MaxValue)
+            {
+                Log.Error(
+                    $"[Rust] the native response buffer is {buffer.Len} bytes, larger than the bridge can copy");
+                return "{\"ok\":false,\"error\":\"native response buffer too large\"}";
+            }
+
+            var bytes = new byte[(int)buffer.Len];
+            Marshal.Copy(buffer.Ptr, bytes, 0, bytes.Length);
+            return Encoding.UTF8.GetString(bytes);
+        }
+        finally
+        {
+            freeBufFn(buffer.Ptr, buffer.Len);
+        }
     }
 
     private static IntPtr ToNative(byte[] bytes)
@@ -588,8 +693,16 @@ internal sealed class RustHost
             response = Encoding.UTF8.GetBytes($"{{\"ok\":false,\"error\":{escaped}}}");
         }
 
-        HostCallBuffers.Publish(responseOut, response);
-        return 0;
+        try
+        {
+            HostCallBuffers.Publish(responseOut, response);
+            return 0;
+        }
+        catch (Exception error)
+        {
+            Log.Error($"[Rust] could not publish a host response: {error}");
+            return 1;
+        }
     }
 
     private static byte[] Read(IntPtr pointer, int length)
@@ -613,10 +726,18 @@ internal static class HostCallBuffers
     {
         Flush();
         IntPtr memory = Marshal.AllocHGlobal(response.Length);
-        Marshal.Copy(response, 0, memory, response.Length);
-        Marshal.WriteIntPtr(responseOut, memory);
-        Marshal.WriteInt32(responseOut + IntPtr.Size, response.Length);
-        latest = memory;
+        try
+        {
+            Marshal.Copy(response, 0, memory, response.Length);
+            Marshal.WriteIntPtr(responseOut, memory);
+            Marshal.WriteInt32(responseOut + IntPtr.Size, response.Length);
+            latest = memory;
+        }
+        catch
+        {
+            Marshal.FreeHGlobal(memory);
+            throw;
+        }
     }
 
     public static void Flush()

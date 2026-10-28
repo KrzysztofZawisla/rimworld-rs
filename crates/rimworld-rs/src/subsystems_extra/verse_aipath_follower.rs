@@ -1,0 +1,83 @@
+//! Generated wrapper for `Verse.AI.Pawn_PathFollower`.
+#![allow(dead_code, unused_macros, unused_imports, clippy::should_implement_trait)]
+
+use crate::context::Context;
+use crate::subsystems_macros::*;
+use crate::types::ObjRef;
+use crate::Result;
+use serde_json::Value;
+
+wrapper!(
+    /// The game's `Verse.AI.Pawn_PathFollower`, reached through `Verse.Pawn.pather`.
+    VerseAIPathFollower, "Verse.Pawn", "Verse.AI.Pawn_PathFollower", "pather",
+    [
+        "pawn",
+        "nextCell",
+        "lastMoveDirection",
+        "nextCellCostLeft",
+        "nextCellCostTotal",
+        "debugDisabled",
+        "curPathJobIsStale",
+        "curPathRequest",
+        "curPath",
+        "lastPathedTargetPosition",
+        "debugLog",
+        "cachedReturningToCell",
+        "Destination",
+        "Moving",
+        "MovingNow",
+        "MovePercentage",
+        "LastMovedTick",
+        "WillCollideNextCell",
+        "LastPassableCellInPath",
+        "ExposeData",
+        "StartPath",
+        "StopDead",
+        "PatherTick",
+        "DrawDebugGUI",
+        "TryResumePathingAfterLoading",
+        "Notify_Teleported_Int",
+        "ResetToCurrentPosition",
+        "NotifyThingTransformed",
+        "NextCellDoorToWaitForOrManuallyOpen",
+        "PatherDraw",
+        "ChangedCellRecently",
+        "MovedRecently",
+        "TryRecoverFromUnwalkablePosition",
+        "GetPawnCellBaseCostOverride",
+        "DisposeAndClearCurPathRequest",
+        "DisposeAndClearCurPath",
+        "BestPathHadPawnsInTheWayRecently",
+    ]
+);
+
+impl<'a> VerseAIPathFollower<'a> {
+    object_reader!(pawn, "pawn", "reads `pawn`.");
+    object_reader!(next_cell, "nextCell", "reads `nextCell`.");
+    number_reader!(last_move_direction, "lastMoveDirection", "reads `lastMoveDirection`.");
+    number_reader!(next_cell_cost_left, "nextCellCostLeft", "reads `nextCellCostLeft`.");
+    number_reader!(next_cell_cost_total, "nextCellCostTotal", "reads `nextCellCostTotal`.");
+    flag_reader!(debug_disabled, "debugDisabled", "reads `debugDisabled`.");
+    flag_reader!(cur_path_job_is_stale, "curPathJobIsStale", "reads `curPathJobIsStale`.");
+    object_reader!(cur_path_request, "curPathRequest", "reads `curPathRequest`.");
+    object_reader!(cur_path, "curPath", "reads `curPath`.");
+    object_reader!(last_pathed_target_position, "lastPathedTargetPosition", "reads `lastPathedTargetPosition`.");
+    flag_reader!(debug_log, "debugLog", "reads `debugLog`.");
+    flag_reader!(cached_returning_to_cell, "cachedReturningToCell", "reads `cachedReturningToCell`.");
+    object_reader!(destination, "Destination", "reads `Destination`.");
+    flag_reader!(moving, "Moving", "reads `Moving`.");
+    flag_reader!(moving_now, "MovingNow", "reads `MovingNow`.");
+    number_reader!(move_percentage, "MovePercentage", "reads `MovePercentage`.");
+    number_reader!(last_moved_tick, "LastMovedTick", "reads `LastMovedTick`.");
+    flag_reader!(will_collide_next_cell, "WillCollideNextCell", "reads `WillCollideNextCell`.");
+    object_reader!(last_passable_cell_in_path, "LastPassableCellInPath", "reads `LastPassableCellInPath`.");
+    object_reader!(next_cell_door_to_wait_for_or_manually_open, "NextCellDoorToWaitForOrManuallyOpen", "reads `NextCellDoorToWaitForOrManuallyOpen`.");
+    flag_reader!(best_path_had_pawns_in_the_way_recently, "BestPathHadPawnsInTheWayRecently", "reads `BestPathHadPawnsInTheWayRecently`.");
+}
+
+impl Context {
+    /// The game's `Verse.Pawn.pather`, as a [VerseAIPathFollower].
+    pub fn verse_aipath_follower(&self, pawn: &ObjRef) -> Result<VerseAIPathFollower<'_>> {
+        Ok(VerseAIPathFollower::new(self, self.pawn_tracker(pawn, VerseAIPathFollower::ACCESSOR)?))
+    }
+}

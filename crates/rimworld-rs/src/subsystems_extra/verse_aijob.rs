@@ -1,0 +1,222 @@
+//! Generated wrapper for `Verse.AI.Job`.
+#![allow(dead_code, unused_macros, unused_imports, clippy::should_implement_trait)]
+
+use crate::context::Context;
+use crate::subsystems_macros::*;
+use crate::types::ObjRef;
+use crate::Result;
+use serde_json::Value;
+
+wrapper!(
+    /// The game's `Verse.AI.Job`, reached through `.`.
+    VerseAIJob, "", "Verse.AI.Job", "",
+    [
+        "def",
+        "targetA",
+        "targetB",
+        "targetC",
+        "targetQueueA",
+        "targetQueueB",
+        "globalTarget",
+        "count",
+        "countQueue",
+        "loadID",
+        "startTick",
+        "expiryInterval",
+        "checkOverrideOnExpire",
+        "playerForced",
+        "playerInterruptedForced",
+        "showCarryingInspectLine",
+        "flying",
+        "swimming",
+        "intervalScalingTarget",
+        "placedThings",
+        "maxNumMeleeAttacks",
+        "maxNumStaticAttacks",
+        "locomotionUrgency",
+        "haulMode",
+        "bill",
+        "commTarget",
+        "plantDefToSow",
+        "thingDefToCarry",
+        "verbToUse",
+        "haulOpportunisticDuplicates",
+        "exitMapOnArrival",
+        "failIfCantJoinOrCreateCaravan",
+        "killIncappedTarget",
+        "ignoreForbidden",
+        "ignoreDesignations",
+        "canBashDoors",
+        "canBashFences",
+        "canUseRangedWeapon",
+        "haulDroppedApparel",
+        "restUntilHealed",
+        "ignoreJoyTimeAssignment",
+        "doUntilGatheringEnded",
+        "overeat",
+        "ingestTotalCount",
+        "attackDoorIfTargetLost",
+        "takeExtraIngestibles",
+        "expireRequiresEnemiesNearby",
+        "ensureReachable",
+        "expireOnEnemiesNearby",
+        "lord",
+        "collideWithPawns",
+        "forceSleep",
+        "interaction",
+        "endIfCantShootTargetFromCurPos",
+        "endIfCantShootInMelee",
+        "checkEncumbrance",
+        "followRadius",
+        "endAfterTendedOnce",
+        "quest",
+        "mote",
+        "psyfocusTargetLast",
+        "wasOnMeditationTimeAssignment",
+        "reactingToMeleeThreat",
+        "preventFriendlyFire",
+        "ropingPriority",
+        "ropeToUnenclosedPens",
+        "showSpeechBubbles",
+        "lookDirection",
+        "overrideFacing",
+        "forceMaintainFacing",
+        "dutyTag",
+        "ritualTag",
+        "controlGroupTag",
+        "takeInventoryDelay",
+        "draftedTend",
+        "speechFaceSpectatorsIfPossible",
+        "speechSoundMale",
+        "speechSoundFemale",
+        "biosculpterCycleKey",
+        "reportStringOverride",
+        "crawlingReportStringOverride",
+        "startInvoluntarySleep",
+        "isLearningDesire",
+        "interactableIndex",
+        "jobGiverThinkTree",
+        "jobGiver",
+        "workGiverDef",
+        "ability",
+        "source",
+        "RecipeDef",
+        "GetCachedDriverDirect",
+        "Clear",
+        "Clone",
+        "GetTarget",
+        "GetTargetQueue",
+        "SetTarget",
+        "AddQueuedTarget",
+        "ExposeData",
+        "MakeDriver",
+        "GetCachedDriver",
+        "TryMakePreToilReservations",
+        "GetReport",
+        "GetDestination",
+        "CanBeginNow",
+        "JobIsSameAs",
+        "AnyTargetIs",
+        "AnyTargetOutsideArea",
+        "ToString",
+        "GetUniqueLoadID",
+        "LogDetails",
+    ]
+);
+
+impl<'a> VerseAIJob<'a> {
+    object_reader!(def, "def", "reads `def`.");
+    object_reader!(target_a, "targetA", "reads `targetA`.");
+    object_reader!(target_b, "targetB", "reads `targetB`.");
+    object_reader!(target_c, "targetC", "reads `targetC`.");
+    objects_reader!(target_queue_a, "targetQueueA", "reads `targetQueueA`.");
+    objects_reader!(target_queue_b, "targetQueueB", "reads `targetQueueB`.");
+    object_reader!(global_target, "globalTarget", "reads `globalTarget`.");
+    number_reader!(count, "count", "reads `count`.");
+    objects_reader!(count_queue, "countQueue", "reads `countQueue`.");
+    number_reader!(load_id, "loadID", "reads `loadID`.");
+    number_reader!(start_tick, "startTick", "reads `startTick`.");
+    number_reader!(expiry_interval, "expiryInterval", "reads `expiryInterval`.");
+    flag_reader!(check_override_on_expire, "checkOverrideOnExpire", "reads `checkOverrideOnExpire`.");
+    flag_reader!(player_forced, "playerForced", "reads `playerForced`.");
+    flag_reader!(player_interrupted_forced, "playerInterruptedForced", "reads `playerInterruptedForced`.");
+    flag_reader!(show_carrying_inspect_line, "showCarryingInspectLine", "reads `showCarryingInspectLine`.");
+    flag_reader!(flying, "flying", "reads `flying`.");
+    flag_reader!(swimming, "swimming", "reads `swimming`.");
+    object_reader!(interval_scaling_target, "intervalScalingTarget", "reads `intervalScalingTarget`.");
+    objects_reader!(placed_things, "placedThings", "reads `placedThings`.");
+    number_reader!(max_num_melee_attacks, "maxNumMeleeAttacks", "reads `maxNumMeleeAttacks`.");
+    number_reader!(max_num_static_attacks, "maxNumStaticAttacks", "reads `maxNumStaticAttacks`.");
+    object_reader!(locomotion_urgency, "locomotionUrgency", "reads `locomotionUrgency`.");
+    object_reader!(haul_mode, "haulMode", "reads `haulMode`.");
+    object_reader!(bill, "bill", "reads `bill`.");
+    object_reader!(comm_target, "commTarget", "reads `commTarget`.");
+    object_reader!(plant_def_to_sow, "plantDefToSow", "reads `plantDefToSow`.");
+    object_reader!(thing_def_to_carry, "thingDefToCarry", "reads `thingDefToCarry`.");
+    object_reader!(verb_to_use, "verbToUse", "reads `verbToUse`.");
+    flag_reader!(haul_opportunistic_duplicates, "haulOpportunisticDuplicates", "reads `haulOpportunisticDuplicates`.");
+    flag_reader!(exit_map_on_arrival, "exitMapOnArrival", "reads `exitMapOnArrival`.");
+    flag_reader!(fail_if_cant_join_or_create_caravan, "failIfCantJoinOrCreateCaravan", "reads `failIfCantJoinOrCreateCaravan`.");
+    flag_reader!(kill_incapped_target, "killIncappedTarget", "reads `killIncappedTarget`.");
+    flag_reader!(ignore_forbidden, "ignoreForbidden", "reads `ignoreForbidden`.");
+    flag_reader!(ignore_designations, "ignoreDesignations", "reads `ignoreDesignations`.");
+    flag_reader!(can_bash_doors, "canBashDoors", "reads `canBashDoors`.");
+    flag_reader!(can_bash_fences, "canBashFences", "reads `canBashFences`.");
+    flag_reader!(can_use_ranged_weapon, "canUseRangedWeapon", "reads `canUseRangedWeapon`.");
+    flag_reader!(haul_dropped_apparel, "haulDroppedApparel", "reads `haulDroppedApparel`.");
+    flag_reader!(rest_until_healed, "restUntilHealed", "reads `restUntilHealed`.");
+    flag_reader!(ignore_joy_time_assignment, "ignoreJoyTimeAssignment", "reads `ignoreJoyTimeAssignment`.");
+    flag_reader!(do_until_gathering_ended, "doUntilGatheringEnded", "reads `doUntilGatheringEnded`.");
+    flag_reader!(overeat, "overeat", "reads `overeat`.");
+    flag_reader!(ingest_total_count, "ingestTotalCount", "reads `ingestTotalCount`.");
+    flag_reader!(attack_door_if_target_lost, "attackDoorIfTargetLost", "reads `attackDoorIfTargetLost`.");
+    number_reader!(take_extra_ingestibles, "takeExtraIngestibles", "reads `takeExtraIngestibles`.");
+    flag_reader!(expire_requires_enemies_nearby, "expireRequiresEnemiesNearby", "reads `expireRequiresEnemiesNearby`.");
+    flag_reader!(ensure_reachable, "ensureReachable", "reads `ensureReachable`.");
+    flag_reader!(expire_on_enemies_nearby, "expireOnEnemiesNearby", "reads `expireOnEnemiesNearby`.");
+    object_reader!(lord, "lord", "reads `lord`.");
+    flag_reader!(collide_with_pawns, "collideWithPawns", "reads `collideWithPawns`.");
+    flag_reader!(force_sleep, "forceSleep", "reads `forceSleep`.");
+    object_reader!(interaction, "interaction", "reads `interaction`.");
+    flag_reader!(end_if_cant_shoot_target_from_cur_pos, "endIfCantShootTargetFromCurPos", "reads `endIfCantShootTargetFromCurPos`.");
+    flag_reader!(end_if_cant_shoot_in_melee, "endIfCantShootInMelee", "reads `endIfCantShootInMelee`.");
+    flag_reader!(check_encumbrance, "checkEncumbrance", "reads `checkEncumbrance`.");
+    number_reader!(follow_radius, "followRadius", "reads `followRadius`.");
+    flag_reader!(end_after_tended_once, "endAfterTendedOnce", "reads `endAfterTendedOnce`.");
+    object_reader!(quest, "quest", "reads `quest`.");
+    object_reader!(mote, "mote", "reads `mote`.");
+    number_reader!(psyfocus_target_last, "psyfocusTargetLast", "reads `psyfocusTargetLast`.");
+    flag_reader!(was_on_meditation_time_assignment, "wasOnMeditationTimeAssignment", "reads `wasOnMeditationTimeAssignment`.");
+    flag_reader!(reacting_to_melee_threat, "reactingToMeleeThreat", "reads `reactingToMeleeThreat`.");
+    flag_reader!(prevent_friendly_fire, "preventFriendlyFire", "reads `preventFriendlyFire`.");
+    object_reader!(roping_priority, "ropingPriority", "reads `ropingPriority`.");
+    flag_reader!(rope_to_unenclosed_pens, "ropeToUnenclosedPens", "reads `ropeToUnenclosedPens`.");
+    flag_reader!(show_speech_bubbles, "showSpeechBubbles", "reads `showSpeechBubbles`.");
+    object_reader!(look_direction, "lookDirection", "reads `lookDirection`.");
+    object_reader!(override_facing, "overrideFacing", "reads `overrideFacing`.");
+    flag_reader!(force_maintain_facing, "forceMaintainFacing", "reads `forceMaintainFacing`.");
+    text_reader!(duty_tag, "dutyTag", "reads `dutyTag`.");
+    text_reader!(ritual_tag, "ritualTag", "reads `ritualTag`.");
+    text_reader!(control_group_tag, "controlGroupTag", "reads `controlGroupTag`.");
+    number_reader!(take_inventory_delay, "takeInventoryDelay", "reads `takeInventoryDelay`.");
+    flag_reader!(drafted_tend, "draftedTend", "reads `draftedTend`.");
+    flag_reader!(speech_face_spectators_if_possible, "speechFaceSpectatorsIfPossible", "reads `speechFaceSpectatorsIfPossible`.");
+    object_reader!(speech_sound_male, "speechSoundMale", "reads `speechSoundMale`.");
+    object_reader!(speech_sound_female, "speechSoundFemale", "reads `speechSoundFemale`.");
+    text_reader!(biosculpter_cycle_key, "biosculpterCycleKey", "reads `biosculpterCycleKey`.");
+    text_reader!(report_string_override, "reportStringOverride", "reads `reportStringOverride`.");
+    text_reader!(crawling_report_string_override, "crawlingReportStringOverride", "reads `crawlingReportStringOverride`.");
+    flag_reader!(start_involuntary_sleep, "startInvoluntarySleep", "reads `startInvoluntarySleep`.");
+    flag_reader!(is_learning_desire, "isLearningDesire", "reads `isLearningDesire`.");
+    number_reader!(interactable_index, "interactableIndex", "reads `interactableIndex`.");
+    object_reader!(job_giver_think_tree, "jobGiverThinkTree", "reads `jobGiverThinkTree`.");
+    object_reader!(job_giver, "jobGiver", "reads `jobGiver`.");
+    object_reader!(work_giver_def, "workGiverDef", "reads `workGiverDef`.");
+    object_reader!(ability, "ability", "reads `ability`.");
+    object_reader!(source, "source", "reads `source`.");
+    object_reader!(recipe_def, "RecipeDef", "reads `RecipeDef`.");
+    object_reader!(get_cached_driver_direct, "GetCachedDriverDirect", "reads `GetCachedDriverDirect`.");
+    object_reader!(clone, "Clone", "reads `Clone`.");
+    text_reader!(to_string, "ToString", "reads `ToString`.");
+    text_reader!(get_unique_load_id, "GetUniqueLoadID", "reads `GetUniqueLoadID`.");
+}

@@ -1,0 +1,44 @@
+//! Generated wrapper for `RimWorld.Pawn_FlightTracker`.
+#![allow(dead_code, unused_macros, unused_imports, clippy::should_implement_trait)]
+
+use crate::context::Context;
+use crate::subsystems_macros::*;
+use crate::types::ObjRef;
+use crate::Result;
+use serde_json::Value;
+
+wrapper!(
+    /// The game's `RimWorld.Pawn_FlightTracker`, reached through `Verse.Pawn.flight`.
+    RimWorldFlightTracker, "Verse.Pawn", "RimWorld.Pawn_FlightTracker", "flight",
+    [
+        "Flying",
+        "CanEverFly",
+        "CanFlyNow",
+        "MaxFlightTicks",
+        "PositionOffsetFactor",
+        "FlightTick",
+        "Notify_PreSwapMap",
+        "Notify_JobStarted",
+        "StartFlying",
+        "ForceLand",
+        "GetStatusString",
+        "ExposeData",
+        "GetBestFlyAnimation",
+    ]
+);
+
+impl<'a> RimWorldFlightTracker<'a> {
+    flag_reader!(flying, "Flying", "reads `Flying`.");
+    flag_reader!(can_ever_fly, "CanEverFly", "reads `CanEverFly`.");
+    flag_reader!(can_fly_now, "CanFlyNow", "reads `CanFlyNow`.");
+    number_reader!(max_flight_ticks, "MaxFlightTicks", "reads `MaxFlightTicks`.");
+    number_reader!(position_offset_factor, "PositionOffsetFactor", "reads `PositionOffsetFactor`.");
+    text_reader!(get_status_string, "GetStatusString", "reads `GetStatusString`.");
+}
+
+impl Context {
+    /// The game's `Verse.Pawn.flight`, as a [RimWorldFlightTracker].
+    pub fn rim_world_flight_tracker(&self, pawn: &ObjRef) -> Result<RimWorldFlightTracker<'_>> {
+        Ok(RimWorldFlightTracker::new(self, self.pawn_tracker(pawn, RimWorldFlightTracker::ACCESSOR)?))
+    }
+}

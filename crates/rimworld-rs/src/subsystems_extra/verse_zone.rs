@@ -1,0 +1,83 @@
+//! Generated wrapper for `Verse.Zone`.
+#![allow(dead_code, unused_macros, unused_imports, clippy::should_implement_trait)]
+
+use crate::context::Context;
+use crate::subsystems_macros::*;
+use crate::types::ObjRef;
+use crate::Result;
+use serde_json::Value;
+
+wrapper!(
+    /// The game's `Verse.Zone`, reached through `.`.
+    VerseZone, "", "Verse.Zone", "",
+    [
+        "zoneManager",
+        "ID",
+        "label",
+        "cells",
+        "color",
+        "RenamableLabel",
+        "BaseLabel",
+        "InspectLabel",
+        "Map",
+        "Position",
+        "Hidden",
+        "Material",
+        "Cells",
+        "CellCount",
+        "HeldThingsCount",
+        "AllContainedThings",
+        "ContainsStaticFire",
+        "IsMultiselectable",
+        "NextZoneColor",
+        "CreateMaterial",
+        "GetEnumerator",
+        "ExposeData",
+        "AddCell",
+        "RemoveCell",
+        "Delete",
+        "Delete",
+        "Deregister",
+        "PostRegister",
+        "PostDeregister",
+        "ContainsCell",
+        "GetInspectString",
+        "GetInspectTabs",
+        "GetGizmos",
+        "GetZoneAddGizmos",
+        "CheckContiguous",
+        "GetFloatMenuOptions",
+        "ToString",
+        "GetUniqueLoadID",
+    ]
+);
+
+impl<'a> VerseZone<'a> {
+    object_reader!(zone_manager, "zoneManager", "reads `zoneManager`.");
+    number_reader!(id, "ID", "reads `ID`.");
+    text_reader!(label, "label", "reads `label`.");
+    objects_reader!(cells, "cells", "reads `cells`.");
+    object_reader!(color, "color", "reads `color`.");
+    text_reader!(renamable_label, "RenamableLabel", "reads `RenamableLabel`.");
+    text_reader!(base_label, "BaseLabel", "reads `BaseLabel`.");
+    text_reader!(inspect_label, "InspectLabel", "reads `InspectLabel`.");
+    object_reader!(map, "Map", "reads `Map`.");
+    object_reader!(position, "Position", "reads `Position`.");
+    flag_reader!(hidden, "Hidden", "reads `Hidden`.");
+    object_reader!(material, "Material", "reads `Material`.");
+    objects_reader!(cells_, "Cells", "reads `Cells`.");
+    number_reader!(cell_count, "CellCount", "reads `CellCount`.");
+    number_reader!(held_things_count, "HeldThingsCount", "reads `HeldThingsCount`.");
+    object_reader!(all_contained_things, "AllContainedThings", "reads `AllContainedThings`.");
+    flag_reader!(contains_static_fire, "ContainsStaticFire", "reads `ContainsStaticFire`.");
+    flag_reader!(is_multiselectable, "IsMultiselectable", "reads `IsMultiselectable`.");
+    object_reader!(next_zone_color, "NextZoneColor", "reads `NextZoneColor`.");
+    object_reader!(create_material, "CreateMaterial", "reads `CreateMaterial`.");
+    object_reader!(get_enumerator, "GetEnumerator", "reads `GetEnumerator`.");
+    text_reader!(get_inspect_string, "GetInspectString", "reads `GetInspectString`.");
+    object_reader!(get_inspect_tabs, "GetInspectTabs", "reads `GetInspectTabs`.");
+    object_reader!(get_gizmos, "GetGizmos", "reads `GetGizmos`.");
+    object_reader!(get_zone_add_gizmos, "GetZoneAddGizmos", "reads `GetZoneAddGizmos`.");
+    text_reader!(to_string, "ToString", "reads `ToString`.");
+    text_reader!(get_unique_load_id, "GetUniqueLoadID", "reads `GetUniqueLoadID`.");
+}

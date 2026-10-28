@@ -1,0 +1,44 @@
+//! Generated wrapper for `Verse.AI.Pathing`.
+#![allow(dead_code, unused_macros, unused_imports, clippy::should_implement_trait)]
+
+use crate::context::Context;
+use crate::subsystems_macros::*;
+use crate::types::ObjRef;
+use crate::Result;
+use serde_json::Value;
+
+wrapper!(
+    /// The game's `Verse.AI.Pathing`, reached through `Verse.Map.pathing`.
+    VerseAIPathing, "Verse.Map", "Verse.AI.Pathing", "pathing",
+    [
+        "Normal",
+        "FenceBlocked",
+        "Flying",
+        "IncrementalDirtyingDisabled",
+        "Get",
+        "For",
+        "For",
+        "RecalculateAllPerceivedPathCosts",
+        "RecalculatePerceivedPathCostUnderThing",
+        "RecalculatePerceivedPathCostAt",
+        "DisableIncrementalScope",
+        "DisableIncrementalDirtying",
+        "ReEnableIncrementalDirtying",
+        "Dispose",
+    ]
+);
+
+impl<'a> VerseAIPathing<'a> {
+    object_reader!(normal, "Normal", "reads `Normal`.");
+    object_reader!(fence_blocked, "FenceBlocked", "reads `FenceBlocked`.");
+    object_reader!(flying, "Flying", "reads `Flying`.");
+    flag_reader!(incremental_dirtying_disabled, "IncrementalDirtyingDisabled", "reads `IncrementalDirtyingDisabled`.");
+    object_reader!(disable_incremental_scope, "DisableIncrementalScope", "reads `DisableIncrementalScope`.");
+}
+
+impl Context {
+    /// The game's `Verse.Map.pathing`, as a [VerseAIPathing].
+    pub fn verse_aipathing(&self, map_id: i32) -> Result<VerseAIPathing<'_>> {
+        Ok(VerseAIPathing::new(self, self.map_system(map_id, VerseAIPathing::ACCESSOR)?))
+    }
+}

@@ -1,0 +1,37 @@
+//! Generated wrapper for `RimWorld.Pawn_InventoryStockTracker`.
+#![allow(dead_code, unused_macros, unused_imports, clippy::should_implement_trait)]
+
+use crate::context::Context;
+use crate::subsystems_macros::*;
+use crate::types::ObjRef;
+use crate::Result;
+use serde_json::Value;
+
+wrapper!(
+    /// The game's `RimWorld.Pawn_InventoryStockTracker`, reached through `Verse.Pawn.inventoryStock`.
+    RimWorldInventoryStockTracker, "Verse.Pawn", "RimWorld.Pawn_InventoryStockTracker", "inventoryStock",
+    [
+        "pawn",
+        "stockEntries",
+        "GetCurrentEntryFor",
+        "GetDesiredCountForGroup",
+        "GetDesiredThingForGroup",
+        "SetCountForGroup",
+        "SetThingForGroup",
+        "AnyThingsRequiredNow",
+        "ExposeData",
+    ]
+);
+
+impl<'a> RimWorldInventoryStockTracker<'a> {
+    object_reader!(pawn, "pawn", "reads `pawn`.");
+    object_reader!(stock_entries, "stockEntries", "reads `stockEntries`.");
+    flag_reader!(any_things_required_now, "AnyThingsRequiredNow", "reads `AnyThingsRequiredNow`.");
+}
+
+impl Context {
+    /// The game's `Verse.Pawn.inventoryStock`, as a [RimWorldInventoryStockTracker].
+    pub fn rim_world_inventory_stock_tracker(&self, pawn: &ObjRef) -> Result<RimWorldInventoryStockTracker<'_>> {
+        Ok(RimWorldInventoryStockTracker::new(self, self.pawn_tracker(pawn, RimWorldInventoryStockTracker::ACCESSOR)?))
+    }
+}

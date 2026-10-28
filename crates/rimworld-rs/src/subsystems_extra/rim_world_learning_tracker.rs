@@ -1,0 +1,33 @@
+//! Generated wrapper for `RimWorld.Pawn_LearningTracker`.
+#![allow(dead_code, unused_macros, unused_imports, clippy::should_implement_trait)]
+
+use crate::context::Context;
+use crate::subsystems_macros::*;
+use crate::types::ObjRef;
+use crate::Result;
+use serde_json::Value;
+
+wrapper!(
+    /// The game's `RimWorld.Pawn_LearningTracker`, reached through `Verse.Pawn.learning`.
+    RimWorldLearningTracker, "Verse.Pawn", "RimWorld.Pawn_LearningTracker", "learning",
+    [
+        "Pawn",
+        "ActiveLearningDesires",
+        "AddNewLearningDesire",
+        "LearningTickInterval",
+        "Debug_SetLearningDesire",
+        "ExposeData",
+    ]
+);
+
+impl<'a> RimWorldLearningTracker<'a> {
+    object_reader!(pawn, "Pawn", "reads `Pawn`.");
+    objects_reader!(active_learning_desires, "ActiveLearningDesires", "reads `ActiveLearningDesires`.");
+}
+
+impl Context {
+    /// The game's `Verse.Pawn.learning`, as a [RimWorldLearningTracker].
+    pub fn rim_world_learning_tracker(&self, pawn: &ObjRef) -> Result<RimWorldLearningTracker<'_>> {
+        Ok(RimWorldLearningTracker::new(self, self.pawn_tracker(pawn, RimWorldLearningTracker::ACCESSOR)?))
+    }
+}

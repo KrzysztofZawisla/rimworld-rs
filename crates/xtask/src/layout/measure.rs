@@ -1,24 +1,28 @@
-//! Theme: measure. Split from `layout.rs`.
-#![allow(unused_imports, unused_macros)] // the imports and the macros are the module's shared vocabulary, used across the theme files
+#![allow(unused_macros)] // the imports and the macros are the module's shared vocabulary, used across the theme files
 
 use std::{
-    collections::BTreeMap,
     fs,
     path::{Path, PathBuf},
 };
 
-use proc_macro2::Span;
-use syn::{spanned::Spanned, File as RustFile, ImplItem, Item};
+use syn::Item;
 use walkdir::WalkDir;
 
-use super::*;
-use crate::{missing, repo_root, Result};
+use crate::{missing, Result};
 
-/// The number of lines a file may reach before the rule asks for a thematic split.
-pub(crate) const MAX_LINES: usize = 800;
+/// The number of lines a hand-written file may reach before the rule asks for a thematic split.
+pub(crate) const MAX_LINES: usize = 500;
 
-/// The number of items a file may hold before the rule asks for a thematic split.
+/// The number of lines a crate root (`lib.rs`, `main.rs`, `mod.rs`) may reach: a root declares modules
+/// and re-exports, it does not hold the code.
+pub(crate) const MAX_ROOT_LINES: usize = 300;
+
+/// The number of items a hand-written file may hold before the rule asks for a thematic split.
 pub(crate) const MAX_ITEMS: usize = 40;
+
+/// C# files are measured by lines only (counting their members needs Roslyn); the bridge keeps the
+/// limit it had before the Rust rule was tightened.
+pub(crate) const MAX_CSHARP_LINES: usize = 800;
 
 /// What one measured file came to.
 pub(crate) struct Measured {
@@ -31,10 +35,26 @@ pub(crate) struct Measured {
 impl Measured {
     /// Whether the file is over the rule, and by which of the two numbers.
     pub(crate) fn verdict(&self) -> Option<String> {
-        let too_many_lines = self.lines > MAX_LINES;
-        let too_many_items = self.items.is_some_and(|items| items > MAX_ITEMS);
+        let root = is_root(&self.file);
+        let generated = is_generated(&self.file);
+        // A generated `mod.rs` is a generated file first: its size is the generator's business, and 500
+        // is the limit it has to keep. The lower root limit is for hand-written roots.
+        let line_limit = if generated {
+            MAX_LINES
+        } else if root {
+            MAX_ROOT_LINES
+        } else {
+            MAX_LINES
+        };
+        let too_many_lines = self.lines > line_limit;
+        let check_items = !root && !generated;
+        let too_many_items = check_items && self.items.is_some_and(|items| items > MAX_ITEMS);
         if !too_many_lines && !too_many_items {
             return None;
+        }
+
+        if !check_items {
+            return Some(format!("{:>5} lines", self.lines));
         }
 
         let items = match self.items {
@@ -49,9 +69,15 @@ impl Measured {
 pub(crate) fn measure(file: &Path) -> Result<Measured> {
     let text = fs::read_to_string(file).map_err(|error| missing(format!("reading {}: {error}", file.display())))?;
     let lines = text.lines().count();
-    let items = match syn::parse_file(&text) {
-        Ok(parsed) => Some(items_of(&parsed.items)),
-        Err(_) => None,
+    // A root is measured by lines alone, and a generated file's constants are not "items" the rule is
+    // meant to count: parsing them would only make the gate report a file the generator owns.
+    let items = if is_root(file) || is_generated(file) {
+        None
+    } else {
+        match syn::parse_file(&text) {
+            Ok(parsed) => Some(items_of(&parsed.items)),
+            Err(_) => None,
+        }
     };
 
     Ok(Measured { file: file.to_path_buf(), lines, items })
@@ -99,7 +125,7 @@ pub(crate) fn measure_csharp(root: &Path, only: Option<&Path>) -> (Vec<(PathBuf,
             continue;
         };
         let lines = text.lines().count();
-        if lines > MAX_LINES {
+        if lines > MAX_CSHARP_LINES {
             over.push((file, lines));
         } else {
             within += 1;
@@ -109,14 +135,22 @@ pub(crate) fn measure_csharp(root: &Path, only: Option<&Path>) -> (Vec<(PathBuf,
     (over, within)
 }
 
-/// The files the rule does not apply to: generated from the game, from a build, or by a tool, and the roots
-/// cargo looks for (a crate root has to keep its name; a module root is nothing but `mod` declarations).
-pub(crate) fn exempt(file: &Path) -> bool {
-    let name = file.file_name().unwrap_or_default().to_string_lossy().to_string();
+/// The roots cargo looks for: a crate root has to keep its name, and a module root is nothing but
+/// `mod` declarations. They are measured by lines, not by items.
+pub(crate) fn is_root(file: &Path) -> bool {
+    let name = file.file_name().unwrap_or_default().to_string_lossy();
+    matches!(name.as_ref(), "lib.rs" | "main.rs" | "mod.rs")
+}
+
+/// Files a tool writes: their contents (and their item count) are the generator's business, but their
+/// size is still measured, because a generator that emits one huge file is the defect this rule catches.
+pub(crate) fn is_generated(file: &Path) -> bool {
+    let name = file.file_name().unwrap_or_default().to_string_lossy();
+    let path = file.to_string_lossy();
     name.contains("generated")
         || name.starts_with("RustPerModTypes")
-        || file.to_string_lossy().contains("subsystems_extra")
-        || matches!(name.as_str(), "lib.rs" | "main.rs" | "mod.rs")
+        || path.contains("subsystems_extra")
+        || path.contains("generated_defs")
 }
 
 pub(crate) fn relative(root: &Path, file: &Path) -> String {

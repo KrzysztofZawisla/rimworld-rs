@@ -1,0 +1,130 @@
+//! Generated wrapper for `RimWorld.Quest`.
+#![allow(dead_code, unused_macros, unused_imports, clippy::should_implement_trait)]
+
+use crate::context::Context;
+use crate::subsystems_macros::*;
+use crate::types::ObjRef;
+use crate::Result;
+use serde_json::Value;
+
+wrapper!(
+    /// The game's `RimWorld.Quest`, reached through `.`.
+    RimWorldQuest, "", "RimWorld.Quest", "",
+    [
+        "id",
+        "name",
+        "description",
+        "points",
+        "challengeRating",
+        "tags",
+        "lastSlateStateDebug",
+        "root",
+        "hidden",
+        "parent",
+        "appearanceTick",
+        "acceptanceTick",
+        "acceptanceExpireTick",
+        "initiallyAccepted",
+        "dismissed",
+        "hiddenInUI",
+        "charity",
+        "canGenerateInSpace",
+        "signalsReceivedDebug",
+        "cleanupTick",
+        "MaxSignalsReceivedDebugCount",
+        "PartsListForReading",
+        "TicksSinceAppeared",
+        "TicksSinceAccepted",
+        "TicksSinceCleanup",
+        "TicksUntilExpiry",
+        "AccepterPawnLabelCap",
+        "AddedSignal",
+        "InitiateSignal",
+        "EverAccepted",
+        "AccepterPawn",
+        "RequiresAccepter",
+        "State",
+        "QuestLookTargets",
+        "QuestSelectTargets",
+        "InvolvedFactions",
+        "Hyperlinks",
+        "Historical",
+        "IncreasesPopulation",
+        "MakeRaw",
+        "QuestTick",
+        "AddPart",
+        "AddPart",
+        "GetFirstOrAddPart",
+        "GetFirstPartOfType",
+        "TryGetFirstPartOfType",
+        "RemovePart",
+        "Accept",
+        "End",
+        "QuestReserves",
+        "QuestReserves",
+        "QuestReserves",
+        "SetInitiallyAccepted",
+        "SetNotYetAccepted",
+        "TryFindNewSuitableMapParentForRetarget",
+        "TryFindNewSuitablePlayerMapParentForRetarget",
+        "IsParentSuitableForQuest",
+        "ExposeData",
+        "Notify_PawnDiscarded",
+        "Notify_SignalReceived",
+        "PostAdded",
+        "Initiate",
+        "CleanupQuestParts",
+        "Notify_ThingsProduced",
+        "Notify_PlantHarvested",
+        "Notify_PawnKilled",
+        "Notify_PawnBorn",
+        "Notify_FactionRemoved",
+        "GetUniqueLoadID",
+    ]
+);
+
+impl<'a> RimWorldQuest<'a> {
+    number_reader!(id, "id", "reads `id`.");
+    text_reader!(name, "name", "reads `name`.");
+    text_reader!(description, "description", "reads `description`.");
+    number_reader!(points, "points", "reads `points`.");
+    number_reader!(challenge_rating, "challengeRating", "reads `challengeRating`.");
+    objects_reader!(tags, "tags", "reads `tags`.");
+    text_reader!(last_slate_state_debug, "lastSlateStateDebug", "reads `lastSlateStateDebug`.");
+    object_reader!(root, "root", "reads `root`.");
+    flag_reader!(hidden, "hidden", "reads `hidden`.");
+    object_reader!(parent, "parent", "reads `parent`.");
+    number_reader!(appearance_tick, "appearanceTick", "reads `appearanceTick`.");
+    number_reader!(acceptance_tick, "acceptanceTick", "reads `acceptanceTick`.");
+    number_reader!(acceptance_expire_tick, "acceptanceExpireTick", "reads `acceptanceExpireTick`.");
+    flag_reader!(initially_accepted, "initiallyAccepted", "reads `initiallyAccepted`.");
+    flag_reader!(dismissed, "dismissed", "reads `dismissed`.");
+    flag_reader!(hidden_in_ui, "hiddenInUI", "reads `hiddenInUI`.");
+    flag_reader!(charity, "charity", "reads `charity`.");
+    flag_reader!(can_generate_in_space, "canGenerateInSpace", "reads `canGenerateInSpace`.");
+    objects_reader!(signals_received_debug, "signalsReceivedDebug", "reads `signalsReceivedDebug`.");
+    number_reader!(cleanup_tick, "cleanupTick", "reads `cleanupTick`.");
+    objects_reader!(parts_list_for_reading, "PartsListForReading", "reads `PartsListForReading`.");
+    number_reader!(ticks_since_appeared, "TicksSinceAppeared", "reads `TicksSinceAppeared`.");
+    number_reader!(ticks_since_accepted, "TicksSinceAccepted", "reads `TicksSinceAccepted`.");
+    number_reader!(ticks_since_cleanup, "TicksSinceCleanup", "reads `TicksSinceCleanup`.");
+    number_reader!(ticks_until_expiry, "TicksUntilExpiry", "reads `TicksUntilExpiry`.");
+    text_reader!(accepter_pawn_label_cap, "AccepterPawnLabelCap", "reads `AccepterPawnLabelCap`.");
+    text_reader!(added_signal, "AddedSignal", "reads `AddedSignal`.");
+    text_reader!(initiate_signal, "InitiateSignal", "reads `InitiateSignal`.");
+    flag_reader!(ever_accepted, "EverAccepted", "reads `EverAccepted`.");
+    object_reader!(accepter_pawn, "AccepterPawn", "reads `AccepterPawn`.");
+    flag_reader!(requires_accepter, "RequiresAccepter", "reads `RequiresAccepter`.");
+    object_reader!(state, "State", "reads `State`.");
+    object_reader!(quest_look_targets, "QuestLookTargets", "reads `QuestLookTargets`.");
+    object_reader!(quest_select_targets, "QuestSelectTargets", "reads `QuestSelectTargets`.");
+    object_reader!(involved_factions, "InvolvedFactions", "reads `InvolvedFactions`.");
+    object_reader!(hyperlinks, "Hyperlinks", "reads `Hyperlinks`.");
+    flag_reader!(historical, "Historical", "reads `Historical`.");
+    flag_reader!(increases_population, "IncreasesPopulation", "reads `IncreasesPopulation`.");
+    object_reader!(add_part, "AddPart", "reads `AddPart`.");
+    object_reader!(get_first_or_add_part, "GetFirstOrAddPart", "reads `GetFirstOrAddPart`.");
+    object_reader!(get_first_part_of_type, "GetFirstPartOfType", "reads `GetFirstPartOfType`.");
+    object_reader!(try_find_new_suitable_map_parent_for_retarget, "TryFindNewSuitableMapParentForRetarget", "reads `TryFindNewSuitableMapParentForRetarget`.");
+    text_reader!(get_unique_load_id, "GetUniqueLoadID", "reads `GetUniqueLoadID`.");
+}

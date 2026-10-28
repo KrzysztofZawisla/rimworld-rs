@@ -1,11 +1,7 @@
-//! Theme: ui. Split from `types.rs`.
-#![allow(unused_imports, unused_macros)] // the imports and the macros are the module's shared vocabulary, used across the theme files
+#![allow(unused_macros)] // the imports and the macros are the module's shared vocabulary, used across the theme files
 
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Map, Value};
-
-use super::*;
-use crate::{host, Result};
+use serde::Serialize;
+use serde_json::{json, Value};
 
 /// One gizmo (a button) a mod wants to show for a thing, returned from
 /// [`crate::Mod::on_gizmos`].
@@ -177,7 +173,7 @@ impl UiWindow {
 impl UiWindow {
     /// Sets the size in pixels; a height of `0.0` fits the window to its widgets, which is what a
     /// window that grows with its content should do (a too-small fixed height cuts the last widget
-    /// off).
+    /// off). A close button declared with [`UiWindow::close_button`] is pinned to the bottom.
     pub fn size(mut self, width: f32, height: f32) -> UiWindow {
         self.width = width;
         self.height = height;
@@ -224,7 +220,8 @@ impl UiWindow {
 }
 
 impl UiWindow {
-    /// Adds a button that closes the window with it.
+    /// Adds a button that closes the window with it. The bridge pins it to the bottom of the window,
+    /// so it stays reachable even when the other widgets need more room than the window has.
     pub fn close_button(mut self, id: &str, label: &str, handler: &str) -> UiWindow {
         self.widgets.push(UiWidget {
             kind: "button".to_string(),

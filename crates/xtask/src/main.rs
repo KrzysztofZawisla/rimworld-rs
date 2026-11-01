@@ -71,7 +71,7 @@ enum Task {
         #[arg(long)]
         staged: bool,
     },
-    /// install both example mods, launch `-quicktest`, and fail on a selftest FAIL
+    /// install both example mods, launch `-quicktest` with them via `-mod=`, and fail on a selftest FAIL
     Smoke,
     /// check the game installation, toolchain and mod folders
     Doctor,

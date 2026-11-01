@@ -16,8 +16,9 @@ const BILL_TIMEOUT: Duration = Duration::from_secs(180);
 /// The package ids the smoke test loads. RimWorld 1.7's `-mod=` argument makes this the mod list for
 /// the run, so the examples run even on a fresh installation whose `ModsConfig.xml` never enabled
 /// them, and the player's own mod list is left untouched. Harmony is requested first because both
-/// examples declare it as a dependency; the game drops an id that is not installed, and the self-test
-/// then reports the Harmony checks as SKIP instead of failing.
+/// examples declare it as a dependency; the game resolves those ids in its local `Mods` folder only
+/// and drops the rest, so a Workshop-installed Harmony is not loaded here and the self-test reports
+/// the Harmony checks as SKIP instead of failing.
 const SMOKE_MODS: &str = "brrainz.harmony,rimworld.rs.hello,rimworld.rs.apitest";
 
 /// Runs the repeatable in-game smoke test: install both example mods, launch RimWorld with

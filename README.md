@@ -21,7 +21,7 @@ automatically.
 
 ## Requirements
 
-- RimWorld 1.7 installed (this repository was built against `1.7.4982 rev1280`; the tooling checks
+- RimWorld 1.7 installed (this repository was built against `1.7.4995 rev309`; the tooling checks
   the usual Steam folders and every library in `steamapps/libraryfolders.vdf`, and `RIMWORLD_DIR`
   names the folder when the game is elsewhere).
 - Rust nightly and .NET SDK 9+ (the bridge compiles against the game's own .NET 10 assemblies and
@@ -343,9 +343,10 @@ cargo xtask smoke
 ```
 
 Close RimWorld first. The command installs both example mods, launches the game with
-`-quicktest -mod=brrainz.harmony,rimworld.rs.hello,rimworld.rs.apitest` (the game drops Harmony when
-it is not installed, and the self-test reports the Harmony checks as SKIP), reads the
-new part of `Player.log`, and fails on a `[selftest] FAIL` line or a summary with a non-zero failed count.
+`-quicktest -mod=brrainz.harmony,rimworld.rs.hello,rimworld.rs.apitest` (the game resolves those ids
+in its local `Mods` folder only, so a Workshop-installed Harmony is dropped and the self-test reports
+the Harmony checks as SKIP), reads the new part of `Player.log`, and fails on a `[selftest] FAIL` line
+or a summary with a non-zero failed count.
 The command-line mod list leaves the player's `ModsConfig.xml` untouched, so the test also runs on a fresh
 installation. On success it prints the `N passed, M failed, K skipped` summary and leaves the game running.
 

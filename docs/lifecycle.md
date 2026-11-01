@@ -60,6 +60,8 @@ Companion events: whatever thread the companion calls `Companion.Send` on -> `co
 | `world_ready`, `game_saved` | **main** | first tick that has a planet / first tick after a save |
 | `tick` | **main** | `TickManager` on the main loop |
 | `game_saving` | **main** | inside `Scribe`, before the mod's own data is written |
+| game-state events (`pawn_spawned` … `mental_state_ended`) | the hooked method's thread (usually **main**) | notifications: queued while Rust is busy, so they run right after the current callback |
+| `comp_spawned`, `comp_despawned`, `comp_tick` | **main** | raised by the bridge's thing component; `comp_gizmos`/`comp_inspect` are requests like `gizmos` |
 | `patch`, `redirect` | caller's thread | usually main; a worker-thread call is serialized by the SDK's module lock |
 | `gizmos`, `ui_action`, `settings_changed`, `draw` | **main** | UI callbacks |
 | `companion_event` | the companion's thread | usually main; queued (with its objects) when Rust is busy |

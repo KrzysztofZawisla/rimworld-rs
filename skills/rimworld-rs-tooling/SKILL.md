@@ -73,8 +73,9 @@ registers it in the workspace by default; `--path` creates the standalone projec
 - The in-game self-test loop: `cargo xtask install api-test-mod` → enable **Rust API Self-Test** in the mod list
   → start a colony → watch `[selftest] PASS/FAIL/SKIP` lines and the summary `N passed, M failed, K skipped`.
   `cargo xtask smoke` does that loop with both example mods, passing them with `-mod=` (Harmony is requested
-  too, so it loads when installed) so the player's `ModsConfig.xml` is untouched, and fails the command on a
-  `FAIL` line; without Harmony the Harmony checks report SKIP.
+  too, so it loads when it exists in the game's local `Mods` folder; a Workshop-only Harmony is dropped) so the
+  player's `ModsConfig.xml` is untouched, and fails the command on a `FAIL` line; without Harmony the Harmony
+  checks report SKIP.
 - `ModsConfig.xml` lists mods by **packageId** (`rimworld.rs.apitest` for the self-test), never by folder name;
   the file lives in the game's user data folder: `%USERPROFILE%\AppData\LocalLow\Ludeon Studios\RimWorld by
   Ludeon Studios\Config\` on Windows, `~/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios/Config/` on
@@ -105,8 +106,8 @@ and separate: `cargo xtask secrets` scans the whole history with gitleaks, `carg
 pre-commit mode (enable it with `git config core.hooksPath .githooks`). Install gitleaks 8.19+; without it the
 command prints SKIP. `cargo xtask smoke` is
 the in-game counterpart: it installs both example mods, launches
-`-quicktest -mod=rimworld.rs.hello,rimworld.rs.apitest`, and fails on `[selftest] FAIL` or a non-zero failed
-count in the summary.
+`-quicktest -mod=brrainz.harmony,rimworld.rs.hello,rimworld.rs.apitest`, and fails on `[selftest] FAIL` or a
+non-zero failed count in the summary.
 
 `tools/abi-smoke` modes worth knowing:
 
@@ -132,7 +133,7 @@ count in the summary.
    (`bridge/src/NativeHost.cs`) when the ABI changes.
 8. Events that change the game must be refused during the save window: add the op to `ChangesTheGame`
    (`bridge/src/HostOps.support.cs`) **and** to the mock's mirrored list.
-9. Managed game types (HeldiffComp, JobDriver, ITab, Window, render nodes) belong in the mod's **companion
+9. Managed game types (HediffComp, JobDriver, ITab, Window, render nodes) belong in the mod's **companion
    assembly**, not in the bridge; a plain thing component can stay Rust-only.
 
 ## Traps that have cost time in this repository

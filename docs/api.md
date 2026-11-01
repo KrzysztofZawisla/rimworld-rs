@@ -34,8 +34,16 @@ rimworld_rs::export_mod!(MyMod);   // emits rwrs_abi_version/rwrs_init/rwrs_disp
 | `on_pawn_died(&mut self, &mut Context, &PawnDied)` | a pawn died |
 | `on_thing_destroyed(&mut self, &mut Context, &ThingDestroyed)` | a thing was destroyed |
 | `on_research_finished(&mut self, &mut Context, &ResearchFinished)` | a research project finished |
+| `on_bill_completed(&mut self, &mut Context, &BillCompleted)` | a bill finished one iteration |
+| `on_bill_started(&mut self, &mut Context, &BillStarted)` | a pawn began working a bill |
+| `on_pawn_damaged(&mut self, &mut Context, &PawnDamaged)` | a pawn took damage; `downed` is the state the game derives from health at that moment |
 | `on_letter_shown(&mut self, &mut Context, &LetterShown)` | a letter arrived in the letter stack |
 | `on_incident_fired(&mut self, &mut Context, &IncidentFired)` | a story incident was fired |
+| `on_raid_started(&mut self, &mut Context, &RaidStarted)` | a lord was added — every lord, not only a raid |
+| `on_lord_destroyed(&mut self, &mut Context, &LordDestroyed)` | a lord was removed |
+| `on_research_started(&mut self, &mut Context, &ResearchStarted)` | research began |
+| `on_pawn_down(&mut self, &mut Context, &PawnDown)` | a pawn was downed |
+| `on_building_completed(&mut self, &mut Context, &BuildingCompleted)` | a construction frame finished |
 | `on_quest_ended(&mut self, &mut Context, &QuestEnded)` | a quest ended, however it ended |
 | `on_message_shown(&mut self, &mut Context, &MessageShown)` | the game showed a message (not a letter) |
 | `on_mental_state_started(&mut self, &mut Context, &MentalStateStarted)` | a pawn entered a mental state |
@@ -45,6 +53,11 @@ rimworld_rs::export_mod!(MyMod);   // emits rwrs_abi_version/rwrs_init/rwrs_disp
 | `on_patch_call(&mut self, &mut Context, &PatchCall) -> PatchOutcome` | a patched method was called |
 | `on_redirect_call(&mut self, &mut Context, &RedirectCall) -> Option<Value>` | a call rewritten with `harmony_replace` ran |
 | `on_gizmos(&mut self, &Context, &Thing) -> Vec<GizmoSpec>` | the game asks for a thing's gizmos |
+| `on_comp_spawned(&mut self, &Context, &ThingComp)` | the bridge's thing component spawned |
+| `on_comp_despawned(&mut self, &Context, &ThingComp)` | the component despawned |
+| `on_comp_tick(&mut self, &Context, &ThingComp)` | the component ticked, after `comp_tick_interval` |
+| `on_comp_gizmos(&mut self, &Context, &ThingComp) -> Vec<GizmoSpec>` | the game asks for the component's gizmos |
+| `on_comp_inspect(&mut self, &Context, &ThingComp) -> Option<String>` | the game asks for the component's inspect line |
 | `on_draw(&mut self, &mut Context, i32)` | a drawn frame while `draw_enable(true)` is on |
 | `on_ui_action(&mut self, &mut Context, &str)` | a dialog button or a gizmo was clicked |
 | `on_settings_changed(&mut self, &mut Context, &str, &str)` | a declared setting changed in the options window |
@@ -802,8 +815,16 @@ callbacks with no XML, no C# and no `harmony_patch` of your own:
 | `on_pawn_died(&mut Context, &PawnDied)` | a pawn died — `killer`, `killer_def_name` and `hediff_def_name` say how |
 | `on_thing_destroyed(&mut Context, &ThingDestroyed)` | a thing was destroyed — `mode` is the game's `DestroyMode`, `x`/`z` are `-1` for a thing that had left its map. A killed pawn is reported once, through `on_pawn_died`, not here |
 | `on_research_finished(&mut Context, &ResearchFinished)` | a research project finished, `research_finish` included |
+| `on_bill_completed(&mut Context, &BillCompleted)` | a bill finished one iteration, whether a pawn, a mech or a mod drove it |
+| `on_bill_started(&mut Context, &BillStarted)` | a pawn began working a bill |
+| `on_pawn_damaged(&mut Context, &PawnDamaged)` | a pawn took damage; `downed` is the state the game derives from health at that moment |
 | `on_letter_shown(&mut Context, &LetterShown)` | a letter arrived in the letter stack, `send_letter` included |
 | `on_incident_fired(&mut Context, &IncidentFired)` | a story incident was fired, `incident_fire` included; `fired` is the game's own answer, so `false` means it was refused |
+| `on_raid_started(&mut Context, &RaidStarted)` | a lord was added — `job` is the game's own type name for what the group is doing, and it fires for every lord, not only a raid |
+| `on_lord_destroyed(&mut Context, &LordDestroyed)` | a lord was removed — the other end of the same story |
+| `on_research_started(&mut Context, &ResearchStarted)` | research began, whatever path started it (`research_set_current` included) |
+| `on_pawn_down(&mut Context, &PawnDown)` | a pawn was downed, whether a wound, a mental break or a mod did it |
+| `on_building_completed(&mut Context, &BuildingCompleted)` | a construction frame finished — `defName` is what was built, not the frame's own def |
 | `on_quest_ended(&mut Context, &QuestEnded)` | a quest ended — `outcome` is the game's own `QuestEndOutcome` (`Success`, `Fail`, ...) |
 | `on_message_shown(&mut Context, &MessageShown)` | the game showed a message (the corner of the screen, not a letter) |
 | `on_mental_state_started(&mut Context, &MentalStateStarted)` | a pawn entered a mental state — the pawn travels as a handle, `forced` says whether the game forced it |
@@ -838,7 +859,7 @@ hands you a pawn that is already dead (`def_name` and `label` work, anything tha
 does not).
 
 The bridge owns the patches (`bridge/src/GameEvents.cs`) and installs them when Harmony is available:
-without the brrainz.harmony mod the mod keeps working and these ten callbacks simply never fire (the
+without the brrainz.harmony mod the mod keeps working and these eighteen callbacks simply never fire (the
 log says so once). Every game member they touch is in the contract check, so a game update that moves
 one fails `cargo xtask test` rather than dropping the event.
 

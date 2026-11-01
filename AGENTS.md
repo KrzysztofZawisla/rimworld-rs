@@ -116,10 +116,15 @@ RimWorld mods in Rust:
   (older Linux builds use `<game>/*_Data/Managed`); macOS is a `RimWorld.app` bundle inside `<game>`,
   with the defs in `<game>/Data` and the assemblies in `<game>/RimWorld.app/Contents/MacOS`. Local
   mods go to `<game>/Mods` on every platform, and `cargo xtask doctor` prints the roots it resolved.
-- Verified on macOS (1.7.4990, WaylithCLR .NET 10, Apple Silicon): `setup`, `build` (native `osx-arm64`
-  and `osx-x64`, the bridge and a companion), `install`, `run`, `watch-log`, `defs`, `targets`,
-  `coverage`, `--contract`, `--defs` and `--patches`; the game loaded
-  `Rust/osx-arm64/lib<mod>.dylib` and Harmony patched `Verse.Map.MapUpdate` in-game. The log is
+- Verified on macOS (1.7.4995 rev309, WaylithCLR .NET 10, Apple Silicon): `setup`, `doctor`, `build`
+  (native `osx-arm64`, `osx-x64` and `--all-targets`, the bridge and a companion), `install`, `run`, the
+  offline suite (`cargo xtask test`, contract/defs/patches included), a plain `-quicktest` with the
+  player's mod list (187 passed, 0 failed, 2 skipped, Harmony included: `harmony_patch` patched
+  `Verse.Map.MapUpdate` in-game) and `smoke` (153 passed, 0 failed, 30 skipped). Earlier on 1.7.4990
+  `watch-log`, `defs`, `targets` and `coverage` were verified too.
+- `-mod=` resolves its package ids in the game's **local `Mods` folder only**: a Workshop-installed
+  Harmony is dropped from the smoke run, so its Harmony checks report SKIP. With Harmony in `Mods`, or in
+  a plain `cargo xtask run -- -quicktest` that uses the player's `ModsConfig.xml`, they PASS. The log is
   `~/Library/Application Support/Ludeon Studios/RimWorld by Ludeon Studios/Logs/Player.log`.
 - Verified on Linux (1.7.4995 rev309, WaylithCLR .NET 10, x86-64): `setup`, `doctor`, `build` (native
   `linux-x64`, the bridge and the companion), `install`, `run`, `smoke` (0 failed; the Harmony checks
@@ -133,9 +138,13 @@ RimWorld mods in Rust:
   `cargo xtask package --all-targets` wrote a zip with the bridge, the XML and the four libraries. The
   macOS link warns about a missing `MacOSX.sdk`; that is harmless for these pure-Rust cdylibs (they link
   `libSystem.B.dylib`), and `SDKROOT` removes it when a dependency uses Apple frameworks.
-- Version: `1.7.4982 rev1280` on the Windows build, `1.7.4990 rev1069` verified on macOS and
-  `1.7.4995 rev309` verified on Linux, running on **WaylithCLR** (`.NET 10` fork) with the RocketWerkz
-  "Brutal" engine. No Unity runtime; `UnityStubs.dll` emulates Unity APIs.
+- Cross builds from macOS: the same `cargo xtask build --all-targets` produced the four libraries with
+  the five `rwrs_*` exports each, `cargo-xwin` for `win-x64` and `cargo-zigbuild` for `linux-x64`. With
+  Homebrew's keg-only `llvm@22`/`lld@22` on `PATH`, `cargo-xwin` finds `clang-cl`, `lld-link` and
+  `llvm-lib` (`cargo xtask doctor` names the missing one otherwise).
+- Version: `1.7.4982 rev1280` on the Windows build and `1.7.4995 rev309` verified on macOS and Linux,
+  running on **WaylithCLR** (`.NET 10` fork) with the RocketWerkz "Brutal" engine. No Unity runtime;
+  `UnityStubs.dll` emulates Unity APIs.
 - World creation, colony start and map generation run in the **engine**, not in the managed code: the `Verse`
   page classes, `Game.InitNewGame` and `MapGenerator.GenerateMap` install as Harmony patches and are then never
   called (six in-game runs, with `Verse.Log.Message` as the positive control - MODLOG). A mod cannot hook the
@@ -297,9 +306,10 @@ verifies the module tree (every `mod.rs` declares every file and module director
 declaration has a file); and every local Markdown link and every `crates/`/`examples/`/`docs/`/`bridge/`/
 `tools/`/`skills/` path in inline code must resolve. `cargo xtask smoke` is the in-game counterpart: it
 installs both example mods, launches `-quicktest -mod=brrainz.harmony,rimworld.rs.hello,rimworld.rs.apitest`
-(the game drops Harmony when it is not installed, and the self-test then reports those checks as SKIP), and
-fails on `[selftest] FAIL` or a summary with a non-zero failed count. The `-mod=` argument gives the run its
-own mod list, so a fresh installation works without editing `ModsConfig.xml`.
+(the game resolves those ids in its local `Mods` folder only, so a Workshop-installed Harmony is dropped
+and the self-test then reports those checks as SKIP), and fails on `[selftest] FAIL` or a summary with a
+non-zero failed count. The `-mod=` argument gives the run its own mod list, so a fresh installation works
+without editing `ModsConfig.xml`.
 
 `git config core.hooksPath .githooks` once per clone enables the pre-commit hook, which runs the three gates
 cheap enough for every commit (`cargo xtask fmt`, which checks rather than fixes, `cargo xtask layout --check`,

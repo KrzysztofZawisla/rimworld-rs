@@ -362,3 +362,124 @@ pub(crate) const COMP_PATCH_TEMPLATE: &str = r#"<?xml version="1.0" encoding="ut
 	</Operation>
 </Patch>
 "#;
+
+/// A ThinkNode sample (`cargo xtask new --think`): what a pawn decides on its own.
+pub(crate) const THINK_NODE_TEMPLATE: &str = r#"using RimWorld;
+using Verse;
+using Verse.AI;
+
+namespace {namespace}
+{
+    /// <summary>
+    /// A think node: what a pawn decides on its own. A `ThinkTreeDef` in XML places it in the game's
+    /// own tree (`insertTag`/`insertPriority` say where it hangs), and this class only answers "what
+    /// job should this pawn take", or null when it has nothing to say.
+    /// </summary>
+    public class GuardTheDoor : ThinkNode_JobGiver
+    {
+        // `protected` in this build: the base declares it protected, and a public override is CS0507.
+        protected override Job TryGiveJob(Pawn pawn)
+        {
+            if (pawn?.Map == null || !pawn.Drafted)
+            {
+                return null;
+            }
+
+            // Any job the game knows; a companion job driver would be `JobDefOf.YourJob`.
+            return JobMaker.MakeJob(JobDefOf.Goto, pawn.Position);
+        }
+    }
+}
+"#;
+
+/// A LordJob sample (`cargo xtask new --lordjob`): a group of pawns acting as one unit.
+pub(crate) const LORD_JOB_TEMPLATE: &str = r#"using Verse;
+using Verse.AI.Group;
+
+namespace {namespace}
+{
+    /// <summary>
+    /// A lord job: a group of pawns acting as one unit, with a state graph of toils and transitions.
+    /// Raise it from Rust with `lord_create` and `lord_set_job`, or from another companion class; the
+    /// game's own `LordJob_DefendBase` is the shape this follows.
+    /// </summary>
+    public class HoldTheLine : LordJob
+    {
+        private IntVec3 point;
+
+        public HoldTheLine()
+        {
+        }
+
+        public HoldTheLine(IntVec3 point)
+        {
+            this.point = point;
+        }
+
+        public override StateGraph CreateGraph()
+        {
+            StateGraph graph = new StateGraph();
+            graph.AddToil(new LordToil_DefendPoint(point, null, null));
+            return graph;
+        }
+    }
+}
+"#;
+
+/// A WorldObject sample (`cargo xtask new --worldobject`): something of the mod's own on the planet.
+pub(crate) const WORLD_OBJECT_TEMPLATE: &str = r#"using System.Collections.Generic;
+using RimWorld;
+using RimWorld.Planet;
+using Verse;
+
+namespace {namespace}
+{
+    /// <summary>
+    /// A world object of your own: a site, a station, anything that lives on the planet map. A
+    /// `WorldObjectDef` names this class in `worldObjectClass`; the object keeps its own state, ticks
+    /// with the world and draws its own gizmos.
+    /// </summary>
+    public class RustBeacon : WorldObject
+    {
+        private int ticks;
+
+        public override void ExposeData()
+        {
+            base.ExposeData();
+        }
+
+        /// <summary>Called with the world: keep it cheap, it runs for every object.</summary>
+        protected override void Tick()
+        {
+            base.Tick();
+            ticks++;
+        }
+
+        public override IEnumerable<Gizmo> GetGizmos()
+        {
+            yield break;
+        }
+    }
+}
+"#;
+
+/// A Graphic sample (`cargo xtask new --graphic`): a thing that draws itself.
+pub(crate) const GRAPHIC_TEMPLATE: &str = r#"using UnityEngine;
+using Verse;
+
+namespace {namespace}
+{
+    /// <summary>
+    /// A thing that draws itself: point a ThingDef's `graphicData.graphicClass` at this type.
+    /// `DrawWorker` runs for every drawn instance, so keep it cheap — an extra mesh, a glow or a
+    /// second layer, not work per cell.
+    /// </summary>
+    public class PulseGraphic : Graphic
+    {
+        public override void DrawWorker(Vector3 loc, Rot4 rot, ThingDef thingDef, Thing thing, float extraRotation)
+        {
+            base.DrawWorker(loc, rot, thingDef, thing, extraRotation);
+        }
+    }
+}
+"#;

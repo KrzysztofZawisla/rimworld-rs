@@ -217,6 +217,9 @@ internal static partial class HostOps
             case "map_zone_delete":
             case "thing_equip":
             case "pawn_attack":
+            case "pawn_ranged_attack":
+            case "pawn_cast_ability":
+            case "projectile_launch":
             case "plant_set_growth":
             case "pawn_tame_order":
                 return true;
@@ -279,6 +282,7 @@ internal static partial class HostOps
             case "lord_set_job":
             case "lord_dismiss":
             case "map_generate_pocket":
+            case "map_generate_pocket_queue":
                 return true;
             case "ideo_add_precept":
             case "ideo_start_ritual":
@@ -320,6 +324,9 @@ internal static partial class HostOps
             case "world_set_tile_pollution":
             case "world_object_create":
             case "world_object_remove":
+            case "settlement_create":
+            case "trade_execute":
+            case "anomaly_study":
             case "quest_accept":
             case "quest_generate":
             case "quest_end":

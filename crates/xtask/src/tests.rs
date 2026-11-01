@@ -302,7 +302,7 @@ fn reads_a_mod_from_an_external_project() {
 fn scaffolds_an_external_mod_without_touching_the_workspace() {
     let directory = tempfile::tempdir().expect("temp dir");
     let target = directory.path().join("ExternalDemo");
-    scaffold("ExternalDemo", Some(&target), false, false, false).expect("scaffold");
+    scaffold("ExternalDemo", Some(&target), Samples::default()).expect("scaffold");
 
     let manifest = fs::read_to_string(target.join("Cargo.toml")).expect("manifest");
     assert!(manifest.contains("rimworld-rs = { path ="), "the SDK is a path dependency: {manifest}");

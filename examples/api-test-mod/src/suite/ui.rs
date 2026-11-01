@@ -27,6 +27,18 @@ impl ApiTest {
 
     pub(crate) fn run_ui_checks(&mut self, ctx: &mut Context) {
         self.check_work_priorities(ctx);
+
+        // A right-click menu and the window stack are the two pieces a mod drives without declaring a
+        // window of its own: the menu closes through the same stack.
+        let menu = (|| -> Result<(), String> {
+            let (x, z) = colony_cell(ctx, self.map_id).map_err(|error| error.to_string())?;
+            ctx.float_menu(self.map_id, x, z, &[("Self-test", "float_menu_choice")])
+                .map_err(|error| error.to_string())?;
+            ctx.ui_window_close().map_err(|error| error.to_string())?;
+            Ok(())
+        })();
+        self.report.check(ctx, "float_menu opens a menu and ui_window_close closes it", menu);
+
         self.open_test_window(ctx);
 
         // Every kind is exercised so a renamed def in a game update shows up as a failure here.

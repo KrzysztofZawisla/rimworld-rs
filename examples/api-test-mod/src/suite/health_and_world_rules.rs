@@ -83,6 +83,25 @@ impl ApiTest {
 
         self.report.check(
             ctx,
+            "mechanitor unassignment refuses a pawn that is no mechanitor, by name",
+            (|| -> Result<(), String> {
+                let colonists = ctx.map_colonists(map.id).map_err(|error| error.to_string())?;
+                let colonist = colonists.first().ok_or("the map has no colonists")?;
+                let other = colonists.get(1).ok_or("the map has only one colonist")?;
+
+                match ctx.pawn_mechanitor_unassign(colonist.handle(), other.handle()) {
+                    Ok(info) => Err(format!("a colonist was accepted as a mechanitor: {info:?}")),
+                    Err(error) if error.to_string().contains("is no mechanitor") => {
+                        ctx.log(format!("[selftest] mechanitor unassign refused by name: {error}"));
+                        Ok(())
+                    }
+                    Err(error) => Err(error.to_string()),
+                }
+            })(),
+        );
+
+        self.report.check(
+            ctx,
             "mechanitor assignment refuses a pawn that is no mechanitor, by name",
             (|| -> Result<(), String> {
                 let colonists = ctx.map_colonists(map.id).map_err(|error| error.to_string())?;

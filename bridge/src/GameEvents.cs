@@ -139,6 +139,19 @@ internal static class GameEvents
             },
             nameof(MentalStateStarted));
         Add("Verse.AI.MentalStateHandler", "ClearMentalStateDirect", new string[0], nameof(MentalStateEnded));
+
+        // A game condition begins and ends. `RegisterCondition` is the one entry every condition goes
+        // through; `OnConditionEnd` is the game's own removal, and it also runs for an expired condition.
+        Add("RimWorld.GameConditionManager", "RegisterCondition", new[] { "RimWorld.GameCondition" }, nameof(GameConditionRegistered));
+        Add("RimWorld.GameConditionManager", "OnConditionEnd", new[] { "RimWorld.GameCondition" }, nameof(GameConditionEnded));
+
+        // The game's own relation setter. `faction_set_relation` and the game's paths (a goodwill change,
+        // a raid's aftermath, a quest) all end here, so a mod watches the relation, not one call site.
+        Add(
+            "RimWorld.Faction",
+            "SetRelationDirect",
+            new[] { "RimWorld.Faction", "RimWorld.FactionRelationKind", "System.Boolean", "System.String", "Nullable<GlobalTargetInfo>" },
+            nameof(FactionRelationChanged));
     }
 
     private static void Add(string typeName, string methodName, string[] paramTypes, string postfixName)
@@ -176,6 +189,28 @@ internal static class GameEvents
         {
             ["pawn"] = pawn,
             ["respawningAfterLoad"] = respawningAfterLoad,
+        });
+
+        // A humanlike that is not the colony's, standing on a player home map, arrived: a visitor, a
+        // trader, a raid's straggler or a quest pawn. The game has no single method for "a visitor came",
+        // but every one of them spawns, and the payload says which kind it is.
+        Map map = pawn.MapHeld;
+        if (map == null || !map.IsPlayerHome || pawn.Faction == null || pawn.Faction.IsPlayer)
+        {
+            return;
+        }
+
+        Send("visitor_arrived", new Dictionary<string, object>
+        {
+            ["pawn"] = pawn,
+            ["label"] = pawn.LabelShort,
+            ["faction"] = pawn.Faction.Name,
+            ["factionDefName"] = pawn.Faction.def?.defName,
+            ["traderKind"] = pawn.TraderKind?.defName,
+            ["hostile"] = FactionUtility.HostileTo(pawn.Faction, Faction.OfPlayer),
+            ["mapId"] = map.uniqueID,
+            ["x"] = pawn.Position.x,
+            ["z"] = pawn.Position.z,
         });
     }
 
@@ -361,6 +396,39 @@ internal static class GameEvents
         {
             ["map"] = newLord?.Map?.uniqueID ?? -1,
             ["job"] = newLord?.LordJob?.GetType().Name,
+        });
+    }
+
+    private static void GameConditionRegistered(GameCondition cond)
+    {
+        Send("game_condition_started", new Dictionary<string, object>
+        {
+            ["defName"] = cond?.def?.defName,
+            ["label"] = cond?.LabelCap.ToString(),
+            ["permanent"] = cond?.Permanent ?? false,
+            ["duration"] = cond?.Duration ?? 0,
+            ["ticksLeft"] = cond?.TicksLeft ?? 0,
+        });
+    }
+
+    private static void GameConditionEnded(GameCondition cond)
+    {
+        Send("game_condition_ended", new Dictionary<string, object>
+        {
+            ["defName"] = cond?.def?.defName,
+            ["label"] = cond?.LabelCap.ToString(),
+        });
+    }
+
+    // The handler names the parameters the game's own method has: Harmony binds by name, and a guessed
+    // name makes the hook silently inactive.
+    private static void FactionRelationChanged(Faction __instance, Faction other, FactionRelationKind kind)
+    {
+        Send("faction_relation_changed", new Dictionary<string, object>
+        {
+            ["faction"] = __instance?.Name,
+            ["other"] = other?.Name,
+            ["kind"] = kind.ToString(),
         });
     }
 

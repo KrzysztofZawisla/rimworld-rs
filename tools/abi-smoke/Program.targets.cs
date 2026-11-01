@@ -21,21 +21,20 @@ internal static partial class Program
 {
     private static int RunTargets(string directory, string typeName, string filter)
     {
-        MetadataReader reader = OpenGameAssembly(directory);
-        if (reader == null)
+        using GameAssemblies assemblies = OpenGameAssemblies(directory);
+        if (assemblies == null)
         {
             return 2;
         }
 
-        TypeDefinitionHandle? resolved = FindType(reader, typeName);
-        if (resolved == null)
+        if (!assemblies.TryFind(typeName, out MetadataReader reader, out TypeDefinitionHandle resolved))
         {
             return 1;
         }
 
-        TypeDefinition type = reader.GetTypeDefinition(resolved.Value);
+        TypeDefinition type = reader.GetTypeDefinition(resolved);
         var provider = new TypeNameProvider(reader);
-        string fullName = FullTypeName(reader, resolved.Value);
+        string fullName = FullTypeName(reader, resolved);
         string baseName = type.BaseType.IsNil ? null : provider.TypeName(type.BaseType);
         string kind = (type.Attributes & TypeAttributes.Interface) != 0 ? "interface"
             : baseName == "System.Enum" ? "enum"

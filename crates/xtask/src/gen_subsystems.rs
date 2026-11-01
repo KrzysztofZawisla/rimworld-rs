@@ -94,7 +94,7 @@ pub(crate) fn check_generated_subsystems() -> Result<()> {
 }
 
 /// The game's types the generator wraps: an object a handle points at hangs off no single member.
-pub(crate) const OBJECTS: [&str; 24] = [
+pub(crate) const OBJECTS: [&str; 37] = [
     "Verse.Hediff",
     "Verse.Gene",
     "RimWorld.Ability",
@@ -119,6 +119,19 @@ pub(crate) const OBJECTS: [&str; 24] = [
     "RimWorld.Planet.Caravan",
     "RimWorld.Planet.Settlement",
     "RimWorld.Planet.WorldObject",
+    "Verse.Projectile",
+    "RimWorld.CompStudiable",
+    "RimWorld.StorageGroup",
+    "Verse.Def",
+    "Verse.ThingDef",
+    "Verse.RecipeDef",
+    "Verse.PawnKindDef",
+    "Verse.ResearchProjectDef",
+    "Verse.JobDef",
+    "RimWorld.ThoughtDef",
+    "RimWorld.TraitDef",
+    "RimWorld.WorldObjectDef",
+    "Verse.HediffDef",
 ];
 
 /// The types the hand-written wrappers in `crates/rimworld-rs/src/subsystems.rs` already cover.

@@ -8,6 +8,34 @@ impl Context {
 }
 
 impl Context {
+    /// Spawns one of the game's projectile defs and launches it through `Projectile.Launch`: the game
+    /// flies it, resolves the hit and applies the damage. The target is a thing, a cell, or nothing.
+    pub fn projectile_launch(
+        &self,
+        def_name: &str,
+        map_id: i32,
+        origin: (i32, i32),
+        target: Option<&ObjRef>,
+        target_cell: Option<(i32, i32)>,
+        hit_flags: Option<&str>,
+    ) -> Result<ProjectileLaunched> {
+        read(host::call(
+            "projectile_launch",
+            json!({
+                "defName": def_name,
+                "mapId": map_id,
+                "x": origin.0,
+                "z": origin.1,
+                "targetRef": target.map(|thing| thing.id),
+                "targetX": target_cell.map(|(x, _)| x),
+                "targetZ": target_cell.map(|(_, z)| z),
+                "hitFlags": hit_flags,
+            }),
+        )?)
+    }
+}
+
+impl Context {
     /// Sets the temperature (Celsius) of the room a cell is in. A cell that is outdoors or unroofed
     /// has no room temperature: the call fails and says so — use [`Context::map_push_heat`] there.
     pub fn map_set_room_temperature(&self, map_id: i32, x: i32, z: i32, celsius: f32) -> Result<RoomTemperature> {

@@ -65,6 +65,8 @@ internal static partial class Program
             "map_colonists" => HandleMapColonists(request),
             "map_set_cell_temperature" => HandleSetCellTemperature(request),
             "map_set_roof" => HandleSetRoof(request),
+            "map_generate_pocket_queue" => "{\"ok\":false,\"error\":\"the mock host cannot queue a map generation\"}",
+            "map_generation_status" => "{\"ok\":false,\"error\":\"the mock host has no map jobs\"}",
             "map_gas" => MockGasJson(),
             "map_add_gas" => HandleAddGas(request),
             "map_zone_create_stockpile" => HandleZone(1, deleted: false),
@@ -114,6 +116,14 @@ internal static partial class Program
             // success, and a check that only reads a `()` result would look like a pass without proof.
             "map_wealth" => "{\"ok\":false,\"error\":\"the mock host has no colony to measure\"}",
             "map_haulables" => "{\"ok\":false,\"error\":\"the mock host has no live maps\"}",
+            "map_path" => "{\"ok\":false,\"error\":\"the mock host has no live maps to path across\"}",
+            "map_storage_groups" => "{\"ok\":false,\"error\":\"the mock host has no live maps\"}",
+            "map_pens" => "{\"ok\":false,\"error\":\"the mock host has no live maps\"}",
+            "map_cover" => "{\"ok\":false,\"error\":\"the mock host has no live maps\"}",
+            "projectile_launch" => "{\"ok\":false,\"error\":\"the mock host has no combat\"}",
+            "trade_execute" => "{\"ok\":false,\"error\":\"the mock host has no trader\"}",
+            "map_anomaly_entities" => "{\"ok\":false,\"error\":\"the mock host has no live maps\"}",
+            "anomaly_study" => "{\"ok\":false,\"error\":\"the mock host has no entities\"}",
             "map_lords" => "{\"ok\":false,\"error\":\"the mock host has no live maps\"}",
             "map_generate_pocket" => "{\"ok\":false,\"error\":\"the mock host cannot generate a map\"}",
             "world_layers" => "{\"ok\":false,\"error\":\"the mock host has no planet\"}",
@@ -144,6 +154,10 @@ internal static partial class Program
             "map_time" => "{\"ok\":false,\"error\":\"the mock host has no live maps to answer this\"}",
             "map_weather" => "{\"ok\":false,\"error\":\"the mock host has no live maps to answer this\"}",
             "pawn_abilities" => "{\"ok\":false,\"error\":\"the mock host has no live pawns to answer this\"}",
+            "pawn_opinion" => "{\"ok\":false,\"error\":\"the mock host has no live pawns to compare\"}",
+            "pawn_thoughts" => "{\"ok\":false,\"error\":\"the mock host has no live pawns with a mood\"}",
+            "pawn_cast_ability" => "{\"ok\":false,\"error\":\"the mock host has no pawns with abilities\"}",
+            "pawn_ranged_attack" => "{\"ok\":false,\"error\":\"the mock host has no combat\"}",
             "pawn_genes" => "{\"ok\":false,\"error\":\"the mock host has no live pawns to answer this\"}",
             "pawn_health" => "{\"ok\":false,\"error\":\"the mock host has no live pawns to answer this\"}",
             "pawn_ideo" => "{\"ok\":false,\"error\":\"the mock host has no live pawns to answer this\"}",
@@ -159,6 +173,7 @@ internal static partial class Program
             "research_list" => "{\"ok\":false,\"error\":\"the mock host has no world to list from\"}",
             "selection_get" => "{\"ok\":false,\"error\":\"the mock host cannot answer this\"}",
             "settlements_list" => "{\"ok\":false,\"error\":\"the mock host has no world to list from\"}",
+            "settlement_create" => "{\"ok\":false,\"error\":\"the mock host has no planet\"}",
             "sound_play" => "{\"ok\":false,\"error\":\"the mock host cannot answer this\"}",
             "sound_sustain" => "{\"ok\":false,\"error\":\"the mock host cannot answer this\"}",
             "thing_bills" => "{\"ok\":false,\"error\":\"the mock host cannot answer this\"}",
@@ -369,6 +384,12 @@ internal static partial class Program
             case "map_zone_delete":
             case "thing_equip":
             case "pawn_attack":
+            case "pawn_ranged_attack":
+            case "pawn_cast_ability":
+            case "projectile_launch":
+            case "settlement_create":
+            case "trade_execute":
+            case "anomaly_study":
             case "plant_set_growth":
             case "thing_set_forbidden":
             case "thing_set_rotation":

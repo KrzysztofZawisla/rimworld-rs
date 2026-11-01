@@ -1,0 +1,11 @@
+# Operations with no check in examples/api-test-mod/src.
+#
+# `cargo xtask test` runs `abi-smoke --proof`: an operation that is neither called by the in-game
+# self-test (by the Rust method that sends it, not only the wire name) nor listed here fails the gate.
+# Every line is `op reason`; the summary counts the `pending` ones, so the number is the work left.
+#
+#   pending  the check is missing and can be written — this is the gap.
+#   harness  the quicktest cannot exercise it: the game needs a scenario the self-test cannot build,
+#            or the call would block/hang the tick.
+#
+map_generate_pocket harness the game generates maps through LongEventHandler; a synchronous host call blocks the tick

@@ -196,3 +196,41 @@ pub struct TimeSnapshot {
     pub day_percent: f32,
     pub ticks_game: i64,
 }
+
+/// One cell of a path.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct PathCell {
+    pub x: i32,
+    pub z: i32,
+}
+
+/// A path the game's own pathfinder walked, or the answer that there is none.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct MapPath {
+    pub found: bool,
+    pub cost: f32,
+    pub count: i32,
+    pub cells: Vec<PathCell>,
+}
+
+/// One storage group a map keeps.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct StorageGroupInfo {
+    pub label: Option<String>,
+    pub members: i32,
+    pub cells: i32,
+    pub held_things: i32,
+}
+
+/// One animal pen a map has.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct PenInfo {
+    pub name: Option<String>,
+    pub enclosed: bool,
+    pub regions: i32,
+    pub animals: i32,
+}

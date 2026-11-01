@@ -34,6 +34,7 @@ impl ApiTest {
                 "quest_ended arrives with the quest's name",
                 "mental_state_started arrives with the pawn",
                 "mental_state_ended arrives",
+                "visitor_arrived arrives when a non-colony humanlike spawns",
             ] {
                 self.report.skip(ctx, what, EVENTS_NEED_HARMONY);
             }
@@ -251,6 +252,33 @@ impl ApiTest {
             self.report.skip(ctx, "mental_state_ended arrives", "no mental state ended during this run");
         } else {
             self.report.pass(ctx, "mental_state_ended arrives");
+        }
+
+        // The suite spawns a humanlike of a neutral faction on the player's map; the game's own spawn
+        // hook is what the bridge patches, so a zero counter here means the event route did not fire.
+        if !events.visitor_attempted {
+            self.report.skip(
+                ctx,
+                "visitor_arrived arrives when a non-colony humanlike spawns",
+                "this planet has no neutral faction to spawn a visitor from",
+            );
+        } else {
+            self.report.check(
+                ctx,
+                "visitor_arrived arrives when a non-colony humanlike spawns",
+                match (events.visitor_arrived, events.visitor_label.as_deref(), events.visitor_faction.as_deref()) {
+                    (0, _, _) => {
+                        Err("no visitor_arrived arrived, though the suite spawned a non-colony pawn".to_string())
+                    }
+                    (_, Some(label), Some(faction)) if !label.is_empty() && !faction.is_empty() => {
+                        ctx.log(format!("[selftest] visitor_arrived: '{label}' of '{faction}'"));
+                        Ok(())
+                    }
+                    (count, label, faction) => {
+                        Err(format!("{count} event(s), the first is {label:?} of faction {faction:?}"))
+                    }
+                },
+            );
         }
     }
 

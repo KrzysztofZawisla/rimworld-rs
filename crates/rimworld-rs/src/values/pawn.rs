@@ -249,6 +249,41 @@ impl<'a> Pawn<'a> {
         Ok(value.as_bool().unwrap_or(false))
     }
 
+    /// What this pawn thinks of another, with the game's own explanation.
+    pub fn opinion_of(&self, other: &Pawn<'_>) -> Result<crate::PawnOpinion> {
+        self.ctx.pawn_opinion(&self.handle, other.handle())
+    }
+
+    /// Every thought this pawn's mood is made of.
+    pub fn thoughts(&self) -> Result<crate::PawnThoughts> {
+        self.ctx.pawn_thoughts(&self.handle)
+    }
+
+    /// Casts one of this pawn's abilities through the game's own `Ability.Activate`.
+    pub fn cast_ability(
+        &self,
+        ability: &str,
+        target: Option<&ObjRef>,
+        cell: Option<(i32, i32)>,
+    ) -> Result<crate::AbilityCast> {
+        self.ctx.pawn_cast_ability(&self.handle, ability, target, cell)
+    }
+
+    /// Starts a ranged cast with one of this pawn's own verbs.
+    pub fn ranged_attack(
+        &self,
+        target: Option<&ObjRef>,
+        cell: Option<(i32, i32)>,
+        verb: Option<&str>,
+    ) -> Result<crate::RangedAttack> {
+        self.ctx.pawn_ranged_attack(&self.handle, target, cell, verb)
+    }
+
+    /// Executes one line of trade with a trader: a positive count sells, a negative one buys.
+    pub fn trade_with(&self, trader: &ObjRef, thing_def: &str, count: i32) -> Result<crate::TradeExecuted> {
+        self.ctx.trade_execute(trader, &self.handle, thing_def, count)
+    }
+
     pub fn get(&self, member: &str) -> Result<Value> {
         self.handle.get(member)
     }

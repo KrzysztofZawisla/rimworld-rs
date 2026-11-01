@@ -32,15 +32,21 @@ internal static partial class Program
     /// </summary>
     private static int RunCoverage(string directory, string typeName)
     {
-        MetadataReader reader = OpenGameAssembly(directory);
-        if (reader == null)
+        using GameAssemblies assemblies = OpenGameAssemblies(directory);
+        if (assemblies == null)
         {
             return 2;
         }
 
+        if (!assemblies.TryFind(typeName, out MetadataReader reader, out TypeDefinitionHandle start))
+        {
+            Console.Error.WriteLine($"no type {typeName}");
+            return 1;
+        }
+
         var provider = new TypeNameProvider(reader);
         var hierarchy = new List<(TypeDefinitionHandle Handle, string Name)>();
-        TypeDefinitionHandle? cursor = FindType(reader, typeName);
+        TypeDefinitionHandle? cursor = start;
         while (cursor != null)
         {
             TypeDefinition definition = reader.GetTypeDefinition(cursor.Value);

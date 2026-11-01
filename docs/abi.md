@@ -122,12 +122,14 @@ objects: `ctx.pawn_health`, `ctx.pawn_hediff_set`, `ctx.pawn_skills`, `ctx.pawn_
 `ctx.pawn_mind_state`, `ctx.pawn_job_tracker`, `ctx.pawn_mechanitor`, `ctx.pawn_learning`, `ctx.map_weather_manager`,
 `ctx.map_terrain_grid`, `ctx.map_pathing`, `ctx.map_lord_manager`, `ctx.map_pawns`, `ctx.game_time`,
 `ctx.game_research`, `ctx.game_quests`, `ctx.game_factions`, `ctx.world_grid`, `ctx.world_info` and the rest —
-**133 wrappers over 4265 named members**, plus typed
-wrappers for the objects a handle points at (`Hediff`, `Gene`, `Ability`, `Job`, `Bill`, `Zone`, `Area`, `Room`,
-`Designation`, `Fire`, `Filth`, `Plant`, `Apparel`, `Quest`, `Faction`, `Caravan`, `Settlement`, ...).
+**146 wrappers over 5956 named members**, plus typed
+wrappers for the objects a handle points at (`Def`, `ThingDef`, `RecipeDef`, `PawnKindDef`, `ResearchProjectDef`,
+`JobDef`, `ThoughtDef`, `TraitDef`, `WorldObjectDef`, `HediffDef`, `Hediff`, `Gene`, `Ability`, `Job`, `Bill`,
+`Zone`, `Area`, `Room`, `Designation`, `Fire`, `Filth`, `Plant`, `Apparel`, `Quest`, `Faction`, `Caravan`,
+`Settlement`, `Projectile`, `CompStudiable`, `StorageGroup`, ...).
 Each wrapper declares the game's type it wraps, the type it hangs off, that type's accessor and every member it
 names, and `cargo xtask test` verifies all of it against the assembly
-(`133 subsystem wrapper(s), 4265 member name(s), 0 wrong`, plus the shape rule: a member read with `ref_get` is a
+(`146 subsystem wrapper(s), 5956 member name(s), 0 wrong`, plus the shape rule: a member read with `ref_get` is a
 field, a property or a zero-argument method; a method that takes arguments must be called, and a def argument
 travels as a handle). `crates/rimworld-rs/src/subsystems_extra/` is **generated** from the installation's own
 metadata — `cargo xtask gen-subsystems` reads every member of every type it wraps and writes one file per
@@ -156,7 +158,9 @@ Every pawn operation takes `ref` (the pawn handle); the actions are listed in `C
 | `pawn_work_priorities` | — | `[{defName, label, priority, locked}]` (`-1` means "not assigned"; `locked` work types — `Firefighter`, `Patient`, ... — have no assignable priority) |
 | `pawn_set_work_priority` | `workType`, `priority` | `null` (action; refuses a locked work type with a clear error) |
 | `pawn_relations` | — | `[{other, label, kind, kindLabel}]` |
+| `pawn_opinion` | `ref`, `otherRef` | `{a, b, opinion, explanation?, friendThreshold, rivalThreshold, standing}` — `Pawn_RelationsTracker.OpinionOf`/`OpinionExplanation`; `standing` is the game's own friend/rival comparison |
 | `pawn_abilities` | — | `[{defName, label}]` |
+| `pawn_cast_ability` | `ref`, `ability` (an `AbilityDef`), `targetRef?`, `x?`, `z?` | `{ability, cast, cooldownTicksRemaining, target}` — the game's own `Ability.Activate`; a pawn without that ability is refused with the ones it has |
 | `pawn_damage` | `amount`, `damageDef?` (defaults to `Blunt`) | `null` (action) |
 | `pawn_kill` | — | `null` (action) |
 | `pawn_teleport` | `x`, `z` | `null` (action; spawns the pawn when it is not on a map) |
@@ -182,8 +186,14 @@ Every pawn operation takes `ref` (the pawn handle); the actions are listed in `C
 | `map_time` | `mapId` | `{hour, dayOfSeason, dayOfYear, season, year, dayPercent, ticksGame}` |
 | `map_things_in_radius` | `mapId`, `x`, `z`, `radius`, `defName?`, `limit?` | `{things:[{handle, defName, label, stackCount, x, z}], truncated}` |
 | `map_haulables` | `mapId`, `limit` | `[{handle, defName, label, stackCount, x, z}]` — the game's own haulable list (`listerHaulables`), so "what the colony would haul" is the game's answer, not a filter |
+| `map_path` | `mapId`, `pawn`, `x`, `z` | `{found, cost, count, cells:[{x, z}]}` — `PathFinder.FindPathNow` with the pawn's own traverse parms; no path is `found: false`, not an error |
+| `map_storage_groups` | `mapId` | `[{label?, members, cells, heldThings}]` — the game's own `StorageGroupManager`, so the groups are the ones the storage tab shows |
+| `map_pens` | `mapId` | `[{name?, enclosed, regions, animals}]` — the game's own `AnimalPenManager`; a marker is asked for its own `PenMarkerState`, and the animals are the ones the marker accepts |
+| `map_cover` | `mapId`, `x`/`z` (the shooter), `targetRef?` or `targetX`/`targetZ` | `{blockChance, count, givers:[{thing?, defName?, label?, blockChance}], shooter:{x, z}}` — `CoverUtility.CalculateOverallBlockChance`/`CalculateCoverGiverSet`, so the number is the game's own |
 | `map_wealth` | `mapId` | `{mapId, total, items, biome?}` — `WealthWatcher.WealthTotal`/`WealthItems` plus the map's own biome. A read |
-| `map_generate_pocket` | `size`, `generator?` (a `MapGeneratorDef`; empty = the installation's first) | `{mapId, size, parent, generator}` — the game's own `MapGenerator` on a new `PocketMapParent`, so the map is a real pocket map the game can save |
+| `map_generate_pocket` | `size`, `generator?` (a `MapGeneratorDef` with `pocketMapProperties`; empty = `Labyrinth`, then `MetalHell`, `Undercave`, `SpacePocket`) | `{mapId, size, parent, generator}` — the game's own `MapGenerator` on a def-backed `PocketMapParent`, so the map is a real pocket map the game can save. **Call it from a queued game event, not a tick**: `GenerateMap` goes through `LongEventHandler`, and a synchronous host call blocks the tick; the tick-safe route is `map_generate_pocket_queue` |
+| `map_generate_pocket_queue` | `size`, `generator?` (same rules as `map_generate_pocket`) | `{token, state}` — queues the generation on the game's `LongEventHandler` and answers at once; poll `map_generation_status` from a tick |
+| `map_generation_status` | `token` | `{token, state, mapId, error?}` — `queued`, `running`, `done` (then `mapId`) or `failed` (then `error`) |
 | `blueprint_place` | `defName`, `mapId`, `x`, `z`, `stuffDef?`, `rotation?` | blueprint handle (action) |
 | `map_mote_text` | `mapId`, `x`, `z`, `text` | `null` (floating text, action) |
 | `selection_get` | — | `[handle, ...]` |
@@ -352,7 +362,7 @@ this reason when something asks for it:
 | **Roads on a planet tile** | this build's `Tile` carries no road member (`biome`, `rainfall`, `elevation`, `hilliness`, `swampiness`, `mutatorsNullable`, `temperature`, `pollution` are the writable ones) |
 | **Changing a living pawn's race** | the game generates a new pawn for that (`PawnGenerator`); `pawn_set_kind` covers the same-race case through `ChangeKind`, and a kind of another race is refused by name |
 | Fog **per cell** | `FogGrid` has `IsFogged` and the all-map pair only |
-| **Executing a trade** | `TradeDeal` exposes reads only (`TradeableCount`, `CurrencyTradeable`, `AllTradeables`); `AddToTradeables` is non-public and no `Execute`/`TryExecute` exists in this build, so the game alone performs transactions (inside its own trade UI). Prices and goods lists are read through `thing_prices`, `pawn_trader_goods` and `pawn_trader` |
+| **Adding a tradeable of your own to a deal** | `TradeDeal.TryExecute` executes the deal and `trade_execute` drives it, but `AddToTradeables` is non-public, so a deal carries the game's own entries. A mod sells and buys from those; it cannot invent one |
 | **Removing a faction** | `FactionManager.Add` is public but `Remove` and `FactionCanBeRemoved` are not, so `faction_create` is a one-way door and says so |
 
 ### Designations and storage
@@ -385,6 +395,8 @@ thing def (or the other way around) is refused with a message that names the rig
 | `pawn_verbs` | `ref` | `[{source, label, range, minRange, ranged}]` — `source` is `pawn` or `equipment` |
 | `thing_equip` | `ref` (the pawn), `itemRef` (a weapon) | `{pawn, weapon, defName, primary}` — the thing leaves the map and the pawn holds it; a thing whose def is not a weapon is refused |
 | `pawn_attack` | `ref` (the pawn), `targetRef` (a thing on the same map) | `{attacker, target, job, queued, targetHandle}` — the game's own `AttackMelee` job, queued like a player order |
+| `pawn_ranged_attack` | `ref`, `targetRef?` or `x`/`z`, `verb?` (a verb label) | `{pawn, verb?, range, started, target}` — `Verb.TryStartCastOn`, so aiming, warm-up and the projectile are the game's; the verb is picked by its label, or the first non-melee one, from `VerbTracker.AllVerbs` **plus** `Pawn_EquipmentTracker.AllEquipmentVerbs` (deduped), so an equipped gun's verb is found and really starts the cast |
+| `projectile_launch` | `defName` (a projectile ThingDef), `mapId`, `x`/`z` (origin), `targetRef?` or `targetX`/`targetZ`, `launcherRef?`, `equipmentRef?`, `hitFlags?` (`None`/`IntendedTarget`/`NonTargetPawns`/`NonTargetWorld`/`All`) | `{handle, defName, hitFlags, launcher?, x, z}` — the game's own `Projectile.Launch`; a def whose thing class is no projectile, and a cell outside the map, are refused |
 | `map_lords` | `mapId` | `[{handle, job?, toil?, pawns, factionDefName?}]` — `LordManager.lords` (raids, parties, anything the game groups pawns under). A read, so it is allowed while the game saves |
 
 ### Plants, animals and trade
@@ -398,6 +410,7 @@ thing def (or the other way around) is refused with a message that names the rig
 | `pawn_trader` | `ref` | `{label, traderKind, traderKindLabel, traderName, currency, canTradeNow, factionDefName, goods}` — a pawn without a `TraderKind` is refused |
 | `pawn_trader_goods` | `ref`, `limit?` | `[{handle, defName, label, stackCount, marketValue}]` |
 | `thing_prices` | `ref` | `{label, defName, marketValue, playerBuys, playerSells}` — the game's own formula with a neutral trader (no negotiator, no goodwill, no trader kind) |
+| `trade_execute` | `traderRef` (a pawn or world object implementing `ITrader`), `pawnRef` (the negotiator), `thingDef`, `count` (positive sells, negative buys) | `{trader, defName, count, executed, traded, canTradeNow}` — the game's own `TradeSession.SetupWith` + `Tradeable.AdjustTo` + `TradeDeal.TryExecute`, so price, silver and transfer are the game's; a direction or amount the game refuses is reported in its words. The trader must be one the game can trade with *now*: a settlement with no player caravan at it fails inside the game's own session setup, and that failure is reported by name rather than hidden |
 
 ### The planet
 
@@ -412,6 +425,7 @@ thing def (or the other way around) is refused with a message that names the rig
 | `quests_list` | — | `[{id, name, state, description}]` |
 | `quest_generate` | `script` (a `QuestScriptDef`), `points?` | `{id, name?, state, description?}` — the game's own `QuestGen.Generate` handed to the quest manager, so the game offers the quest the way it offers its own; a script that needs more variables is refused with the game's own error |
 | `settlements_list` | — | `[{tile, name, factionDefName, factionName, player}]` |
+| `settlement_create` | `tile`, `faction` (a faction name), `name?` | `{handle, label, name, tile, faction}` — the game's own `Settlement` + `WorldObjects.Add`; a tile that already holds a settlement is refused |
 | `world_tile_info` | `tile` | `{tile, biomeDefName, hilliness, elevation, temperature, rainfall, passable, movementDifficulty}` |
 | `world_objects` | — | `[{typeName, handle, label, tile, factionDefName?, factionName?, player}]` — settlements, caravans, ruins, quest sites |
 | `world_path` | `fromTile`, `toTile` | `{found, totalCost, nodeCount, tiles: [tileId, ...]}` from the game's own pathfinder, start first; the pooled path is released before the answer |
@@ -442,6 +456,8 @@ thing def (or the other way around) is refused with a message that names the rig
 | `op` | Request fields | Result |
 | --- | --- | --- |
 | `dlc_dashboard` | — | `{capabilities, defRegistry, royalty, ideology, biotech, anomaly, odyssey}` — the active expansions, the def registry the bridge sees and each expansion's section (`null` when it is not active) |
+| `map_anomaly_entities` | `mapId` | `[{handle, defName, label, studiable, progress, completed, ticksTilNextStudy, knowledge, category?, held, canStudy}]` — every thing carrying `CompStudiable`/`CompHoldingPlatformTarget`; a map without Anomaly content answers `[]` |
+| `anomaly_study` | `ref` (the entity), `pawnRef` (the studier), `amount?` | `{thing, defName, before, after, completed, knowledge}` — `CompStudiable.Study` after the game's own `StudyUnlocked`; the before/after pair makes an ignored study visible |
 | `pawn_titles` | `ref` | `{titles:[{defName, label, factionDefName, factionName}], seniorDefName, hasRoyalty}` |
 | `pawn_set_title` | `ref`, `title` | `{title, has}` (the player's faction, no rewards, no letter) |
 | `pawn_psyfocus` | `ref` | `{psyfocus, target, band, needsPsyfocus}` |
@@ -461,6 +477,7 @@ thing def (or the other way around) is refused with a message that names the rig
 | `pawn_thought_add` | `ref`, `thought` | `{thought, has}` |
 | `pawn_thought_remove` | `ref`, `thought` | `null` (action) |
 | `pawn_set_need` | `ref`, `need`, `level` (0..1) | `{need, level, percent}` |
+| `pawn_thoughts` | `ref` | `{pawn, totalMoodOffset, count, thoughts:[{defName?, label?, moodOffset, durationTicks}]}` — `ThoughtHandler.GetAllMoodThoughts`; a pawn without a mood is refused |
 
 ### Bills
 
@@ -617,6 +634,10 @@ Def names looked up by the bridge at runtime (letters, messages) come from `brid
 | `message_shown` | `{text, defName?, historical}` | `on_message_shown` (a message, not a letter) |
 | `mental_state_started` | `{pawn: handle, label, defName?, forced}` | `on_mental_state_started` |
 | `mental_state_ended` | `{pawn: handle, label, defName?}` | `on_mental_state_ended` (a prefix: the state is still readable) |
+| `game_condition_started` | `{defName?, label?, permanent, duration, ticksLeft}` | `on_game_condition_started` (`GameConditionManager.RegisterCondition`) |
+| `game_condition_ended` | `{defName?, label?}` | `on_game_condition_ended` (`OnConditionEnd`, expiry included) |
+| `faction_relation_changed` | `{faction?, other?, kind?}` | `on_faction_relation_changed` (`Faction.SetRelationDirect`, the path `faction_set_relation` also takes) |
+| `visitor_arrived` | `{pawn: handle, label, faction?, factionDefName?, traderKind?, hostile, mapId, x, z}` | `on_visitor_arrived` (a non-colony humanlike spawned on a player home map; a trader carries its `traderKind`) |
 | `game_saving` | `{tick}` | `on_game_saving` |
 | `game_saved` | `{tick}` | `on_game_saved` |
 | `patch` | patch call (below) | `on_patch_call` |
@@ -635,7 +656,7 @@ Def names looked up by the bridge at runtime (letters, messages) come from `brid
 `gizmos`, `comp_gizmos`, `comp_inspect` and `companion_event` are **requests**: the bridge waits for
 the response and uses the `result` field, so their handlers must not take long.
 
-The eighteen game-state events (`pawn_spawned` … `mental_state_ended`) are **notifications** and all of
+The twenty-two game-state events (`pawn_spawned` … `visitor_arrived`) are **notifications** and all of
 them go through the queueing dispatch (`SendWithPayload`), because the game raises them inside its own
 tick, during map generation, and inside host calls the mod itself made (`spawn_thing`, `pawn_kill`,
 `research_finish`) — the payload may hold handles. They do not come from a mod's patch: the **bridge**

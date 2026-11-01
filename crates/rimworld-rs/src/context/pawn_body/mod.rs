@@ -8,8 +8,8 @@ use crate::{
         AttackOrder, BackstorySet, DevelopmentInfo, DownCheck, DraftState, EquipmentAdded, EquipmentDropped,
         FactionSet, HediffAdded, HediffRemoved, HediffSeveritySet, HediffsCleared, KindSet, LookSet, MechanitorInfo,
         NameSet, ObjRef, PartRestored, PawnEquipment, PawnRecords, PolicySet, PrisonerInteraction, PrisonerStatus,
-        RecordValue, RelationSet, ScheduleSet, StoryTitleSet, SurgeryAdded, TameOrder, TraderGood, TraderInfo,
-        TrainableState, TrainingInfo, TraitAdded, TraitRemoved, VerbInfo,
+        RangedAttack, RecordValue, RelationSet, ScheduleSet, StoryTitleSet, SurgeryAdded, TameOrder, TraderGood,
+        TraderInfo, TrainableState, TrainingInfo, TraitAdded, TraitRemoved, VerbInfo,
     },
     Result,
 };

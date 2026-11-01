@@ -84,14 +84,17 @@ nested calls, result access) and the tick throttle.
   (`SaveScope::Game` / `SaveScope::Map`), with a schema version for migrations
   (`save_write_tagged`/`save_read_tagged`); `on_game_saving` writes data into the very save being
   written.
-- **Companion C# assembly**: `cargo xtask new --path <DIR> --comp --job --itab` scaffolds samples, so a
-  mod can define managed game types (ThingComp, JobDriver, ITab, Window, ...) that Rust cannot create, call
+- **Companion C# assembly**: `cargo xtask new --path <DIR> --comp --job --itab --think --lordjob
+  --worldobject --graphic` scaffolds seven samples, so a
+  mod can define managed game types (ThingComp, JobDriver, ITab, ThinkNode, LordJob, WorldObject,
+  Graphic, Window, ...) that Rust cannot create, call
   into them with `companion_call` and be called back with `Companion.Send`/`Request`. See
   [`docs/companion.md`](docs/companion.md).
 - **Know where the time goes**: `ctx.stats()` counts every host call with its cost, and
   `ctx.run_batch(...)` runs several operations in one round trip for hot paths.
 - **Explore the API**: `cargo xtask targets <Type> --members <filter>` prints a game type's members
-  with ready-to-paste `harmony_patch` lines; `cargo xtask types <prefix>` finds type names;
+  with ready-to-paste `harmony_patch` lines; `cargo xtask types <name part>` finds type names in both
+  game assemblies;
   `cargo xtask coverage <Type>` shows which of a type's members have a typed operation and which are
   reached through `ref_get`/`ref_set`/`ref_call` by name;
   `cargo xtask gen-defs [<mod>] [--path <DIR>]` writes Rust constants for every def name of the
@@ -99,7 +102,9 @@ nested calls, result access) and the tick throttle.
   filtered to this mod; `cargo xtask package [<mod>] [--path <DIR>]` builds a Workshop-ready zip.
 - **Check it in game**: `cargo xtask smoke` installs both example mods, starts the game with
   `-quicktest` and the examples selected through 1.7's `-mod=` command-line mod list, and fails on a
-  `[selftest] FAIL` line or a non-zero failed count.
+  `[selftest] FAIL` line or a non-zero failed count. `cargo xtask smoke --harmony` first copies the
+  player's Workshop Harmony into the local `Mods` folder and then fails on any Harmony-dependent SKIP,
+  so the game-state event hooks are proven instead of skipped.
 
 Still out of reach from Rust alone: defining managed types (that is what the companion assembly is
 for), arbitrary 3D rendering (the SDK draws markers and lines, not meshes), and everything that
@@ -148,8 +153,8 @@ cargo xtask build   --path <ModDir>
 cargo xtask install --path <ModDir>
 
 # managed game types (ThingComp, JobDriver, ITab, Window, ...) come with samples:
-cargo xtask new MyFirstMod --comp --job --itab
-cargo xtask new MyFirstMod --path <ModDir> --comp --job --itab
+cargo xtask new MyFirstMod --comp --job --itab --think --lordjob --worldobject --graphic
+cargo xtask new MyFirstMod --path <ModDir> --comp --job --itab --think --lordjob --worldobject --graphic
 
 # other things the tooling does:
 cargo xtask gen-defs MyFirstMod                  # Rust constants for every def name of your installation
@@ -164,7 +169,8 @@ cargo xtask clean --path <ModDir>                # remove that project's build/,
 cargo xtask remove MyFirstMod                    # delete mods/MyFirstMod + its workspace entry
 
 # repository maintainers:
-cargo xtask smoke                   # install both examples, run -quicktest with them via -mod=
+cargo xtask smoke [--harmony]       # install both examples, run -quicktest with them via -mod=
+                                    # --harmony also requires Harmony in Mods and fails on a Harmony SKIP
                                     # (leave the game unpaused; the summary wait is 180 s)
 cargo xtask gen-subsystems --check  # verify the tracked generated wrappers match the generator
 ```

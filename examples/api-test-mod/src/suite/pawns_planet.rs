@@ -48,6 +48,25 @@ impl ApiTest {
             pawn_details,
         );
 
+        // A humanlike of a faction that is not the colony's, spawned at the map edge for the
+        // `visitor_arrived` event. A neutral faction is chosen so it neither joins nor attacks; the
+        // event fires from the game's own spawn hook, which the bridge patches.
+        if let Ok(factions) = ctx.factions() {
+            let neutral = factions
+                .into_iter()
+                .find(|faction| !faction.player && !faction.defeated && !faction.hostile_to_player)
+                .and_then(|faction| faction.def_name);
+            if let Some(def_name) = neutral {
+                match ctx.spawn_pawn(pawn_kind_def::COLONIST, Some(&def_name), map.id, 2, 2) {
+                    Ok(_visitor) => {
+                        self.events.visitor_attempted = true;
+                        ctx.log(format!("[selftest] spawned a visitor of faction '{def_name}' for visitor_arrived"));
+                    }
+                    Err(error) => ctx.log(format!("[selftest] no visitor spawned: {error}")),
+                }
+            }
+        }
+
         // The work-priority check runs on a tick instead: writing priorities during map generation
         // is overwritten by the game's own work-settings initialization right afterwards (observed
         // in game — the value came back as the default), so it would prove nothing here.

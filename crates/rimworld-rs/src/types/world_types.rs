@@ -287,3 +287,14 @@ pub struct MapInfo {
     pub colonists: i32,
     pub is_player_home: bool,
 }
+
+/// A settlement founded by a mod.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct SettlementCreated {
+    pub handle: Option<ObjRef>,
+    pub label: Option<String>,
+    pub name: Option<String>,
+    pub tile: i32,
+    pub faction: Option<String>,
+}

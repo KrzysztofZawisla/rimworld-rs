@@ -49,8 +49,13 @@ impl ApiTest {
         // The temperature grid moves outdoors; the room route is the other half. Try a cell in the
         // colony's own room as well as the outdoor probe, so a map where the centre is a sealed cave
         // still exercises the room path.
-        let room_probe = colony_anchor(ctx, map_id).ok().and_then(|(rx, rz)| {
-            ctx.map_cell_info(map_id, rx, rz).ok().filter(|info| info.room_id >= 0).map(|_| (rx, rz))
+        // A real enclosed room, not the colony anchor: `map_rooms` answers which rooms the game has,
+        // and `room_cells` gives a cell that actually belongs to one.
+        let room_probe = ctx.map_rooms(map_id).ok().and_then(|rooms| {
+            rooms
+                .into_iter()
+                .filter(|room| !room.outdoor)
+                .find_map(|room| room.room_cells.and_then(|cells| cells.first().map(|cell| (cell[0], cell[1]))))
         });
         let mut probes = Vec::new();
         if let Some((rx, rz)) = room_probe {
@@ -153,7 +158,8 @@ impl ApiTest {
             );
         }
 
-        match ctx.map_set_room_temperature(map_id, x, z, 22.5) {
+        let (room_x, room_z) = room_probe.unwrap_or((x, z));
+        match ctx.map_set_room_temperature(map_id, room_x, room_z, 22.5) {
             Ok(room) => self.report.pass(
                 ctx,
                 &format!(
@@ -161,12 +167,11 @@ impl ApiTest {
                     room.room_id, room.before, room.after
                 ),
             ),
-            Err(error) if error.to_string().contains("no room") => self.report.skip(
+            Err(error) => self.report.check(
                 ctx,
                 "map_set_room_temperature moves a room",
-                "the tested cell is outdoors: it has no room temperature to set (the bridge said so)",
+                Err(format!("{error} (tested {room_x},{room_z})")),
             ),
-            Err(error) => self.report.fail(ctx, "map_set_room_temperature moves a room", &error.to_string()),
         }
 
         // A fire needs fuel the game accepts, and this map may be bare rock or sand — so the check lays a
@@ -189,6 +194,13 @@ impl ApiTest {
                         continue;
                     }
                 }
+            }
+
+            // Terrain alone is not flammable in this build; a plant is the game's own fuel, so the
+            // check spawns one on the cell before asking the fire code.
+            if let Err(error) = ctx.spawn_thing(thing_def::PLANT_POTATO, map_id, cx, cz) {
+                fire_refusals.push(format!("{cx},{cz} cannot take a plant: {error}"));
+                continue;
             }
 
             match ctx.map_start_fire(map_id, cx, cz, 1.0) {
@@ -222,17 +234,17 @@ impl ApiTest {
                 ));
                 self.report.check(ctx, "map_start_fire lights a fire, map_fires sees it and it dies", outcome);
             }
-            None => self.report.skip(
+            None => self.report.check(
                 ctx,
                 "map_start_fire lights a fire",
-                &format!("the game refused a fire at every tested cell: {}", fire_refusals.join("; ")),
+                Err(format!("the game refused a fire at every tested cell: {}", fire_refusals.join("; "))),
             ),
         }
 
         // Filth: the game has its own rules for where it may lie, and bare rock or sand may refuse it — so
         // the check lays a constructed floor (`Concrete`, the game's own def) at a cell and makes filth
         // there, then walks a few cells without a floor. Every refusal is reported with its cell.
-        let filth_def = thing_def::FILTH_DIRT;
+        let filth_defs = [thing_def::FILTH_DIRT, thing_def::FILTH_BLOOD, thing_def::FILTH_TRASH];
         let mut filth_plan: Vec<((i32, i32), bool)> = Vec::new();
         if let Ok((fx, fz)) = colony_cell(ctx, map_id) {
             filth_plan.push(((fx, fz), false));
@@ -245,8 +257,7 @@ impl ApiTest {
 
         let mut filth_placed = None;
         let mut filth_refusals = Vec::new();
-        let mut filth_error = None;
-        for ((cx, cz), lay_floor) in filth_plan {
+        'filth: for ((cx, cz), lay_floor) in filth_plan {
             if lay_floor {
                 match ctx.map_set_terrain(map_id, cx, cz, terrain_def::CONCRETE) {
                     Ok(_) => {}
@@ -257,45 +268,38 @@ impl ApiTest {
                 }
             }
 
-            match ctx.map_make_filth(map_id, cx, cz, filth_def, 1) {
-                Ok(made) if made.made => {
-                    filth_placed = Some((cx, cz, lay_floor));
-                    break;
-                }
-                Ok(_) => filth_refusals.push(format!("{cx},{cz}")),
-                Err(error) => {
-                    filth_error = Some(error.to_string());
-                    break;
+            for def in filth_defs {
+                match ctx.map_make_filth(map_id, cx, cz, def, 1) {
+                    Ok(made) if made.made => {
+                        filth_placed = Some((cx, cz, def, lay_floor));
+                        break 'filth;
+                    }
+                    Ok(_) => filth_refusals.push(format!("{def} at {cx},{cz}")),
+                    Err(error) => filth_refusals.push(format!("{def} at {cx},{cz}: {error}")),
                 }
             }
         }
 
-        match (filth_placed, filth_error) {
-            (Some((cx, cz, lay_floor)), _) => {
+        match filth_placed {
+            Some((cx, cz, def, lay_floor)) => {
                 let found = ctx.map_filth(map_id, cx, cz, 0.5).map_err(|error| error.to_string()).and_then(|found| {
-                    if found.iter().any(|filth| filth.def_name.as_deref() == Some(filth_def)) {
+                    if found.iter().any(|filth| filth.def_name.as_deref() == Some(def)) {
                         Ok(())
                     } else {
                         Err(format!("map_filth reports {found:?}"))
                     }
                 });
                 ctx.log(format!(
-                    "[selftest] the game put {filth_def} down at {cx},{cz}{} (it refused {} other cell(s)) and map_filth finds it",
+                    "[selftest] the game put {def} down at {cx},{cz}{} (it refused {} other attempt(s)) and map_filth finds it",
                     if lay_floor { " on the laid floor" } else { "" },
                     filth_refusals.len()
                 ));
                 self.report.check(ctx, "map_make_filth puts filth down and map_filth finds it", found);
             }
-            (None, Some(error)) => {
-                self.report.check(ctx, "map_make_filth puts filth down and map_filth finds it", Err(error))
-            }
-            (None, None) => self.report.skip(
+            None => self.report.check(
                 ctx,
                 "map_make_filth puts filth down and map_filth finds it",
-                &format!(
-                    "the game refused to put filth down at any tested cell ({}), its own FilthMaker rules",
-                    filth_refusals.join(", ")
-                ),
+                Err(format!("the game refused to put filth down at any tested cell ({})", filth_refusals.join(", "))),
             ),
         }
         self.check_environment_power(ctx);

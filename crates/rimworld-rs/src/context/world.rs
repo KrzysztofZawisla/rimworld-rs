@@ -6,9 +6,9 @@ use crate::{
     types::{
         CaravanChange, CaravanInfo, CaravanPause, CaravanRoute, FactionCreated, FactionRelationSet, FactionSnapshot,
         ObjRef, PreceptAdded, PreceptChange, QuestChange, QuestGenerated, QuestSnapshot, ResearchProgress,
-        ResearchSnapshot, ResearchStarted, RitualVerdict, SettlementSnapshot, TileFeature, TileMutators, WorldLayer,
-        WorldObjectCreated, WorldObjectInfo, WorldObjectRemoved, WorldRoute, WorldSnapshot, WorldTilePollution,
-        WorldTileSet, WorldTileSnapshot,
+        ResearchSnapshot, ResearchStarted, RitualVerdict, SettlementCreated, SettlementSnapshot, TileFeature,
+        TileMutators, TradeExecuted, WorldLayer, WorldObjectCreated, WorldObjectInfo, WorldObjectRemoved, WorldRoute,
+        WorldSnapshot, WorldTilePollution, WorldTileSet, WorldTileSnapshot,
     },
     Result,
 };
@@ -279,6 +279,27 @@ impl Context {
     /// The settlements on the planet.
     pub fn settlements(&self) -> Result<Vec<SettlementSnapshot>> {
         read(host::call("settlements_list", json!({}))?)
+    }
+}
+
+impl Context {
+    /// Founds a settlement on a planet tile through the game's own `Settlement` type and
+    /// `WorldObjects.Add`, with the faction that owns it. A tile that already holds a settlement is
+    /// refused, and so is a faction the game does not have.
+    pub fn settlement_create(&self, tile: i32, faction: &str, name: Option<&str>) -> Result<SettlementCreated> {
+        read(host::call("settlement_create", json!({ "tile": tile, "faction": faction, "name": name.unwrap_or("") }))?)
+    }
+}
+
+impl Context {
+    /// Executes one line of trade through the game's own `TradeSession` and `TradeDeal.TryExecute`: a
+    /// positive `count` sells colony goods of a def to the trader, a negative one buys them. The game
+    /// decides whether the direction and the amount are legal, and its refusal is reported in its words.
+    pub fn trade_execute(&self, trader: &ObjRef, pawn: &ObjRef, thing_def: &str, count: i32) -> Result<TradeExecuted> {
+        read(host::call(
+            "trade_execute",
+            json!({ "traderRef": trader.id, "pawnRef": pawn.id, "thingDef": thing_def, "count": count }),
+        )?)
     }
 }
 

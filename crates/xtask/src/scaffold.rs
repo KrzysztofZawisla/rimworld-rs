@@ -8,15 +8,22 @@ mod templates;
 
 pub(crate) use templates::*;
 
+/// Which companion samples `cargo xtask new` writes next to the project. One field per flag, so a new
+/// sample is a new field instead of another positional boolean.
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct Samples {
+    pub comp: bool,
+    pub job: bool,
+    pub itab: bool,
+    pub think: bool,
+    pub lordjob: bool,
+    pub worldobject: bool,
+    pub graphic: bool,
+}
+
 /// Creates a mod under `mods/<Name>/` in this repository by default, where it is registered in the workspace.
 /// With `--path <DIR>` it creates a standalone project in that directory instead, outside this repository.
-pub(crate) fn scaffold(
-    name: &str,
-    path: Option<&Path>,
-    with_comp: bool,
-    with_job: bool,
-    with_itab: bool,
-) -> Result<()> {
+pub(crate) fn scaffold(name: &str, path: Option<&Path>, samples: Samples) -> Result<()> {
     if name.is_empty() || !name.chars().all(|c| c.is_ascii_alphanumeric()) {
         return Err(missing("the mod name must be alphanumeric (for example `MyFirstMod`)"));
     }
@@ -61,8 +68,8 @@ pub(crate) fn scaffold(
     )?;
 
     let namespace = format!("{name}Companion");
-    let mut samples: Vec<&str> = Vec::new();
-    if with_comp {
+    let mut written: Vec<&str> = Vec::new();
+    if samples.comp {
         fs::write(
             companion.join("OnSpawnComp.cs"),
             THING_COMP_TEMPLATE.replace("{name}", name).replace("{namespace}", &namespace),
@@ -72,23 +79,43 @@ pub(crate) fn scaffold(
             directory.join("mod").join("Patches").join(format!("{name}Comp.xml")),
             COMP_PATCH_TEMPLATE.replace("{namespace}", &namespace),
         )?;
-        samples.push("ThingComp (OnSpawnComp + mod/Patches)");
+        written.push("ThingComp (OnSpawnComp + mod/Patches)");
     }
 
-    if with_job {
+    if samples.job {
         fs::write(
             companion.join("WalkToCellJobDriver.cs"),
             JOB_DRIVER_TEMPLATE.replace("{name}", name).replace("{namespace}", &namespace),
         )?;
-        samples.push("JobDriver (WalkToCellJobDriver)");
+        written.push("JobDriver (WalkToCellJobDriver)");
     }
 
-    if with_itab {
+    if samples.itab {
         fs::write(
             companion.join("RustInfoTab.cs"),
             INSPECTOR_TAB_TEMPLATE.replace("{name}", name).replace("{namespace}", &namespace),
         )?;
-        samples.push("ITab (RustInfoTab)");
+        written.push("ITab (RustInfoTab)");
+    }
+
+    if samples.think {
+        fs::write(companion.join("GuardTheDoor.cs"), THINK_NODE_TEMPLATE.replace("{namespace}", &namespace))?;
+        written.push("ThinkNode (GuardTheDoor)");
+    }
+
+    if samples.lordjob {
+        fs::write(companion.join("HoldTheLine.cs"), LORD_JOB_TEMPLATE.replace("{namespace}", &namespace))?;
+        written.push("LordJob (HoldTheLine)");
+    }
+
+    if samples.worldobject {
+        fs::write(companion.join("RustBeacon.cs"), WORLD_OBJECT_TEMPLATE.replace("{namespace}", &namespace))?;
+        written.push("WorldObject (RustBeacon)");
+    }
+
+    if samples.graphic {
+        fs::write(companion.join("PulseGraphic.cs"), GRAPHIC_TEMPLATE.replace("{namespace}", &namespace))?;
+        written.push("Graphic (PulseGraphic)");
     }
 
     fs::write(
@@ -124,7 +151,7 @@ pub(crate) fn scaffold(
     println!(
         "    companion/{name}.Companion.csproj is compiled too; managed game types (ThingComp,\n    JobDriver, ITab, Window, ...) belong there - see docs/companion.md"
     );
-    for sample in samples {
+    for sample in written {
         println!("    sample included: {sample}");
     }
 

@@ -21,36 +21,10 @@ pub(crate) fn home_dir() -> Option<PathBuf> {
     }
 }
 
-/// The usual Steam locations of the game on the platforms it runs on. `RIMWORLD_DIR` is the escape
-/// hatch for every other layout.
+/// The usual Steam locations of the game on the platforms it runs on, including every library Steam
+/// registered for the installation. `RIMWORLD_DIR` is the escape hatch for every other layout.
 pub(crate) fn default_game_dirs() -> Vec<PathBuf> {
-    let mut dirs = Vec::new();
-
-    #[cfg(windows)]
-    {
-        dirs.push(PathBuf::from(r"C:\Program Files (x86)\Steam\steamapps\common\RimWorld"));
-        dirs.push(PathBuf::from(r"C:\Program Files\Steam\steamapps\common\RimWorld"));
-    }
-
-    #[cfg(target_os = "linux")]
-    if let Some(home) = home_dir() {
-        dirs.push(home.join(".steam").join("steam").join("steamapps").join("common").join("RimWorld"));
-        dirs.push(home.join(".local").join("share").join("Steam").join("steamapps").join("common").join("RimWorld"));
-    }
-
-    #[cfg(target_os = "macos")]
-    if let Some(home) = home_dir() {
-        dirs.push(
-            home.join("Library")
-                .join("Application Support")
-                .join("Steam")
-                .join("steamapps")
-                .join("common")
-                .join("RimWorld"),
-        );
-    }
-
-    dirs
+    rimworld_dirs()
 }
 
 /// Assemblies the C# bridge compiles against; keep in sync with bridge/RimWorld.Rust.Bridge.csproj.
@@ -134,8 +108,8 @@ pub(crate) fn game_dir() -> Result<PathBuf> {
 
 /// The installation root, given either the root, a folder inside it (the `.app` bundle, the folder with
 /// the assemblies) or the root itself. Every platform keeps the def XML under `<root>/Data`; only the
-/// assemblies move: at the root on Windows, into the bundle on macOS and into `*_Data/Managed` on the
-/// older Linux layout.
+/// assemblies move: at the root on Windows and on this Linux 1.7 build, into the bundle on macOS, and
+/// into `*_Data/Managed` on older Linux builds.
 pub(crate) fn install_root(path: &Path) -> Option<PathBuf> {
     let path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
     if is_installation(&path) {
@@ -370,11 +344,23 @@ pub(crate) fn doctor() -> Result<()> {
     println!("repository : {}", root.display());
     println!("platform   : {}", host_rid());
     match which::which("cargo-zigbuild") {
-        Ok(path) => println!("zigbuild   : {} (Linux and macOS cross targets link with zig)", path.display()),
+        Ok(path) => {
+            println!("zigbuild   : {} (Linux and macOS cross targets link with zig)", path.display());
+            match which::which("zig") {
+                Ok(zig) => println!("zig        : {}", zig.display()),
+                Err(_) => println!("zig        : not found; cargo-zigbuild needs it on PATH"),
+            }
+        }
         Err(_) => println!("zigbuild   : not found (Linux and macOS cross targets need cargo-zigbuild or a linker)"),
     }
     match which::which("cargo-xwin") {
-        Ok(path) => println!("xwin       : {} (the MSVC Windows target builds away from Windows)", path.display()),
+        Ok(path) => {
+            println!("xwin       : {} (the MSVC Windows target builds away from Windows)", path.display());
+            match which::which("clang-cl") {
+                Ok(clang) => println!("clang-cl   : {}", clang.display()),
+                Err(_) => println!("clang-cl   : not found; cargo-xwin needs LLVM's clang-cl"),
+            }
+        }
         Err(_) => println!("xwin       : not found (the MSVC Windows target needs cargo-xwin or a Windows machine)"),
     }
 

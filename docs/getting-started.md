@@ -2,8 +2,9 @@
 
 ## What you need
 
-- **RimWorld 1.7.** The default lookup checks the usual Steam paths on Windows, Linux and macOS;
-  anywhere else, set `RIMWORLD_DIR`:
+- **RimWorld 1.7.** The default lookup checks the usual Steam paths on Windows, Linux and macOS and
+  every library registered in `steamapps/libraryfolders.vdf`, so a game on a second drive is found
+  without configuration; anywhere else, set `RIMWORLD_DIR`:
 
   ```powershell
   $env:RIMWORLD_DIR = "C:\Steam\steamapps\common\RimWorld"
@@ -17,8 +18,9 @@
 
   On macOS the game is a `RimWorld.app` bundle inside the install folder: `RIMWORLD_DIR` accepts the
   install folder or the bundle itself, and `cargo xtask doctor` prints the folder it found the
-  assemblies in (on macOS `<install>/RimWorld.app/Contents/MacOS`, next to `<install>/Data`). Local
-  mods go to `<install>/Mods` on every platform. The log is the one the game writes:
+  assemblies in (on macOS `<install>/RimWorld.app/Contents/MacOS`, next to `<install>/Data`; on
+  Linux 1.7 builds they are at the install root, while older builds use `<install>/*_Data/Managed`).
+  Local mods go to `<install>/Mods` on every platform. The log is the one the game writes:
   `%USERPROFILE%\AppData\LocalLow\Ludeon Studios\RimWorld by Ludeon Studios\Logs\Player.log` on
   Windows, `~/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios/Logs/Player.log` on Linux and
   `~/Library/Application Support/Ludeon Studios/RimWorld by Ludeon Studios/Logs/Player.log` on
@@ -35,10 +37,14 @@
   `game-refs/` folder; without that step the build reads them directly from your installation.
   These files belong to the game: they are local-only and must never be committed or redistributed.
 - **For cross-platform libraries**: `rustup target add <triple>` for each target,
-  `cargo install cargo-zigbuild` with `zig` on `PATH` for Linux and macOS, and
-  `cargo install --locked cargo-xwin` with LLVM's `clang-cl` for the MSVC Windows target.
+  `cargo install cargo-zigbuild` with `zig` on `PATH` for Linux and macOS (set `SDKROOT` to a macOS
+  SDK when a dependency links Apple frameworks), and `cargo install --locked cargo-xwin` with LLVM's
+  `clang-cl` for the MSVC Windows target. With Homebrew on Linux `llvm@NN`/`lld@NN` are keg-only:
+  add `$(brew --prefix)/opt/llvm@NN/bin` and `$(brew --prefix)/opt/lld@NN/bin` to `PATH`, or
+  `cargo-xwin` cannot find `clang-cl`, `lld-link` and `llvm-lib`.
   `cargo xtask build` uses them automatically when compiling for an operating system other than
-  the host; without them it falls back to plain `cargo build` and a linker you configured.
+  the host, and for a Linux target on another architecture (the host gcc cannot emit it); without
+  them it falls back to plain `cargo build` and a linker you configured.
 
 ## The commands
 
@@ -60,7 +66,7 @@ cargo xtask defs [--types T]  # list the installation's def names, without writi
 cargo xtask watch-log [--errors] [--grep <text>] [--tail <n>] [--once]
                               # follow Player.log, filtered to this project's [Rust]/[selftest] lines
 cargo xtask run [-- <args>]   # start RimWorld (e.g. `-- -quicktest`)
-cargo xtask smoke             # install both examples, run -quicktest, fail on [selftest] FAIL
+cargo xtask smoke             # install both examples, run -quicktest with them via -mod=
 ```
 
 Without a `<mod>` argument the example mod (`hello-rust-mod`) is used. Mods under `examples/` and `mods/`
@@ -125,10 +131,11 @@ build/MyFirstMod/                               # this repository, for a mod und
 
 `<rid>` is the .NET runtime identifier of the platform (`win-x64`, `linux-x64`, `osx-x64`,
 `osx-arm64`). A plain `cargo xtask build` writes the host's folder; `--all-targets` writes all
-four, and the bridge loads the one that matches the running game. Cross-OS targets use
-`cargo-zigbuild` automatically when it is installed. `cargo xtask install` (or `install --path
-<ModDir>`) copies exactly that tree into `<game>/Mods/MyFirstMod/`. The output is the repository's
-`build/` for a mod under `mods/`, or `<ModDir>/build/` for `--path`.
+four, and the bridge loads the one that matches the running game. Cross-OS targets (and a Linux
+target for another architecture) use `cargo-zigbuild` automatically when it is installed; the MSVC
+Windows target uses `cargo-xwin`. `cargo xtask install` (or `install --path <ModDir>`) copies
+exactly that tree into `<game>/Mods/MyFirstMod/`. The output is the repository's `build/` for a mod
+under `mods/`, or `<ModDir>/build/` for `--path`.
 
 ## What a mod gets out of the box
 
@@ -176,7 +183,8 @@ The mod is a native library that RimWorld loads once per launch: **restart the g
 - `examples/api-test-mod` is the in-game proof: enable it next to Harmony and it prints
   `[selftest] PASS/FAIL/SKIP` lines for every feature. Offline (through `tools/abi-smoke`) the same
   mod reports SKIP instead of FAIL for anything the mock cannot answer, so a FAIL always means a
-  real problem. `cargo xtask smoke` runs that loop with both example mods and fails the command on a
+  real problem. `cargo xtask smoke` runs that loop with both example mods, selecting them through 1.7's
+  `-mod=` argument so a fresh installation needs no `ModsConfig.xml` edit, and fails the command on a
   `[selftest] FAIL` line.
 - Common causes of "nothing happens":
   - the mod is installed but not enabled in the in-game mod list;

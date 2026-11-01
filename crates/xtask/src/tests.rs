@@ -1,4 +1,7 @@
-use std::{fs, path::Path};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use heck::{ToSnakeCase, ToTitleCase};
 
@@ -48,26 +51,79 @@ fn the_host_target_uses_the_running_platform() {
 #[test]
 fn picks_the_cross_linker_for_each_target() {
     // The host's own linker handles its operating system, including the other macOS architecture.
-    assert_eq!(CrossTool::pick("aarch64-apple-darwin", "osx", true, true), CrossTool::None);
-    assert_eq!(CrossTool::pick("x86_64-apple-darwin", "osx", false, false), CrossTool::None);
+    assert_eq!(CrossTool::pick("aarch64-apple-darwin", "osx", "arm64", true, true), CrossTool::None);
+    assert_eq!(CrossTool::pick("x86_64-apple-darwin", "osx", "arm64", false, false), CrossTool::None);
+
+    // Linux on another architecture is a cross build: the host gcc cannot emit it, so zig is needed.
+    assert_eq!(CrossTool::pick("x86_64-unknown-linux-gnu", "linux", "x64", false, false), CrossTool::None);
+    assert_eq!(CrossTool::pick("aarch64-unknown-linux-gnu", "linux", "x64", true, false), CrossTool::Zigbuild);
+    assert_eq!(CrossTool::pick("aarch64-unknown-linux-gnu", "linux", "x64", false, false), CrossTool::None);
+    assert_eq!(CrossTool::pick("x86_64-unknown-linux-gnu", "linux", "arm64", true, false), CrossTool::Zigbuild);
 
     // Cross-OS Linux and macOS: zigbuild when it is there, plain cargo for a linker the machine configured.
-    assert_eq!(CrossTool::pick("x86_64-unknown-linux-gnu", "osx", true, false), CrossTool::Zigbuild);
-    assert_eq!(CrossTool::pick("aarch64-apple-darwin", "win", true, false), CrossTool::Zigbuild);
-    assert_eq!(CrossTool::pick("x86_64-unknown-linux-gnu", "osx", false, false), CrossTool::None);
+    assert_eq!(CrossTool::pick("x86_64-unknown-linux-gnu", "osx", "arm64", true, false), CrossTool::Zigbuild);
+    assert_eq!(CrossTool::pick("aarch64-apple-darwin", "win", "x64", true, false), CrossTool::Zigbuild);
+    assert_eq!(CrossTool::pick("x86_64-unknown-linux-gnu", "osx", "arm64", false, false), CrossTool::None);
 
     // MSVC is not a zig target: cargo-xwin supplies the CRT, the SDK and clang-cl.
-    assert_eq!(CrossTool::pick("x86_64-pc-windows-msvc", "osx", true, true), CrossTool::Xwin);
-    assert_eq!(CrossTool::pick("x86_64-pc-windows-msvc", "osx", true, false), CrossTool::None);
+    assert_eq!(CrossTool::pick("x86_64-pc-windows-msvc", "osx", "arm64", true, true), CrossTool::Xwin);
+    assert_eq!(CrossTool::pick("x86_64-pc-windows-msvc", "osx", "arm64", true, false), CrossTool::None);
 
     // Native Windows stays plain cargo, and windows-gnu is left to a configured MinGW linker.
-    assert_eq!(CrossTool::pick("x86_64-pc-windows-msvc", "win", true, true), CrossTool::None);
-    assert_eq!(CrossTool::pick("x86_64-pc-windows-gnu", "osx", true, true), CrossTool::None);
+    assert_eq!(CrossTool::pick("x86_64-pc-windows-msvc", "win", "x64", true, true), CrossTool::None);
+    assert_eq!(CrossTool::pick("x86_64-pc-windows-gnu", "osx", "arm64", true, true), CrossTool::None);
 
     // The cargo invocation each one stands for.
     assert_eq!(CrossTool::None.cargo_args(), ["build"]);
     assert_eq!(CrossTool::Zigbuild.cargo_args(), ["zigbuild"]);
     assert_eq!(CrossTool::Xwin.cargo_args(), ["xwin", "build"]);
+}
+
+#[test]
+fn reads_the_steam_libraries_a_game_can_live_in() {
+    // The current format: one object per library, with the folder under "path".
+    let modern = r#"
+"libraryfolders"
+{
+    "0"
+    {
+        "path" "/opt/Steam"
+        "label" ""
+    }
+    "1"
+    {
+        "path" "/mnt/games/SteamLibrary"
+    }
+}
+"#;
+    assert_eq!(
+        parse_library_folders(modern),
+        vec![PathBuf::from("/opt/Steam"), PathBuf::from("/mnt/games/SteamLibrary")]
+    );
+
+    // The old format used the numbered key itself, next to bookkeeping values that are not paths.
+    let legacy =
+        "\"LibraryFolders\"\n{\n\t\"TimeNextStatsReport\" \"123\"\n\t\"ContentStatsID\" \"456\"\n\t\"1\" \"D:\\\\Games\\\\Steam\"\n}\n";
+    assert_eq!(parse_library_folders(legacy), vec![PathBuf::from(r"D:\Games\Steam")]);
+}
+
+#[test]
+fn finds_a_game_in_a_secondary_steam_library() {
+    let directory = tempfile::tempdir().expect("temp dir");
+    let steam = directory.path().join("Steam");
+    let library = directory.path().join("Steam Library");
+    fs::create_dir_all(steam.join("steamapps")).expect("steam");
+    fs::create_dir_all(library.join("steamapps").join("common")).expect("library");
+    let vdf = format!(
+        "\"libraryfolders\"\n{{\n\t\"0\"\n\t{{\n\t\t\"path\" \"{}\"\n\t}}\n\t\"1\"\n\t{{\n\t\t\"path\" \"{}\"\n\t}}\n}}\n",
+        steam.display().to_string().replace('\\', "\\\\"),
+        library.display().to_string().replace('\\', "\\\\")
+    );
+    fs::write(steam.join("steamapps").join("libraryfolders.vdf"), vdf).expect("vdf");
+
+    let dirs = rimworld_dirs_from_roots(vec![steam.clone()]);
+    assert!(dirs.contains(&steam.join("steamapps").join("common").join("RimWorld")));
+    assert!(dirs.contains(&library.join("steamapps").join("common").join("RimWorld")));
 }
 
 #[test]

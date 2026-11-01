@@ -373,16 +373,20 @@ impl ApiTest {
         })();
         self.report.check(ctx, "titles, psyfocus and ideoligion precepts read and write", trackers);
 
-        let ordered = ctx
-            .harmony_patch_ordered(
-                &MethodRef::new("Verse.Map", "MapUpdate"),
-                PatchKind::Postfix,
-                "map_update_ordered",
-                500,
-                None,
-                None,
-            )
-            .map_err(|error| error.to_string());
-        self.report.check(ctx, "harmony_patch_ordered accepts a priority", ordered);
+        if self.harmony_ready {
+            let ordered = ctx
+                .harmony_patch_ordered(
+                    &MethodRef::new("Verse.Map", "MapUpdate"),
+                    PatchKind::Postfix,
+                    "map_update_ordered",
+                    500,
+                    None,
+                    None,
+                )
+                .map_err(|error| error.to_string());
+            self.report.check(ctx, "harmony_patch_ordered accepts a priority", ordered);
+        } else {
+            self.report.skip(ctx, "harmony_patch_ordered accepts a priority", "Harmony is not available");
+        }
     }
 }

@@ -13,6 +13,7 @@ mod packaging;
 mod scaffold;
 mod secrets;
 mod smoke;
+mod steam;
 mod watch_log;
 mod workspace;
 
@@ -30,6 +31,7 @@ pub(crate) use packaging::*;
 pub(crate) use scaffold::*;
 pub(crate) use secrets::*;
 pub(crate) use smoke::*;
+pub(crate) use steam::*;
 pub(crate) use watch_log::*;
 pub(crate) use workspace::*;
 

@@ -45,17 +45,10 @@ impl NativeTarget {
             }
         };
 
-        let arch = if triple.starts_with("x86_64-") {
-            "x64"
-        } else if triple.starts_with("aarch64-") {
-            "arm64"
-        } else if triple.starts_with("i686-") {
-            "x86"
-        } else if triple.starts_with("armv7") || triple.starts_with("arm-") {
-            "arm"
-        } else {
+        let arch = target_arch(triple);
+        if arch.is_empty() {
             return Err(missing(format!("target '{triple}' has an architecture the game does not run on")));
-        };
+        }
 
         Ok(Self {
             triple: Some(triple.to_string()),
@@ -71,7 +64,13 @@ impl NativeTarget {
             return CrossTool::None;
         };
 
-        CrossTool::pick(triple, host_os(), which::which("cargo-zigbuild").is_ok(), which::which("cargo-xwin").is_ok())
+        CrossTool::pick(
+            triple,
+            host_os(),
+            host_arch(),
+            which::which("cargo-zigbuild").is_ok(),
+            which::which("cargo-xwin").is_ok(),
+        )
     }
 
     pub(crate) fn output_dir(&self, target_dir: &Path) -> PathBuf {
@@ -82,9 +81,11 @@ impl NativeTarget {
     }
 }
 
-/// The tool that links a cross target. The host's own linker handles the same operating system
-/// (including macOS on the other architecture); an operating system the host cannot link for needs
-/// one of the two cross linkers, or a linker configured on the machine.
+/// The tool that links a cross target. The host's own linker handles the same platform, including the
+/// other macOS architecture (Apple's clang carries both) and, with the matching MSVC components, the
+/// other Windows architecture. A different operating system always needs a cross linker, and a Linux
+/// binary for another architecture does too: the host gcc cannot emit it, so zig supplies the sysroot
+/// and the linker. Without the matching tool the build falls back to a linker configured on the machine.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum CrossTool {
     /// `cargo build`, with the host toolchain and whatever linker is configured.
@@ -97,13 +98,19 @@ pub(crate) enum CrossTool {
 
 impl CrossTool {
     /// The decision without asking the machine, so the matrix is testable.
-    pub(crate) fn pick(triple: &str, host: &str, zigbuild: bool, xwin: bool) -> Self {
-        let target = target_os(triple);
-        if target == host {
-            return Self::None;
+    pub(crate) fn pick(triple: &str, host_os: &str, host_arch: &str, zigbuild: bool, xwin: bool) -> Self {
+        let target_os = target_os(triple);
+        if target_os == host_os {
+            // Apple's toolchain and the MSVC one carry the other architecture of their own system;
+            // Linux's does not, so a different architecture there is a cross build like any other.
+            if target_arch(triple) == host_arch || host_os != "linux" {
+                return Self::None;
+            }
+
+            return if zigbuild { Self::Zigbuild } else { Self::None };
         }
 
-        if target == "win" {
+        if target_os == "win" {
             // Zig does not target the MSVC ABI. windows-gnu stays with a MinGW linker the machine
             // configured; the shipping target is MSVC, and cargo-xwin is what builds it away from
             // Windows.
@@ -133,6 +140,21 @@ impl CrossTool {
             Self::Zigbuild => " (cargo zigbuild)",
             Self::Xwin => " (cargo xwin)",
         }
+    }
+}
+
+/// The processor family of a target triple, in the runtime identifier's words.
+pub(crate) fn target_arch(triple: &str) -> &'static str {
+    if triple.starts_with("x86_64-") {
+        "x64"
+    } else if triple.starts_with("aarch64-") {
+        "arm64"
+    } else if triple.starts_with("i686-") {
+        "x86"
+    } else if triple.starts_with("armv7") || triple.starts_with("arm-") {
+        "arm"
+    } else {
+        ""
     }
 }
 

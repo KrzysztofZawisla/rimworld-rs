@@ -21,8 +21,9 @@ automatically.
 
 ## Requirements
 
-- RimWorld 1.7 installed (this repository was built against `1.7.4982 rev1280`; the tooling looks
-  for the usual Steam paths and `RIMWORLD_DIR` names the folder when the game is elsewhere).
+- RimWorld 1.7 installed (this repository was built against `1.7.4982 rev1280`; the tooling checks
+  the usual Steam folders and every library in `steamapps/libraryfolders.vdf`, and `RIMWORLD_DIR`
+  names the folder when the game is elsewhere).
 - Rust nightly and .NET SDK 9+ (the bridge compiles against the game's own .NET 10 assemblies and
   restores NuGet from `bridge/packages.lock.json` in locked mode).
 - The Harmony mod (`brrainz.harmony`) to use the `harmony_patch` API. Everything else works
@@ -96,8 +97,9 @@ nested calls, result access) and the tick throttle.
   `cargo xtask gen-defs [<mod>] [--path <DIR>]` writes Rust constants for every def name of the
   installation so a renamed def becomes a compile error; `cargo xtask watch-log` follows the game log
   filtered to this mod; `cargo xtask package [<mod>] [--path <DIR>]` builds a Workshop-ready zip.
-- **Check it in game**: `cargo xtask smoke` installs both example mods, runs `-quicktest`, and fails
-  on a `[selftest] FAIL` line or a non-zero failed count.
+- **Check it in game**: `cargo xtask smoke` installs both example mods, starts the game with
+  `-quicktest` and the examples selected through 1.7's `-mod=` command-line mod list, and fails on a
+  `[selftest] FAIL` line or a non-zero failed count.
 
 Still out of reach from Rust alone: defining managed types (that is what the companion assembly is
 for), arbitrary 3D rendering (the SDK draws markers and lines, not meshes), and everything that
@@ -162,7 +164,7 @@ cargo xtask clean --path <ModDir>                # remove that project's build/,
 cargo xtask remove MyFirstMod                    # delete mods/MyFirstMod + its workspace entry
 
 # repository maintainers:
-cargo xtask smoke                   # install both examples, run -quicktest, fail on [selftest] FAIL
+cargo xtask smoke                   # install both examples, run -quicktest with them via -mod=
 cargo xtask gen-subsystems --check  # verify the tracked generated wrappers match the generator
 ```
 
@@ -194,18 +196,24 @@ cargo xtask package --all-targets      # one zip carrying every platform
 Each target lands in its own `Rust/<rid>/` folder, so a single mod (and a single Steam Workshop
 item) serves every platform. Every cross target needs its Rust standard library
 (`rustup target add <triple>`). `cargo xtask build` picks the cross linker itself: `cargo-zigbuild`
-(`cargo install cargo-zigbuild`, with `zig` on `PATH`) for Linux and macOS, so both build from
-Windows, Linux or macOS, and `cargo-xwin` (`cargo install --locked cargo-xwin`, with clang-cl from a
-full LLVM installation - `brew install llvm` on macOS) for the MSVC Windows target, which zig does
-not cover. Without the matching tool a target falls back to plain `cargo build`, which needs a
-linker configured on the machine; otherwise build that target on its own operating system. The C#
-bridge stays one managed assembly, because the game loads `Assemblies/*.dll` flat; only the Rust
-cdylib differs per platform.
+(`cargo install cargo-zigbuild`, with `zig` on `PATH`; set `SDKROOT` to a macOS SDK if a dependency
+links Apple frameworks) for Linux and macOS, so both build from Windows, Linux or macOS, and
+`cargo-xwin` (`cargo install --locked cargo-xwin`, with clang-cl from a full LLVM installation -
+`brew install llvm` on macOS) for the MSVC Windows target, which zig does not cover. With Homebrew on
+Linux the `llvm@NN` and `lld@NN` formulae are keg-only: put `$(brew --prefix)/opt/llvm@NN/bin` and
+`$(brew --prefix)/opt/lld@NN/bin` on `PATH`, otherwise `cargo-xwin` cannot find `clang-cl`,
+`lld-link` and `llvm-lib`. Without the matching tool a target falls back to plain `cargo build`,
+which needs a linker configured on the machine; otherwise build that target on its own operating
+system. The C# bridge stays one managed assembly, because the game loads `Assemblies/*.dll` flat;
+only the Rust cdylib differs per platform.
 
 The game's own layout differs by platform and `cargo xtask doctor` prints what it resolved: Windows
-keeps the assemblies next to `Data/`, Linux keeps them in `<game>/*_Data/Managed`, and macOS keeps
-them in `<game>/RimWorld.app/Contents/MacOS` with the def XML in `<game>/Data`. Local mods go to
-`<game>/Mods` on every platform, so `install` writes the same folder on all three.
+keeps the assemblies next to `Data/`, Linux keeps them at the game root in this 1.7 build (older
+builds use `<game>/*_Data/Managed`), and macOS keeps them in `<game>/RimWorld.app/Contents/MacOS`
+with the def XML in `<game>/Data`. Local mods go to `<game>/Mods` on every platform, so `install`
+writes the same folder on all three. A game installed in a secondary Steam library is found through
+`steamapps/libraryfolders.vdf`; `RIMWORLD_DIR` still wins when the installation is somewhere else
+entirely.
 
 ## How it works
 
@@ -256,7 +264,7 @@ The build needs a few assemblies from *your own* RimWorld installation:
   framework facades) into the gitignored `game-refs/` folder, so the bridge can be compiled
   offline and reproducibly;
 - otherwise the bridge build reads them straight from the folder the game is installed in
-  (`RIMWORLD_DIR` or the usual Steam paths).
+  (`RIMWORLD_DIR`, the usual Steam folders, or a library registered in `steamapps/libraryfolders.vdf`).
 
 `game-refs/` and the build output are local-only: `game-refs/`, `bin/`, `obj/` and `build/` are
 gitignored and must never be committed or redistributed. As a safety net, `cargo xtask build`
@@ -334,9 +342,12 @@ The pre-commit hook runs the staged scan once it is enabled with `git config cor
 cargo xtask smoke
 ```
 
-Close RimWorld first. The command installs both example mods, launches the game with `-quicktest`, reads the
-new part of `Player.log`, and fails on a `[selftest] FAIL` line or a summary with a non-zero failed count. On
-success it prints the `N passed, M failed, K skipped` summary and leaves the game running.
+Close RimWorld first. The command installs both example mods, launches the game with
+`-quicktest -mod=brrainz.harmony,rimworld.rs.hello,rimworld.rs.apitest` (the game drops Harmony when
+it is not installed, and the self-test reports the Harmony checks as SKIP), reads the
+new part of `Player.log`, and fails on a `[selftest] FAIL` line or a summary with a non-zero failed count.
+The command-line mod list leaves the player's `ModsConfig.xml` untouched, so the test also runs on a fresh
+installation. On success it prints the `N passed, M failed, K skipped` summary and leaves the game running.
 
 The individual tools also run standalone:
 

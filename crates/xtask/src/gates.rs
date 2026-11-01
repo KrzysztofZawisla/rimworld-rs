@@ -125,6 +125,18 @@ pub(crate) fn test_all() -> Result<()> {
         .args(["run", "--project", "tools/abi-smoke", "--", "--op-parity", "."])
         .current_dir(&root))?;
 
+    // Every operation must have a check in the in-game self-test or an allowlist line saying why not.
+    // Without this, "the SDK covers X" is prose: the count of `pending` lines is the work left.
+    println!("==> proof check (operations <-> in-game checks)");
+    run(Command::new("dotnet").args(["run", "--project", "tools/abi-smoke", "--", "--proof", "."]).current_dir(&root))?;
+
+    // The coverage table is generated from the same facts, so a document that drifts from the code
+    // fails the suite instead of being believed.
+    println!("==> coverage audit (per-family operations <-> in-game checks)");
+    run(Command::new("dotnet")
+        .args(["run", "--project", "tools/abi-smoke", "--", "--coverage-audit", "."])
+        .current_dir(&root))?;
+
     // A patch file whose root is not <Patch> is skipped by the game with only a log line, so the
     // feature it adds silently does not exist; check the shipped files offline instead.
     check_patch_files(&root)?;

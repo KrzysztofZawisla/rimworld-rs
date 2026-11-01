@@ -71,7 +71,7 @@ impl ApiTest {
             };
             match ctx.pawn_training(pawn.handle()) {
                 Ok(info) => {
-                    trained = Some((kind, info));
+                    trained = Some((kind, info, pawn.handle().clone()));
                     break;
                 }
                 Err(error) => training_refusals.push(format!("{kind}: {error}")),
@@ -79,7 +79,7 @@ impl ApiTest {
         }
 
         match trained {
-            Some((kind, info)) => {
+            Some((kind, info, animal)) => {
                 let trainables = info.trainables.clone().unwrap_or_default();
                 let outcome = if info.pawn.is_empty() {
                     Err(format!("the game answered without naming the pawn: {info:?}"))
@@ -100,6 +100,42 @@ impl ApiTest {
                         .collect::<Vec<_>>()
                         .join(", ")
                 ));
+
+                // One real step through the game's own Train, on the animal that answered with a
+                // training tracker. The trainer is a colonist; the game may still decline (a wild or
+                // untamed animal), and that refusal is reported with the game's own words.
+                let trainable = trainables.first().map(|trainable| trainable.def_name.clone());
+                let tamer =
+                    ctx.map_colonists(map_id).ok().and_then(|pawns| pawns.first().map(|pawn| pawn.handle().clone()));
+                match (trainable, tamer) {
+                    (Some(trainable), Some(tamer)) => {
+                        let _ = ctx.pawn_set_training(&animal, &trainable, true);
+                        match ctx.pawn_train_step(&animal, &trainable, &tamer, false) {
+                            Ok(state) => {
+                                ctx.log(format!(
+                                    "[selftest] pawn_train_step ran '{}' (wanted={}, canBeTrained={})",
+                                    state.def_name, state.wanted, state.can_be_trained
+                                ));
+                                self.report.pass(ctx, "pawn_train_step runs a step through the game's own Train");
+                            }
+                            Err(error) if error.to_string().contains("cannot be trained") => self.report.skip(
+                                ctx,
+                                "pawn_train_step runs a step through the game's own Train",
+                                &error.to_string(),
+                            ),
+                            Err(error) => self.report.check(
+                                ctx,
+                                "pawn_train_step runs a step through the game's own Train",
+                                Err(error.to_string()),
+                            ),
+                        }
+                    }
+                    _ => self.report.skip(
+                        ctx,
+                        "pawn_train_step runs a step through the game's own Train",
+                        "the animal reports no trainable or there is no trainer",
+                    ),
+                }
             }
             None => self.report.skip(
                 ctx,
@@ -161,6 +197,17 @@ impl ApiTest {
             }
         });
         self.report.check(ctx, "pawn_trader refuses a pawn that is not a trader", trader);
+
+        let trader_goods = ctx.map_colonists(map_id).map_err(|error| error.to_string()).and_then(|pawns| {
+            let pawn = pawns.first().ok_or_else(|| "no colonist on this map".to_string())?;
+            match ctx.pawn_trader_goods(pawn.handle(), 5) {
+                Err(error) if error.to_string().contains("not a trader") => Ok(()),
+                Err(_) if self.report.mock => Ok(()),
+                Err(error) => Err(format!("unexpected error: {error}")),
+                Ok(goods) => Err(format!("a colonist offered {} goods", goods.len())),
+            }
+        });
+        self.report.check(ctx, "pawn_trader_goods refuses a pawn that is not a trader", trader_goods);
 
         // The game's own prices: buying is never cheaper than selling.
         let prices = colony_cell(ctx, map_id)

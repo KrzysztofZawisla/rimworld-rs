@@ -105,6 +105,22 @@ pub trait Mod: Default + Send + 'static {
     /// Called when a mental state ends — the pawn's state is still readable in the payload.
     fn on_mental_state_ended(&mut self, _ctx: &mut Context, _info: &crate::MentalStateEnded) {}
 
+    /// Called when a game condition starts (a heat wave, a toxic fallout, an eclipse), through the
+    /// game's own `GameConditionManager.RegisterCondition`.
+    fn on_game_condition_started(&mut self, _ctx: &mut Context, _info: &crate::GameConditionStarted) {}
+
+    /// Called when a game condition ends, through the game's own `GameConditionManager.OnConditionEnd`.
+    fn on_game_condition_ended(&mut self, _ctx: &mut Context, _info: &crate::GameConditionEnded) {}
+
+    /// Called when two factions' relation kind changes, through the game's own `SetRelationDirect` —
+    /// the path a mod's `faction_set_relation` and the game's own events both end at.
+    fn on_faction_relation_changed(&mut self, _ctx: &mut Context, _info: &crate::FactionRelationChanged) {}
+
+    /// Called when a humanlike pawn that is not the colony's appears on a player home map: a visitor, a
+    /// trader (the payload carries its `trader_kind`), a raid's straggler, a quest pawn. Every one of them
+    /// spawns, so this is the one moment they share.
+    fn on_visitor_arrived(&mut self, _ctx: &mut Context, _info: &crate::VisitorArrived) {}
+
     /// Called once the game (with its world and maps) is fully initialized, for a new game and a
     /// loaded save alike; `on_game_started` / `on_game_loaded` tell which one it was.
     fn on_game_ready(&mut self, _ctx: &mut Context) {}

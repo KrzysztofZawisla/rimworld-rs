@@ -19,27 +19,155 @@ namespace RustBridge.Smoke;
 /// </summary>
 internal static partial class Program
 {
-    private static MetadataReader OpenGameAssembly(string directory)
+    /// <summary>One game assembly opened for metadata reading, kept alive for the command's lifetime.</summary>
+    private sealed class GameAssembly : IDisposable
     {
-        string path = Path.Combine(directory, "Assembly-CSharp.dll");
-        if (!File.Exists(path))
+        public string Path;
+        public FileStream Stream;
+        public PEReader PeReader;
+        public MetadataReader Reader;
+
+        public void Dispose()
         {
-            Console.Error.WriteLine($"no Assembly-CSharp.dll in {Path.GetFullPath(directory)}");
+            PeReader?.Dispose();
+            Stream?.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// The assemblies a command reads: `Assembly-CSharp.dll` (the game's own types) and `RimWorld.dll`
+    /// (the engine half — verbs, job defs, pathing). A type is looked up in both, so `--targets Verse.Verb`
+    /// answers instead of claiming the type does not exist, and the contract can name the members the
+    /// bridge compiles against there.
+    /// </summary>
+    private sealed class GameAssemblies : IDisposable
+    {
+        public readonly List<GameAssembly> Items = new();
+
+        /// <summary>
+        /// Finds one type by exact full name, then by simple name, across every opened assembly. An
+        /// ambiguous name lists its candidates — with the assembly each one came from — instead of
+        /// silently picking one.
+        /// </summary>
+        public bool TryFind(string name, out MetadataReader reader, out TypeDefinitionHandle handle, bool quiet = false)
+        {
+            reader = null;
+            handle = default;
+            var exact = new List<(GameAssembly Assembly, TypeDefinitionHandle Handle)>();
+            var simple = new List<(GameAssembly Assembly, TypeDefinitionHandle Handle)>();
+            foreach (GameAssembly assembly in Items)
+            {
+                foreach (TypeDefinitionHandle candidate in assembly.Reader.TypeDefinitions)
+                {
+                    string fullName = FullTypeName(assembly.Reader, candidate);
+                    if (fullName == name)
+                    {
+                        exact.Add((assembly, candidate));
+                        continue;
+                    }
+
+                    if (assembly.Reader.GetString(assembly.Reader.GetTypeDefinition(candidate).Name) == name)
+                    {
+                        simple.Add((assembly, candidate));
+                    }
+                }
+            }
+
+            if (exact.Count == 1)
+            {
+                reader = exact[0].Assembly.Reader;
+                handle = exact[0].Handle;
+                return true;
+            }
+
+            if (exact.Count == 0 && simple.Count == 1)
+            {
+                reader = simple[0].Assembly.Reader;
+                handle = simple[0].Handle;
+                return true;
+            }
+
+            List<(GameAssembly Assembly, TypeDefinitionHandle Handle)> candidates = exact.Count > 0 ? exact : simple;
+            if (candidates.Count == 0)
+            {
+                if (!quiet)
+                {
+                    Console.Error.WriteLine($"type not found: {name} (try --list-types <part of the name>)");
+                }
+
+                return false;
+            }
+
+            Console.Error.WriteLine($"'{name}' is ambiguous; candidates:");
+            foreach ((GameAssembly assembly, TypeDefinitionHandle candidate) in candidates.Take(20))
+            {
+                Console.Error.WriteLine($"  {FullTypeName(assembly.Reader, candidate)} ({Path.GetFileName(assembly.Path)})");
+            }
+
+            return false;
+        }
+
+        public void Dispose()
+        {
+            foreach (GameAssembly assembly in Items)
+            {
+                assembly.Dispose();
+            }
+
+            Items.Clear();
+        }
+    }
+
+    /// <summary>
+    /// Opens the game's two managed assemblies. `RimWorld.dll` is optional (a stripped installation may
+    /// not carry it); `Assembly-CSharp.dll` is not, because everything the bridge is compiled against
+    /// starts there.
+    /// </summary>
+    private static GameAssemblies OpenGameAssemblies(string directory)
+    {
+        var result = new GameAssemblies();
+        foreach (string file in new[] { "Assembly-CSharp.dll", "RimWorld.dll" })
+        {
+            string path = Path.Combine(directory, file);
+            if (!File.Exists(path))
+            {
+                if (file == "Assembly-CSharp.dll")
+                {
+                    Console.Error.WriteLine($"no Assembly-CSharp.dll in {Path.GetFullPath(directory)}");
+                    result.Dispose();
+                    return null;
+                }
+
+                continue;
+            }
+
+            var stream = File.OpenRead(path);
+            var peReader = new PEReader(stream);
+            if (!peReader.HasMetadata)
+            {
+                Console.Error.WriteLine($"{path} has no managed metadata");
+                peReader.Dispose();
+                stream.Dispose();
+                continue;
+            }
+
+            result.Items.Add(new GameAssembly
+            {
+                Path = path,
+                Stream = stream,
+                PeReader = peReader,
+                Reader = peReader.GetMetadataReader(),
+            });
+            Console.Error.WriteLine($"game assembly : {path}");
+        }
+
+        if (result.Items.Count == 0)
+        {
+            result.Dispose();
             return null;
         }
 
-        openAssemblyStream?.Dispose();
-        openAssemblyReader?.Dispose();
-        openAssemblyStream = File.OpenRead(path);
-        openAssemblyReader = new PEReader(openAssemblyStream);
-        if (!openAssemblyReader.HasMetadata)
-        {
-            Console.Error.WriteLine($"{path} has no managed metadata");
-            return null;
-        }
-
-        Console.Error.WriteLine($"game assembly : {path}");
-        return openAssemblyReader.GetMetadataReader();
+        return result;
     }
 
     /// <summary>Full CLR name of a type definition (nested types keep their simple name).</summary>
@@ -100,19 +228,24 @@ internal static partial class Program
     }
     private static int RunListTypes(string directory, string prefix)
     {
-        MetadataReader reader = OpenGameAssembly(directory);
-        if (reader == null)
+        using GameAssemblies assemblies = OpenGameAssemblies(directory);
+        if (assemblies == null)
         {
             return 2;
         }
 
         var names = new List<string>();
-        foreach (TypeDefinitionHandle handle in reader.TypeDefinitions)
+        foreach (GameAssembly assembly in assemblies.Items)
         {
-            string fullName = FullTypeName(reader, handle);
-            if (prefix == null || fullName.StartsWith(prefix, StringComparison.Ordinal))
+            foreach (TypeDefinitionHandle handle in assembly.Reader.TypeDefinitions)
             {
-                names.Add(fullName);
+                string fullName = FullTypeName(assembly.Reader, handle);
+                // A name part, not a prefix: `--list-types Trade` answers with TradeDeal, TradeSession and
+                // the rest. The earlier prefix-only rule silently returned 0 for every namespaced type.
+                if (prefix == null || fullName.Contains(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    names.Add(fullName);
+                }
             }
         }
 
@@ -144,23 +277,22 @@ internal static partial class Program
     /// </summary>
     private static int RunMembersJson(string directory, List<string> typeNames)
     {
-        MetadataReader reader = OpenGameAssembly(directory);
-        if (reader == null)
+        using GameAssemblies assemblies = OpenGameAssemblies(directory);
+        if (assemblies == null)
         {
             return 2;
         }
 
-        var provider = new TypeNameProvider(reader);
         var types = new List<string>();
         foreach (string typeName in typeNames)
         {
-            TypeDefinitionHandle? start = FindType(reader, typeName, quiet: true);
-            if (start == null)
+            if (!assemblies.TryFind(typeName, out MetadataReader reader, out TypeDefinitionHandle start, quiet: true))
             {
                 Console.Error.WriteLine($"skip: this installation has no type {typeName}");
                 continue;
             }
 
+            var provider = new TypeNameProvider(reader);
             var members = new List<string>();
             TypeDefinitionHandle? level = start;
             while (level != null)

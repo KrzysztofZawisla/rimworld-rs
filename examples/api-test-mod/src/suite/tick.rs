@@ -44,11 +44,17 @@ impl ApiTest {
             self.check_plants_animals_trade(ctx);
         }
 
+        if self.suite_ran && !self.deep_trade_checked {
+            self.check_deep_trade(ctx);
+        }
+
         if self.suite_ran && !self.comp_state_checked {
             self.start_comp_checks(ctx);
         }
 
         self.note_comp_checks(ctx);
+        self.note_pocket_generation(ctx);
+        self.note_gas(ctx);
 
         if let Some(start) = self.interval_start_tick {
             self.interval_ticks += 1;

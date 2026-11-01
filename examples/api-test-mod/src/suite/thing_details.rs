@@ -171,6 +171,39 @@ impl ApiTest {
                     ctx.log(format!(
                         "[selftest] the bill path works ({recipe} added, paused with 3 as its target, a move that moves nothing refused by name, a dedicated worker assigned, left in the queue for the game to work)"
                     ));
+
+                    // A second bench proves removal and clearing without touching the bill the event
+                    // checks wait for on the first one.
+                    let removal = (|| -> Result<(), String> {
+                        let mut spot = None;
+                        for (dx, dz) in offsets {
+                            let (x, z) = (table_x + dx, table_z + dz);
+                            if open(ctx, x, z)? {
+                                spot = Some((x, z));
+                                break;
+                            }
+                        }
+                        let (qx, qz) = spot.ok_or("no open cell for the second bench")?;
+                        let bench = ctx
+                            .spawn_thing(thing_def::TABLE_STONECUTTER, map.id, qx, qz)
+                            .map_err(|error| error.to_string())?;
+                        ctx.thing_add_bill(&bench, &recipe, 1).map_err(|error| error.to_string())?;
+                        if ctx.thing_bills(&bench).map_err(|error| error.to_string())?.len() != 1 {
+                            return Err("the second bench did not take one bill".to_string());
+                        }
+                        ctx.thing_remove_bill(&bench, Some(0)).map_err(|error| error.to_string())?;
+                        if !ctx.thing_bills(&bench).map_err(|error| error.to_string())?.is_empty() {
+                            return Err("removing the only bill left one behind".to_string());
+                        }
+                        ctx.thing_add_bill(&bench, &recipe, 1).map_err(|error| error.to_string())?;
+                        ctx.thing_add_bill(&bench, &recipe, 1).map_err(|error| error.to_string())?;
+                        let cleared = ctx.thing_clear_bills(&bench).map_err(|error| error.to_string())?;
+                        if cleared != 2 {
+                            return Err(format!("clearing two bills answered {cleared}"));
+                        }
+                        Ok(())
+                    })();
+                    self.report.check(ctx, "a bill is removed and the queue cleared", removal);
                 }
                 None => self.report.skip(
                     ctx,

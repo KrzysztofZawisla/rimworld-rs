@@ -280,6 +280,18 @@ pub struct PocketMap {
     pub generator: String,
 }
 
+/// A queued pocket-map generation: poll it until the state is `done` or `failed`.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct PocketJob {
+    pub token: i32,
+    /// `queued`, `running`, `done` or `failed`.
+    pub state: String,
+    /// The map the job made, once `state` is `done`.
+    pub map_id: i32,
+    pub error: Option<String>,
+}
+
 /// Where a thing ended up after the game moved it.
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase", default)]

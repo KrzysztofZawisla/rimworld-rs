@@ -16,39 +16,93 @@ namespace RustBridge;
 internal static partial class EnvironmentOps
 {
     /// <summary>
-    /// Generates a pocket map through the game's own `MapGenerator` and a `PocketMapParent` (the class the
-    /// game itself uses for its pocket maps) and answers with the map it made. The generator defaults to
-    /// the installation's first `MapGeneratorDef` when the caller names none.
+    /// Generates a pocket map synchronously through the game's own `MapGenerator` and a
+    /// `PocketMapParent`. Only safe from a queued game event: `GenerateMap` goes through
+    /// `LongEventHandler`, and calling it from a tick blocks the game — `map_generate_pocket_queue`
+    /// is the tick-safe route.
     /// </summary>
     public static object GeneratePocketMap(JsonElement request)
     {
+        (int size, MapGeneratorDef generator, PocketMapParent parent) = PreparePocketMap(request);
+        Map map = GeneratePocketMapNow(size, generator, parent);
+        return PocketMapSnapshot(map, generator, parent);
+    }
+
+    /// <summary>Validates the request and builds the def-backed world object the map hangs off.</summary>
+    internal static (int Size, MapGeneratorDef Generator, PocketMapParent Parent) PreparePocketMap(JsonElement request)
+    {
         int size = Math.Clamp(JsonArgs.GetInt(request, "size", 75), 25, 250);
         string defName = JsonArgs.GetStringOrNull(request, "generator");
-        MapGeneratorDef generator = defName == null
-            ? DefDatabase<MapGeneratorDef>.AllDefsListForReading?.FirstOrDefault()
-            : DefDatabase<MapGeneratorDef>.GetNamedSilentFail(defName);
+        MapGeneratorDef generator = defName != null
+            ? DefDatabase<MapGeneratorDef>.GetNamedSilentFail(defName)
+            : MapGeneratorDefOf.Labyrinth ?? MapGeneratorDefOf.MetalHell ?? MapGeneratorDefOf.Undercave
+                ?? MapGeneratorDefOf.SpacePocket;
         if (generator == null)
         {
             throw new BridgeException(defName == null
-                ? "this installation has no map generator at all"
+                ? "this installation has no pocket-map generator (Anomaly's MetalHell is the first choice)"
                 : $"there is no map generator '{defName}'");
         }
 
-        var parent = new PocketMapParent();
+        // `GenerateMap` with `isPocketMap: true` reads this def and dereferences it; a generator without
+        // it is a named refusal here instead of a NullReferenceException inside the game.
+        if (generator.pocketMapProperties == null)
+        {
+            throw new BridgeException(
+                $"'{generator.defName}' cannot generate a pocket map (the def has no pocketMapProperties)");
+        }
+
+        // A world object needs its def: `new PocketMapParent()` leaves `def` null and the game throws
+        // inside `WorldObjects.Add`. This is the same object the game's own pocket maps use.
+        PocketMapParent parent = WorldObjectMaker.MakeWorldObject(WorldObjectDefOf.PocketMap) as PocketMapParent
+            ?? throw new BridgeException("this installation's PocketMap def is not a PocketMapParent");
+        Map host = Find.AnyPlayerHomeMap ?? Find.CurrentMap ?? Find.Maps.FirstOrDefault();
+        if (host == null)
+        {
+            throw new BridgeException("there is no map to anchor a pocket map to");
+        }
+
+        parent.sourceMap = host;
+        parent.Tile = host.Tile;
+        parent.mapGenerator = generator;
         Find.WorldObjects.Add(parent);
-        Map map = MapGenerator.GenerateMap(
-            new IntVec3(size, 1, size),
-            parent,
-            generator,
-            extraGenStepDefs: null,
-            extraInitBeforeContentGen: null,
-            isPocketMap: true,
-            stepDebugger: false);
+        return (size, generator, parent);
+    }
+
+    /// <summary>The game's own generation call, shared by the synchronous and the queued route.</summary>
+    internal static Map GeneratePocketMapNow(int size, MapGeneratorDef generator, PocketMapParent parent)
+    {
+        Map map;
+        try
+        {
+            map = MapGenerator.GenerateMap(
+                new IntVec3(size, 1, size),
+                parent,
+                generator,
+                extraGenStepDefs: System.Array.Empty<GenStepWithParams>(),
+                extraInitBeforeContentGen: null,
+                isPocketMap: true,
+                stepDebugger: false);
+        }
+        catch (System.Exception error)
+        {
+            throw new BridgeException(
+                $"the game failed while generating the pocket map: {error.GetType().Name}: {error.Message}");
+        }
+
         if (map == null)
         {
             throw new BridgeException($"the game generated no map with '{generator.defName}'");
         }
 
+        return map;
+    }
+
+    internal static Dictionary<string, object> PocketMapSnapshot(
+        Map map,
+        MapGeneratorDef generator,
+        PocketMapParent parent)
+    {
         return new Dictionary<string, object>
         {
             ["mapId"] = map.uniqueID,

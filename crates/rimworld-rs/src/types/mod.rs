@@ -1,5 +1,9 @@
 //! Values exchanged with the game: event payloads, defs, references and patch results.
 
+mod anomaly_types;
+pub use anomaly_types::*;
+mod combat_trade_types;
+pub use combat_trade_types::*;
 mod core;
 pub use core::*;
 mod events;

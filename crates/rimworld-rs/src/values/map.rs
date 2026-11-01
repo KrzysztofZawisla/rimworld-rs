@@ -107,6 +107,36 @@ impl<'a> Map<'a> {
         self.ctx.float_menu(self.id()?, x, z, options)
     }
 
+    /// The path a pawn would take to a cell, through the game's own pathfinder.
+    pub fn path_to(&self, pawn: &ObjRef, x: i32, z: i32) -> Result<crate::MapPath> {
+        self.ctx.map_path(self.id()?, pawn, x, z)
+    }
+
+    /// How much cover a cell gives against a shooter at another cell.
+    pub fn cover(&self, shooter_x: i32, shooter_z: i32, target_x: i32, target_z: i32) -> Result<crate::CoverSnapshot> {
+        self.ctx.map_cover(self.id()?, shooter_x, shooter_z, target_x, target_z)
+    }
+
+    /// The same cover question asked about a live thing.
+    pub fn cover_of(&self, shooter_x: i32, shooter_z: i32, target: &ObjRef) -> Result<crate::CoverSnapshot> {
+        self.ctx.map_cover_of(self.id()?, shooter_x, shooter_z, target)
+    }
+
+    /// The storage groups this map keeps.
+    pub fn storage_groups(&self) -> Result<Vec<crate::StorageGroupInfo>> {
+        self.ctx.map_storage_groups(self.id()?)
+    }
+
+    /// The animal pens this map has.
+    pub fn pens(&self) -> Result<Vec<crate::PenInfo>> {
+        self.ctx.map_pens(self.id()?)
+    }
+
+    /// Every Anomaly entity on this map, with its study state.
+    pub fn anomaly_entities(&self) -> Result<Vec<crate::AnomalyEntity>> {
+        self.ctx.map_anomaly_entities(self.id()?)
+    }
+
     pub fn get(&self, member: &str) -> Result<Value> {
         self.handle.get(member)
     }

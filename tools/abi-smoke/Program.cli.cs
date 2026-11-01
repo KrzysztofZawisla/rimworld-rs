@@ -139,6 +139,20 @@ internal static partial class Program
             return RunOpParityCheck(string.IsNullOrEmpty(repoPath) ? Directory.GetCurrentDirectory() : repoPath);
         }
 
+        if (flags.Contains("--proof"))
+        {
+            values.TryGetValue("--proof", out string repoPath);
+            return RunProofCheck(string.IsNullOrEmpty(repoPath) ? Directory.GetCurrentDirectory() : repoPath);
+        }
+
+        if (flags.Contains("--coverage-audit"))
+        {
+            values.TryGetValue("--coverage-audit", out string repoPath);
+            return RunCoverageAudit(
+                string.IsNullOrEmpty(repoPath) ? Directory.GetCurrentDirectory() : repoPath,
+                flags.Contains("--write"));
+        }
+
         if (positional.Count != 1 || !File.Exists(positional[0]))
         {
             Console.Error.WriteLine("usage: abi-smoke [<path to the Rust cdylib>] [--fixture]");

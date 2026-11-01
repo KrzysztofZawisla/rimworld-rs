@@ -238,7 +238,27 @@ ctx.def_call("ThingDef", "Steel", "get_LabelCap", vec![])?;
 
 XML patches remain the normal way to change defs at load time; these calls are for runtime changes
 driven by gameplay. Use `cargo xtask targets <Type> --members <filter>` to find members, and
-`cargo xtask types <prefix>` to find type names.
+`cargo xtask types <name part>` to find type names in both game assemblies.
+
+### Typed def wrappers
+
+The generated wrappers (`VerseDef`, `VerseThingDef`, `VerseRecipeDef`, `VersePawnKindDef`, ...) read a
+def through the same handle path as any other object. A spawned thing already carries the handle to
+its def:
+
+```rust
+use rimworld_rs::VerseThingDef;
+
+let steel = ctx.spawn_thing(thing_def::STEEL, map_id, x, z)?;
+if let Some(handle) = steel.def()? {
+    let def = VerseThingDef::new(ctx, handle);
+    ctx.log(format!("Steel stacks to {} per cell", def.stack_limit()?));
+}
+```
+
+`VerseDef` covers the base members (`def_name()`, `label()`, `description()`); the type-specific
+wrapper covers the members that type declares. Build one from any def handle: a thing's `def`, a
+bill's `recipe`, a pawn's `kindDef`, or an object a `def_get` returned.
 
 ## User interface
 
@@ -497,7 +517,7 @@ batch them with [`Context::run_batch`] or keep the number of calls small.
 
 A window is declared in Rust (above). Managed *types* that the game instantiates — `ThingComp`,
 `JobDriver`, `ITab`, `Window`, `HediffComp` — must live in the mod's companion assembly, because Rust
-cannot define a CLR type. `cargo xtask new <Name> --path <DIR> --comp --job --itab` writes working samples for
+cannot define a CLR type. `cargo xtask new <Name> --path <DIR> --comp --job --itab --think --lordjob --worldobject --graphic` writes working samples for
 all three; an `ITab` asks Rust for its content like this:
 
 ```csharp
@@ -573,6 +593,18 @@ pawn.set_xenotype(xenotype_def::DIRTMOLE)?;
 pawn.add_thought(thought_def::ATE_WITHOUT_TABLE)?;         // a memory, the stuff moods are made of
 pawn.remove_thought(thought_def::ATE_WITHOUT_TABLE)?;
 pawn.set_need(need_def::MOOD, 0.75)?;                      // a need straight, 0..1
+
+// What the colony thinks of itself: one pawn's opinion of another, and the thoughts behind a mood.
+let opinion = ctx.pawn_opinion(a.handle(), b.handle())?;    // {a, b, opinion, explanation, standing}
+ctx.log(format!("{} about {}: {}", opinion.a.unwrap_or_default(), opinion.b.unwrap_or_default(), opinion.opinion));
+
+let thoughts = ctx.pawn_thoughts(a.handle())?;              // {total_mood_offset, thoughts: [{def_name, label, mood_offset}]}
+for thought in &thoughts.thoughts {
+    ctx.log(format!("{} {:+.1}", thought.label.as_deref().unwrap_or("?"), thought.mood_offset));
+}
+
+// An ability the pawn already has, cast by the game itself.
+ctx.pawn_cast_ability(a.handle(), ability_def::PSYCAST_BURDEN, Some(target.handle()), None)?;
 ```
 
 The gene def names come from the generated `gene_def` module; a game without Biotech answers with a
@@ -675,12 +707,20 @@ for good in trader_pawn.trader_goods(64)? {        // {handle, def_name, label, 
 
 // The game's own price formula for one thing, with a neutral trader.
 let prices = thing.prices()?;                      // {market_value, player_buys, player_sells}
+
+// One line of trade, executed by the game: positive sells to the trader, negative buys from it.
+let deal = ctx.trade_execute(trader_pawn.handle(), negotiator.handle(), thing_def::STEEL, 25)?;
+// {trader, def_name, count, executed, traded, can_trade_now}
 ```
 
 `tame_order` and `prices` are the honest versions of "tame this" and "what would this cost": the game's
 own `TameUtility.CanTame` decides whether the order is given, and the price is the game's formula with a
 neutral trader (a live trade applies its own factors — negotiator skill, faction goodwill, the trader's
-kind — so use it as a preview).
+kind — so use it as a preview). `trade_execute` is the real thing: the game's own `TradeSession` builds
+the deal, `Tradeable.CanAdjustTo` decides whether the direction and the amount are legal, and
+`TradeDeal.TryExecute` moves the goods and the silver. The trader has to be one the game can trade with
+now — a caravan, a trade ship, a trader pawn — so a settlement with no caravan at it is refused by the
+game's own session setup, with its reason.
 
 ## The planet
 
@@ -693,6 +733,12 @@ for object in ctx.world_objects()? {           // {type_name, handle, label, til
         object.label.unwrap_or_default(),
         object.tile
     ));
+}
+
+// A settlement the mod founds itself, and takes back out again.
+let founded = ctx.settlement_create(tile, "Pirate", Some("Rust Outpost"))?;   // {handle, label, name, tile, faction}
+if let Some(handle) = founded.handle {
+    ctx.world_object_remove(&handle)?;
 }
 
 let route = ctx.world_path(from_tile, to_tile)?;   // {found, total_cost, node_count, tiles}
@@ -771,6 +817,20 @@ ctx.storage_allow(&storage, "Steel", false)?;          // {label, def_name, befo
 for thing in ctx.map_haulables(map_id, 64)? {          // {handle, def_name, label, stack_count, x, z}
     ctx.log(format!("{} x{}", thing.label.unwrap_or_default(), thing.stack_count));
 }
+
+// A real path, from the game's own pathfinder: the pawn decides what it may cross.
+let path = ctx.map_path(map_id, pawn.handle(), 40, 40)?;   // {found, cost, count, cells: [{x, z}]}
+if path.found {
+    ctx.log(format!("{} cells for {:.1}", path.count, path.cost));
+}
+
+// The storage groups and animal pens the map itself keeps.
+for group in ctx.map_storage_groups(map_id)? {          // {label, members, cells, held_things}
+    ctx.log(format!("{}: {} cell(s)", group.label.unwrap_or_default(), group.cells));
+}
+for pen in ctx.map_pens(map_id)? {                      // {name, enclosed, regions, animals}
+    ctx.log(format!("{:?}: enclosed={} animals={}", pen.name, pen.enclosed, pen.animals));
+}
 ```
 
 A designation def says which target it takes (`DesignationDef.targetType`), and the bridge refuses the
@@ -798,11 +858,44 @@ for verb in pawn.verbs()? {                  // {source, label, range, min_range
 
 pawn.equip(&weapon)?;                        // a weapon on the map leaves it and the pawn holds it
 pawn.attack(target.handle())?;               // the game's own AttackMelee job, queued like a player order
+ctx.pawn_ranged_attack(pawn.handle(), Some(target.handle()), None, None)?;   // the game's own Verb.TryStartCastOn
+
+// How much cover a cell gives, and by which things — the game's own numbers.
+let cover = ctx.map_cover(map_id, 40, 40, 44, 40)?;      // {block_chance, count, givers, shooter}
+let cover_of_thing = ctx.map_cover_of(map_id, 40, 40, target.handle())?;
+ctx.log(format!("{:.0}% blocked by {} thing(s)", cover.block_chance * 100.0, cover.count));
+
+// A projectile the game flies and resolves: a def, an origin, a target.
+ctx.projectile_launch(thing_def::BULLET, map_id, (40, 40), Some(target.handle()), None, Some("All"))?;
 ```
 
-`pawn_attack` is the melee convenience: for ranged attacks, aiming, cover and the rest, use
-`pawn_take_job` with the game's own job defs or patch the game's own decisions. `equip` refuses a thing
-whose `ThingDef.IsWeapon` is false, with a message that names the thing.
+`pawn_attack` is the melee convenience; `pawn_ranged_attack` starts a cast with one of the pawn's own
+verbs, so aiming, warm-up and the projectile are the game's (the verb is picked by label, or the first
+non-melee one). For anything else — cover, combat AI decisions — use `pawn_take_job` with the game's own
+job defs or patch the game's own decisions. `equip` refuses a thing whose `ThingDef.IsWeapon` is false,
+with a message that names the thing.
+
+## Anomaly entities and studies
+
+```rust
+// Every entity the game marks as studiable or holdable, with its own study state.
+for entity in ctx.map_anomaly_entities(map_id)? {   // {handle, def_name, progress, completed, ticks_til_next_study, knowledge, category, held, can_study}
+    ctx.log(format!(
+        "{}: {:.0}% studied",
+        entity.label.unwrap_or_default(),
+        entity.progress * 100.0
+    ));
+}
+
+// One study interaction, after the game's own "is this unlocked" verdict.
+if let Some(entity) = ctx.map_anomaly_entities(map_id)?.first() {
+    let handle = entity.handle.clone().unwrap();
+    ctx.anomaly_study(&handle, researcher.handle(), 1.0)?;   // {before, after, completed, knowledge}
+}
+```
+
+A map with no Anomaly content answers with an empty list, and a thing that is not studiable is refused
+by name; `anomaly_study` reports the progress before and after, so a study the game ignored is visible.
 
 ## Game-state events
 
@@ -829,6 +922,10 @@ callbacks with no XML, no C# and no `harmony_patch` of your own:
 | `on_message_shown(&mut Context, &MessageShown)` | the game showed a message (the corner of the screen, not a letter) |
 | `on_mental_state_started(&mut Context, &MentalStateStarted)` | a pawn entered a mental state — the pawn travels as a handle, `forced` says whether the game forced it |
 | `on_mental_state_ended(&mut Context, &MentalStateEnded)` | a mental state ended; the payload still carries the state's def |
+| `on_game_condition_started(&mut Context, &GameConditionStarted)` | a game condition was registered (a heat wave, a toxic fallout, an eclipse) — `permanent`, `duration` and `ticks_left` are the game's own values |
+| `on_game_condition_ended(&mut Context, &GameConditionEnded)` | a game condition was taken off the map, whether it expired or something ended it |
+| `on_faction_relation_changed(&mut Context, &FactionRelationChanged)` | two factions' relation kind changed through the game's own `SetRelationDirect` — `kind` is the game's `FactionRelationKind` name |
+| `on_visitor_arrived(&mut Context, &VisitorArrived)` | a humanlike pawn that is not the colony's appeared on a player home map — a visitor, a trader (`trader_kind` is set), a raid's straggler, a quest pawn |
 
 ```rust
 fn on_thing_destroyed(&mut self, ctx: &mut Context, info: &ThingDestroyed) {
@@ -859,7 +956,7 @@ hands you a pawn that is already dead (`def_name` and `label` work, anything tha
 does not).
 
 The bridge owns the patches (`bridge/src/GameEvents.cs`) and installs them when Harmony is available:
-without the brrainz.harmony mod the mod keeps working and these eighteen callbacks simply never fire (the
+without the brrainz.harmony mod the mod keeps working and these twenty-two callbacks simply never fire (the
 log says so once). Every game member they touch is in the contract check, so a game update that moves
 one fails `cargo xtask test` rather than dropping the event.
 

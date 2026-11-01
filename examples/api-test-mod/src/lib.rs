@@ -116,6 +116,12 @@ struct GameEventsSeen {
     mental_started: u32,
     mental_label: Option<String>,
     mental_ended: u32,
+    /// Whether the suite managed to spawn a non-colony humanlike for `visitor_arrived`.
+    visitor_attempted: bool,
+    visitor_arrived: u32,
+    visitor_label: Option<String>,
+    visitor_faction: Option<String>,
+    visitor_trader_kind: Option<String>,
 }
 
 #[derive(Default)]
@@ -210,6 +216,21 @@ struct ApiTest {
 
     // plants, animals and trade
     nature_checked: bool,
+
+    // the executed trade (needs a live game, so it runs on a tick rather than during map generation)
+    deep_trade_checked: bool,
+
+    // the queued pocket map: generated on the game's long-event thread, polled on a tick
+    pocket_attempted: bool,
+    pocket_token: Option<i32>,
+    pocket_deadline: i64,
+    pocket_checked: bool,
+
+    // gas the game applies on its next grid tick, and the trader the incident brings
+    gas_pending: Option<(i32, i32, i32)>,
+    gas_checked: bool,
+    trade_armed: bool,
+    trade_deadline: i64,
 }
 
 rimworld_rs::export_mod!(ApiTest);

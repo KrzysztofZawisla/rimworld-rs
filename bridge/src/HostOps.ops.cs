@@ -161,6 +161,8 @@ internal static partial class HostOps
                 return null;
             case "pawn_relations":
                 return PawnOps.Relations(request);
+            case "pawn_opinion":
+                return Trackers.Opinion(request);
             case "pawn_abilities":
                 return PawnOps.Abilities(request);
             case "pawn_damage":
@@ -194,6 +196,8 @@ internal static partial class HostOps
                 return null;
             case "pawn_set_need":
                 return PawnOps.SetNeed(request);
+            case "pawn_thoughts":
+                return Trackers.Thoughts(request);
             case "thing_bills":
                 return ThingOps.Bills(request);
             case "thing_bill_add":
@@ -338,6 +342,8 @@ internal static partial class HostOps
                 return Trackers.GainAbility(request);
             case "pawn_remove_ability":
                 return Trackers.RemoveAbility(request);
+            case "pawn_cast_ability":
+                return Trackers.CastAbility(request);
             case "pawn_set_skill_passion":
                 return Trackers.SetSkillPassion(request);
             case "pawn_set_relation":
@@ -372,6 +378,10 @@ internal static partial class HostOps
                 return CombatOps.Lords(request);
             case "map_generate_pocket":
                 return EnvironmentOps.GeneratePocketMap(request);
+            case "map_generate_pocket_queue":
+                return EnvironmentOps.QueuePocketMap(request);
+            case "map_generation_status":
+                return EnvironmentOps.PocketStatus(request);
             case "lord_add_pawn":
                 return CombatOps.LordAddPawn(request);
             case "lord_create":
@@ -539,6 +549,14 @@ internal static partial class HostOps
                 return WorldOps.Quests();
             case "settlements_list":
                 return WorldOps.Settlements();
+            case "settlement_create":
+                return WorldOps.CreateSettlement(request);
+            case "trade_execute":
+                return WorldOps.ExecuteTrade(request);
+            case "map_anomaly_entities":
+                return DlcOps.AnomalyEntities(request);
+            case "anomaly_study":
+                return DlcOps.AnomalyStudy(request);
             case "world_tile_info":
                 return WorldOps.TileInfo(request);
             case "incident_fire":
@@ -692,6 +710,12 @@ internal static partial class HostOps
                 return CombatOps.Equip(request);
             case "pawn_attack":
                 return CombatOps.Attack(request);
+            case "pawn_ranged_attack":
+                return CombatOps.RangedAttack(request);
+            case "map_cover":
+                return CombatOps.Cover(request);
+            case "projectile_launch":
+                return CombatOps.LaunchProjectile(request);
             case "world_objects":
                 return WorldOps.WorldObjects();
             case "world_path":
@@ -716,6 +740,12 @@ internal static partial class HostOps
                 return DlcOps.Snapshot();
             case "map_haulables":
                 return ThingOps.Haulables(request);
+            case "map_path":
+                return EnvironmentOps.Path(request);
+            case "map_storage_groups":
+                return EnvironmentOps.StorageGroups(request);
+            case "map_pens":
+                return EnvironmentOps.Pens(request);
             default:
                 throw new BridgeException($"unknown op '{op}'");
         }

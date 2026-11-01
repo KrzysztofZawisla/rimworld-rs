@@ -192,3 +192,50 @@ pub struct LordDestroyed {
     /// The job's type name, as the game called it while the group lived.
     pub job: Option<String>,
 }
+
+/// A humanlike pawn that is not the colony's arrived on a player home map: a visitor, a trader, a raid's
+/// straggler, a quest pawn.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct VisitorArrived {
+    pub pawn: Option<ObjRef>,
+    pub label: Option<String>,
+    pub faction: Option<String>,
+    pub faction_def_name: Option<String>,
+    /// The trader kind when the pawn is a trader (`null` for a plain visitor).
+    pub trader_kind: Option<String>,
+    pub hostile: bool,
+    pub map_id: i32,
+    pub x: i32,
+    pub z: i32,
+}
+
+/// A game condition started: a heat wave, a toxic fallout, an eclipse.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct GameConditionStarted {
+    pub def_name: Option<String>,
+    pub label: Option<String>,
+    pub permanent: bool,
+    /// The condition's own duration in ticks, and what is left of it.
+    pub duration: i32,
+    pub ticks_left: i32,
+}
+
+/// A game condition ended — by expiring, or because the game took it off the map.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct GameConditionEnded {
+    pub def_name: Option<String>,
+    pub label: Option<String>,
+}
+
+/// Two factions' relation kind changed, through the game's own `SetRelationDirect`.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct FactionRelationChanged {
+    pub faction: Option<String>,
+    pub other: Option<String>,
+    /// The game's own `FactionRelationKind` name (`Hostile`, `Neutral`, `Ally`).
+    pub kind: Option<String>,
+}

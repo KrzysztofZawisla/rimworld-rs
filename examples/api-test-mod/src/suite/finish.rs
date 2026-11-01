@@ -7,7 +7,11 @@ impl ApiTest {
         }
 
         let patches_resolved = !self.harmony_ready || (self.map_instance_checked && self.interval_checked);
-        if !patches_resolved || !self.events_checked {
+        if !patches_resolved
+            || !self.events_checked
+            || !self.deep_trade_checked
+            || (self.pocket_attempted && !self.pocket_checked)
+        {
             return;
         }
 

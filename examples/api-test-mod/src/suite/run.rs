@@ -25,6 +25,7 @@ impl ApiTest {
         self.check_harmony(ctx, map);
         self.check_construction_planet_and_diagnostics(ctx, map);
         self.check_saved_data_defs_and_drawing(ctx, map);
+        self.check_deep_systems(ctx, map);
     }
 
     /// Removes every pawn the map knows that is not the colony's, spawned or not, and kills whatever an

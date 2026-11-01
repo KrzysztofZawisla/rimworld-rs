@@ -333,3 +333,14 @@ pub struct WorkSnapshot {
     /// assignable priority and [`crate::Pawn::set_work_priority`] refuses them.
     pub locked: bool,
 }
+
+/// What starting a ranged cast did.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct RangedAttack {
+    pub pawn: Option<String>,
+    pub verb: Option<String>,
+    pub range: f32,
+    pub started: bool,
+    pub target: Option<String>,
+}

@@ -54,7 +54,7 @@ cargo xtask doctor            # game folder, version, toolchain, Harmony, mods f
 cargo xtask build  [<mod>] [--path <DIR>]  # build into build/<ModName> (repo) or <ModDir>/build/<ModName>
 cargo xtask build  [<mod>] [--path <DIR>] --all-targets   # ...with a native library per platform
 cargo xtask install[<mod>] [--path <DIR>]  # build, then copy into <game>/Mods/<ModName>/
-cargo xtask new <Name> [--path <DIR>] [--comp] [--job] [--itab]
+cargo xtask new <Name> [--path <DIR>] [--comp] [--job] [--itab] [--think] [--lordjob] [--worldobject] [--graphic]
                               # scaffold mods/<Name>/ (or an external --path project) + samples
 cargo xtask remove <mod>      # delete mods/<mod> and its workspace entry
 cargo xtask package [<mod>] [--path <DIR>] [--all-targets] # build and zip into <ModDir>/dist/<ModName>-<version>.zip
@@ -66,7 +66,8 @@ cargo xtask defs [--types T]  # list the installation's def names, without writi
 cargo xtask watch-log [--errors] [--grep <text>] [--tail <n>] [--once]
                               # follow Player.log, filtered to this project's [Rust]/[selftest] lines
 cargo xtask run [-- <args>]   # start RimWorld (e.g. `-- -quicktest`)
-cargo xtask smoke             # install both examples, run -quicktest with them via -mod=
+cargo xtask smoke [--harmony] # install both examples, run -quicktest with them via -mod=
+                              # --harmony requires Harmony in Mods and fails on a Harmony-dependent SKIP
 ```
 
 Without a `<mod>` argument the example mod (`hello-rust-mod`) is used. Mods under `examples/` and `mods/`
@@ -185,7 +186,8 @@ The mod is a native library that RimWorld loads once per launch: **restart the g
   mod reports SKIP instead of FAIL for anything the mock cannot answer, so a FAIL always means a
   real problem. `cargo xtask smoke` runs that loop with both example mods, selecting them through 1.7's
   `-mod=` argument so a fresh installation needs no `ModsConfig.xml` edit, and fails the command on a
-  `[selftest] FAIL` line.
+  `[selftest] FAIL` line. Add `--harmony` to put the Workshop Harmony into the local `Mods` folder and
+  to make a Harmony-dependent SKIP a failure, which is how the event-hook checks are proven.
 - Common causes of "nothing happens":
   - the mod is installed but not enabled in the in-game mod list;
   - the native library is not in `Rust/<rid>/` for the platform the game runs on (exactly one

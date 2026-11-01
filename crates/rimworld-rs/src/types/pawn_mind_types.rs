@@ -229,3 +229,46 @@ pub struct AbilitySnapshot {
     pub def_name: Option<String>,
     pub label: Option<String>,
 }
+
+/// One pawn's opinion of another, with the game's own explanation and the thresholds it compares against.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct PawnOpinion {
+    pub a: Option<String>,
+    pub b: Option<String>,
+    pub opinion: i32,
+    pub explanation: Option<String>,
+    pub friend_threshold: i32,
+    pub rival_threshold: i32,
+    pub standing: Option<String>,
+}
+
+/// One thought a pawn's mood is made of.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct ThoughtEntry {
+    pub def_name: Option<String>,
+    pub label: Option<String>,
+    pub mood_offset: f32,
+    pub duration_ticks: i32,
+}
+
+/// The thoughts a pawn's mood is made of, and the total offset the game computes.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct PawnThoughts {
+    pub pawn: Option<String>,
+    pub total_mood_offset: f32,
+    pub count: i32,
+    pub thoughts: Vec<ThoughtEntry>,
+}
+
+/// What casting an ability did.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct AbilityCast {
+    pub ability: Option<String>,
+    pub cast: bool,
+    pub cooldown_ticks_remaining: i32,
+    pub target: Option<String>,
+}

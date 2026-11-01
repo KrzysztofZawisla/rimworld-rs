@@ -41,7 +41,7 @@ struct travels by value across the Rust/C# ABI.
 |---|---|
 | `doctor` | What is missing: game path, references, cargo/dotnet, Harmony |
 | `setup` | Copy the game's reference assemblies into the gitignored `game-refs/` (the bridge compiles without the game) |
-| `new <Name> [--path <DIR>] [--comp --job --itab]` | Scaffold `mods/<Name>` (or `<DIR>` with `--path`) plus optional companion samples |
+| `new <Name> [--path <DIR>] [--comp --job --itab --think --lordjob --worldobject --graphic]` | Scaffold `mods/<Name>` (or `<DIR>` with `--path`) plus optional companion samples |
 | `remove <mod>` | Delete `mods/<mod>` and its workspace entry |
 | `build [<mod>] [--path <DIR>] [--target <triple>] [--all-targets]` / `install …` / `package …` | Build into `build/<ModName>` (or `<ModDir>/build/`), copy into `<game>/Mods`, zip into `dist/` (or `<ModDir>/dist/`); each target adds one `Rust/<rid>/` folder |
 | `gen-defs [<mod>] [--path <DIR>]` / `defs` | Rust constants for def names (`<ModDir>/src/generated_defs/`, gitignored) / list the installation's defs |
@@ -49,7 +49,7 @@ struct travels by value across the Rust/C# ABI.
 | `secrets [--staged]` | gitleaks over the whole git history, or the staged pre-commit mode; SKIP if gitleaks is missing |
 | `watch-log [--errors --grep <text> --tail <n> --once]` | Follow `Player.log`, filtered to `[Rust]`/`[selftest]` lines |
 | `run -- <args>` | Start the game (dev loop), e.g. `cargo xtask run -- -quicktest` |
-| `targets <Type> [--members <M>]` / `types <prefix>` / `coverage <Type>` | Reverse-engineering help: patch targets with ready-to-paste lines, type search, what has a typed wrapper |
+| `targets <Type> [--members <M>]` / `types <name part>` / `coverage <Type>` | Reverse-engineering help over both game assemblies: patch targets with ready-to-paste lines, type search, what has a typed wrapper |
 | `test` / `fmt [--fix]` / `lint` / `layout --check` | The gates (below) |
 | `smoke` | Install both example mods, run `-quicktest -mod=brrainz.harmony,rimworld.rs.hello,rimworld.rs.apitest`, fail on `[selftest] FAIL` (leaves the game running) |
 | `gen-subsystems [--check]` | Regenerate or verify the tracked wrappers in `crates/rimworld-rs/src/subsystems_extra/` |
@@ -75,7 +75,8 @@ registers it in the workspace by default; `--path` creates the standalone projec
   `cargo xtask smoke` does that loop with both example mods, passing them with `-mod=` (Harmony is requested
   too, so it loads when it exists in the game's local `Mods` folder; a Workshop-only Harmony is dropped) so the
   player's `ModsConfig.xml` is untouched, and fails the command on a `FAIL` line; without Harmony the Harmony
-  checks report SKIP.
+  checks report SKIP. `cargo xtask smoke --harmony` copies the Workshop Harmony into `Mods` first and treats
+  any Harmony-dependent SKIP as a failure, which proves the game-state event hooks.
 - `ModsConfig.xml` lists mods by **packageId** (`rimworld.rs.apitest` for the self-test), never by folder name;
   the file lives in the game's user data folder: `%USERPROFILE%\AppData\LocalLow\Ludeon Studios\RimWorld by
   Ludeon Studios\Config\` on Windows, `~/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios/Config/` on
@@ -107,7 +108,8 @@ pre-commit mode (enable it with `git config core.hooksPath .githooks`). Install 
 command prints SKIP. `cargo xtask smoke` is
 the in-game counterpart: it installs both example mods, launches
 `-quicktest -mod=brrainz.harmony,rimworld.rs.hello,rimworld.rs.apitest`, and fails on `[selftest] FAIL` or a
-non-zero failed count in the summary.
+non-zero failed count in the summary. `--harmony` puts the Workshop copy into `Mods` and fails on a
+Harmony-dependent SKIP.
 
 `tools/abi-smoke` modes worth knowing:
 

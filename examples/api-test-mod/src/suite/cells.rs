@@ -36,20 +36,29 @@ impl ApiTest {
         // This cell's own temperature, toward a target.
         // (The heat push and the cell temperature are checked above, on the game's own answers.)
 
-        let gas =
-            ctx.map_add_gas(map_id, x, z, "BlindSmoke", 200).map_err(|error| error.to_string()).and_then(|after| {
-                if after.blind_smoke > 0 && after.any {
-                    return Ok(());
-                }
-
-                // The gas grid is the game's own simulation, like the temperature grid: it can move or
-                // absorb what was just added before a same-tick read sees it. The answer carries the
-                // numbers, so this is a named skip with the game's own words, not a failure.
-                Err(format!("the grid kept none of the gas a same-tick read could see: {after:?}"))
-            });
-        match gas {
-            Ok(()) => self.report.check(ctx, "map_add_gas puts gas in the cell and map_gas sees it", Ok(())),
-            Err(why) => self.report.skip(ctx, "map_add_gas puts gas in the cell and map_gas sees it", &why),
+        // The gas grid applies its queue on its own tick, so a same-tick read can legitimately be zero.
+        // The check asks again on the next tick instead of turning that into a SKIP.
+        match ctx.map_add_gas(map_id, x, z, "BlindSmoke", 5000).map_err(|error| error.to_string()) {
+            Ok(after) if after.blind_smoke > 0 && after.any => {
+                let direct = ctx.map_gas(map_id, x, z).map_err(|error| error.to_string());
+                let outcome = direct.and_then(|gas| {
+                    if gas.blind_smoke > 0 {
+                        Ok(())
+                    } else {
+                        Err(format!("map_gas reports no blind smoke after the write: {gas:?}"))
+                    }
+                });
+                self.gas_checked = true;
+                self.report.check(ctx, "map_add_gas puts gas in the cell and map_gas sees it", outcome);
+            }
+            Ok(after) => {
+                ctx.log(format!("[selftest] the gas add is queued for the next grid tick: {after:?}"));
+                self.gas_pending = Some((map_id, x, z));
+            }
+            Err(error) => {
+                self.gas_checked = true;
+                self.report.check(ctx, "map_add_gas puts gas in the cell and map_gas sees it", Err(error));
+            }
         }
 
         let (zone_x, zone_z) = match colony_cell_with_neighbour(ctx, map_id) {
@@ -126,6 +135,31 @@ impl ApiTest {
             }
             Err(detail) => {
                 self.report.check(ctx, "a stockpile is created, grown, shrunk and deleted", Err(detail.to_string()))
+            }
+        }
+    }
+
+    /// The gas grid applies its queue on its own tick; this reads the cell again and reports then.
+    pub(crate) fn note_gas(&mut self, ctx: &mut Context) {
+        if self.gas_checked {
+            return;
+        }
+
+        let Some((map_id, x, z)) = self.gas_pending else {
+            return;
+        };
+        self.gas_checked = true;
+        match ctx.map_gas(map_id, x, z) {
+            Ok(gas) if gas.blind_smoke > 0 && gas.any => {
+                self.report.pass(ctx, "map_add_gas puts gas in the cell and map_gas sees it")
+            }
+            Ok(gas) => self.report.check(
+                ctx,
+                "map_add_gas puts gas in the cell and map_gas sees it",
+                Err(format!("the grid still reports no gas after a tick: {gas:?}")),
+            ),
+            Err(error) => {
+                self.report.check(ctx, "map_add_gas puts gas in the cell and map_gas sees it", Err(error.to_string()))
             }
         }
     }

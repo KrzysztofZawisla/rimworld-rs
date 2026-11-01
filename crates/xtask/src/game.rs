@@ -248,7 +248,19 @@ pub(crate) fn workshop_folder(game: &Path) -> Option<PathBuf> {
 pub(crate) fn find_harmony(game: &Path) -> Option<(PathBuf, String)> {
     let workshop = workshop_folder(game)?;
     for entry in fs::read_dir(workshop).ok()?.flatten() {
-        let candidate = entry.path().join("1.7").join("Assemblies").join("0Harmony.dll");
+        // A Workshop item that ships `0Harmony.dll` is not necessarily Harmony (DubsBreakMod bundles
+        // it), and many mods list Harmony as a dependency; the mod's own package id is what
+        // `-mod=brrainz.harmony` resolves, so that is the match.
+        let root = entry.path();
+        let Ok(about) = fs::read_to_string(root.join("About").join("About.xml")) else {
+            continue;
+        };
+        if !package_id(&about).is_some_and(|id| id.eq_ignore_ascii_case("brrainz.harmony")) {
+            continue;
+        }
+
+        let candidate = root.join("1.7").join("Assemblies").join("0Harmony.dll");
+        let candidate = if candidate.exists() { candidate } else { root.join("Assemblies").join("0Harmony.dll") };
         if candidate.exists() {
             let version = assembly_name(&candidate).unwrap_or_else(|| "unknown".to_string());
             return Some((candidate, version));
@@ -256,6 +268,14 @@ pub(crate) fn find_harmony(game: &Path) -> Option<(PathBuf, String)> {
     }
 
     None
+}
+
+/// The `<packageId>` of a mod's `About.xml`, trimmed; compared case-insensitively by the caller.
+pub(crate) fn package_id(about: &str) -> Option<String> {
+    let lower = about.to_ascii_lowercase();
+    let start = lower.find("<packageid>")? + "<packageid>".len();
+    let end = lower[start..].find("</packageid>")? + start;
+    Some(about[start..end].trim().to_string())
 }
 
 pub(crate) fn assembly_name(path: &Path) -> Option<String> {

@@ -88,9 +88,10 @@ log, so the patch and everything it attaches silently disappear.
 
 ## Starting from the samples
 
-`cargo xtask new <Name> --path <DIR> --comp --job --itab` writes three working samples next to the companion
-project (and `cargo xtask build --path <DIR>` compiles them against the installed game, so a name the game does
-not have fails the build instead of the mod):
+`cargo xtask new <Name> --path <DIR> --comp --job --itab --think --lordjob --worldobject --graphic`
+writes seven working samples next to the companion project (and `cargo xtask build --path <DIR>` compiles
+them against the installed game, so a name the game does not have fails the build instead of the mod).
+The first three are the everyday ones:
 
 - `OnSpawnComp.cs` — a `ThingComp` that reports its thing to Rust when it spawns and on its first
   tick, plus `mod/Patches/<Name>Comp.xml`, which attaches it to a def,
@@ -103,7 +104,12 @@ not have fails the build instead of the mod):
   string answer = Companion.Request("MyMod", "itab_contents", new Dictionary<string, object> { ["thing"] = thing });
   ```
 
-  answered in `on_companion_event` by returning the lines separated by `\n`.
+  answered in `on_companion_event` by returning the lines separated by `\n`,
+- `GuardTheDoor.cs` — a `ThinkNode_JobGiver` (`--think`), the node a `ThinkTreeDef` places in the game's
+  own tree,
+- `HoldTheLine.cs` — a `LordJob` (`--lordjob`) with its own `StateGraph`,
+- `RustBeacon.cs` — a `WorldObject` (`--worldobject`) with its own state, tick and gizmos,
+- `PulseGraphic.cs` — a `Graphic` (`--graphic`) that draws itself; point `graphicData.graphicClass` at it.
 
 `ITab` lives in the `RimWorld` namespace (not `Verse`), and a tab is attached to a def with an
 `inspectorTabs` patch:
@@ -118,9 +124,9 @@ not have fails the build instead of the mod):
 ## Shapes the bridge does not host
 
 `cargo xtask new --path <DIR> --comp --job --itab` scaffolds the three companion types a mod needs most
-(`ThingComp`, `JobDriver`, `ITab`). These four are the next layer: the bridge cannot host them,
-because the game instantiates them from a *type name* and their base classes do work the bridge would
-have to reimplement. Every member named below is in the contract check, so a game update that moves
+(`ThingComp`, `JobDriver`, `ITab`); `--think --lordjob --worldobject --graphic` scaffolds the four
+shapes below. The bridge cannot host them, because the game instantiates them from a *type name* and
+their base classes do work the bridge would have to reimplement. Every member named below is in the contract check, so a game update that moves
 one fails `cargo xtask test` before it fails a player's game.
 
 ### A think node (`JobGiver`): what a pawn decides on its own
@@ -128,7 +134,8 @@ one fails `cargo xtask test` before it fails a player's game.
 ```csharp
 public class GuardTheDoor : ThinkNode_JobGiver
 {
-    public override Job TryGiveJob(Pawn pawn)
+    // `TryGiveJob` is protected in this build; a public override is CS0507.
+    protected override Job TryGiveJob(Pawn pawn)
     {
         IntVec3 post = /* where the guard should stand */;
         return Verse.JobMaker.MakeJob(RimWorld.JobDefOf.Goto, post);   // any job the game knows
@@ -236,6 +243,6 @@ public class PulseGraphic : Graphic
   `RustGizmoComp`, ...) — the bridge resolves its own classes first,
 - the appended `<li Class="..."/>` names must match the companion's namespaces exactly; a typo makes
   the game report a failed XML patch at load time,
-- which is why the samples of `--comp`/`--job`/`--itab` are compile-checked: `cargo xtask test`
+- which is why the samples of `--comp`/`--job`/`--itab`/`--think`/`--lordjob`/`--worldobject`/`--graphic` are compile-checked: `cargo xtask test`
   verifies every game member they use against the installed assembly (bridge contract check), so a
   game update that renames `ITab`, `JobDriver` or `Toils_Goto` fails the test, not the running game.

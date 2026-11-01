@@ -34,7 +34,14 @@ impl ApiTest {
                 return Err("the centre of the map has no terrain".to_string());
             }
 
-            let _ = map_handle.weather().map_err(|error| error.to_string())?;
+            let weather = map_handle.weather().map_err(|error| error.to_string())?;
+            let weather_name = weather.def_name.clone().ok_or_else(|| "the map reports no weather def".to_string())?;
+            ctx.map_set_weather(map.id, &weather_name).map_err(|error| error.to_string())?;
+            let after = map_handle.weather().map_err(|error| error.to_string())?;
+            if after.def_name.as_deref() != Some(weather_name.as_str()) {
+                return Err(format!("weather set to {weather_name} reads back as {:?}", after.def_name));
+            }
+
             let time = map_handle.time().map_err(|error| error.to_string())?;
             if !(0..=23).contains(&time.hour) {
                 return Err(format!("the map reports hour {}", time.hour));
@@ -196,6 +203,33 @@ impl ApiTest {
                     }
                     Err(error) => Err(error.to_string()),
                 }
+            })(),
+        );
+
+        // The `research_finished` event needs a project that really finishes, and the operation itself
+        // needs a check: this completes the project the colony just started.
+        self.report.check(
+            ctx,
+            "research_finish completes a project through the game's own FinishProject",
+            (|| -> Result<(), String> {
+                let projects = ctx.research().map_err(|error| error.to_string())?;
+                let project = projects
+                    .iter()
+                    .find(|project| !project.completed)
+                    .ok_or("the installation has no unfinished research project")?;
+
+                ctx.research_finish(&project.def_name).map_err(|error| error.to_string())?;
+                let after = ctx.research().map_err(|error| error.to_string())?;
+                let finished = after
+                    .iter()
+                    .find(|candidate| candidate.def_name == project.def_name)
+                    .ok_or_else(|| format!("the finished project '{}' disappeared", project.def_name))?;
+                if !finished.completed {
+                    return Err(format!("'{}' still reports completed=false", project.def_name));
+                }
+
+                ctx.log(format!("[selftest] research_finish completed '{}'", project.def_name));
+                Ok(())
             })(),
         );
 

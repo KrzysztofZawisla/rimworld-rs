@@ -29,6 +29,11 @@ impl<'a> Thing<'a> {
         self.ctx
     }
 
+    /// The game's def behind this thing, for the typed wrappers (`VerseThingDef::new`).
+    pub fn def(&self) -> Result<Option<ObjRef>> {
+        Ok(ObjRef::from_value(&self.handle.get("def")?))
+    }
+
     /// The def name of this thing (`Thing.def.defName`).
     pub fn def_name(&self) -> Result<Option<String>> {
         let def = self.handle.get("def")?;

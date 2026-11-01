@@ -22,6 +22,31 @@ impl Context {
 }
 
 impl Context {
+    /// Starts a ranged cast with one of the pawn's own verbs through the game's own
+    /// `Verb.TryStartCastOn` — aiming, warm-up and the projectile the game fires included. The verb is
+    /// picked by its label, or the first one that is not a melee attack; a pawn without one is refused
+    /// with the verbs it has.
+    pub fn pawn_ranged_attack(
+        &self,
+        pawn: &ObjRef,
+        target: Option<&ObjRef>,
+        cell: Option<(i32, i32)>,
+        verb: Option<&str>,
+    ) -> Result<RangedAttack> {
+        read(host::call(
+            "pawn_ranged_attack",
+            json!({
+                "ref": pawn.id,
+                "targetRef": target.map(|thing| thing.id),
+                "x": cell.map(|(x, _)| x),
+                "z": cell.map(|(_, z)| z),
+                "verb": verb,
+            }),
+        )?)
+    }
+}
+
+impl Context {
     /// Sets which drug policy a pawn follows through the game's own `CurrentPolicy` setter, named by the
     /// label the game's dialog shows; an empty label asks for the game's default, and a label it does not
     /// have is refused **with the ones it does**.

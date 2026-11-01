@@ -27,52 +27,47 @@ internal static partial class Program
     /// </summary>
     private static int RunContractCheck(string directory, string repo)
     {
-        string path = Path.Combine(directory, "Assembly-CSharp.dll");
-        if (!File.Exists(path))
+        // Both assemblies: the bridge compiles against the game's own types (Assembly-CSharp.dll) and
+        // against the engine half (RimWorld.dll — Verb, JobDefOf, pathing). A contract entry for either
+        // has to be verified, or the name is only checked by the C# compiler.
+        using GameAssemblies assemblies = OpenGameAssemblies(directory);
+        if (assemblies == null)
         {
-            Console.Error.WriteLine($"no Assembly-CSharp.dll in {Path.GetFullPath(directory)}");
             return 2;
         }
 
-        using FileStream stream = File.OpenRead(path);
-        using var peReader = new PEReader(stream);
-        if (!peReader.HasMetadata)
-        {
-            Console.Error.WriteLine($"{path} has no managed metadata");
-            return 2;
-        }
-
-        MetadataReader reader = peReader.GetMetadataReader();
         var types = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
-        foreach (TypeDefinitionHandle handle in reader.TypeDefinitions)
+        foreach (GameAssembly assembly in assemblies.Items)
         {
-            TypeDefinition type = reader.GetTypeDefinition(handle);
-            string name = reader.GetString(type.Name);
-            string namespaceName = reader.GetString(type.Namespace);
-            string fullName = string.IsNullOrEmpty(namespaceName) ? name : namespaceName + "." + name;
-            if (!types.TryGetValue(fullName, out HashSet<string> members))
+            MetadataReader reader = assembly.Reader;
+            foreach (TypeDefinitionHandle handle in reader.TypeDefinitions)
             {
-                members = new HashSet<string>(StringComparer.Ordinal);
-                types[fullName] = members;
-            }
+                TypeDefinition type = reader.GetTypeDefinition(handle);
+                string name = reader.GetString(type.Name);
+                string namespaceName = reader.GetString(type.Namespace);
+                string fullName = string.IsNullOrEmpty(namespaceName) ? name : namespaceName + "." + name;
+                if (!types.TryGetValue(fullName, out HashSet<string> members))
+                {
+                    members = new HashSet<string>(StringComparer.Ordinal);
+                    types[fullName] = members;
+                }
 
-            foreach (MethodDefinitionHandle method in type.GetMethods())
-            {
-                members.Add(reader.GetString(reader.GetMethodDefinition(method).Name));
-            }
+                foreach (MethodDefinitionHandle method in type.GetMethods())
+                {
+                    members.Add(reader.GetString(reader.GetMethodDefinition(method).Name));
+                }
 
-            foreach (FieldDefinitionHandle field in type.GetFields())
-            {
-                members.Add(reader.GetString(reader.GetFieldDefinition(field).Name));
-            }
+                foreach (FieldDefinitionHandle field in type.GetFields())
+                {
+                    members.Add(reader.GetString(reader.GetFieldDefinition(field).Name));
+                }
 
-            foreach (PropertyDefinitionHandle property in type.GetProperties())
-            {
-                members.Add(reader.GetString(reader.GetPropertyDefinition(property).Name));
+                foreach (PropertyDefinitionHandle property in type.GetProperties())
+                {
+                    members.Add(reader.GetString(reader.GetPropertyDefinition(property).Name));
+                }
             }
         }
-
-        Console.Error.WriteLine($"game assembly : {path}");
         int failures = 0;
         foreach ((string typeName, string memberName) in ContractRequirements)
         {
@@ -98,10 +93,11 @@ internal static partial class Program
         // The same surface the in-game `member_scan` walks, counted straight from the metadata: the number
         // a coverage claim rests on can be re-checked on any machine that has the assembly.
         long declared = types.Values.Sum(set => (long)set.Count);
-        Console.WriteLine($"game assembly : {types.Count} types, {declared} declared members ({path})");
+        string files = string.Join(", ", assemblies.Items.Select(assembly => Path.GetFileName(assembly.Path)));
+        Console.WriteLine($"game assemblies : {types.Count} types, {declared} declared members ({files})");
         Console.WriteLine();
-        int hookFailures = CheckEventHooks(reader, repo);
-        int wrapperFailures = CheckSubsystems(reader, repo);
+        int hookFailures = CheckEventHooks(assemblies.Items[0].Reader, repo);
+        int wrapperFailures = CheckSubsystems(assemblies.Items[0].Reader, repo);
         return failures == 0 && hookFailures == 0 && wrapperFailures == 0 ? 0 : 1;
     }
 

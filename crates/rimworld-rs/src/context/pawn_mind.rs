@@ -4,9 +4,9 @@ use super::*;
 use crate::{
     host,
     types::{
-        GeneChange, GeneSnapshot, IdeoSet, IdeoSnapshot, InspirationCleared, MentalStateForced, NeedChange, ObjRef,
-        PsyfocusSnapshot, PsylinkSet, SkillLearned, SkillPassion, SkillSet, ThoughtChange, TitleChange, TitleSnapshot,
-        WorkPrioritySet, XenotypeChange,
+        AbilityCast, GeneChange, GeneSnapshot, IdeoSet, IdeoSnapshot, InspirationCleared, MentalStateForced,
+        NeedChange, ObjRef, PawnOpinion, PawnThoughts, PsyfocusSnapshot, PsylinkSet, SkillLearned, SkillPassion,
+        SkillSet, ThoughtChange, TitleChange, TitleSnapshot, WorkPrioritySet, XenotypeChange,
     },
     Result,
 };
@@ -159,5 +159,45 @@ impl Context {
     /// A pawn's ideoligion and every precept it holds (Ideology).
     pub fn pawn_ideo(&self, pawn: &ObjRef) -> Result<IdeoSnapshot> {
         self.pawn_read("pawn_ideo", pawn, Value::Null)
+    }
+}
+
+impl Context {
+    /// One pawn's opinion of another through the game's own `Pawn_RelationsTracker`, with the game's own
+    /// explanation and the friend/rival thresholds it compares the number against.
+    pub fn pawn_opinion(&self, pawn: &ObjRef, other: &ObjRef) -> Result<PawnOpinion> {
+        read(host::call("pawn_opinion", json!({ "ref": pawn.id, "otherRef": other.id }))?)
+    }
+}
+
+impl Context {
+    /// Every thought the pawn's mood is made of, through the game's own `ThoughtHandler`, plus the total
+    /// offset the game computes from them. A pawn with no mood is refused.
+    pub fn pawn_thoughts(&self, pawn: &ObjRef) -> Result<PawnThoughts> {
+        self.pawn_read("pawn_thoughts", pawn, Value::Null)
+    }
+}
+
+impl Context {
+    /// Casts an ability the pawn already has through the game's own `Ability.Activate`. The target is a
+    /// thing, a cell, or nothing at all (a self-cast); a pawn without that ability is refused with the
+    /// ones it has.
+    pub fn pawn_cast_ability(
+        &self,
+        pawn: &ObjRef,
+        ability: &str,
+        target: Option<&ObjRef>,
+        cell: Option<(i32, i32)>,
+    ) -> Result<AbilityCast> {
+        self.pawn_read(
+            "pawn_cast_ability",
+            pawn,
+            json!({
+                "ability": ability,
+                "targetRef": target.map(|thing| thing.id),
+                "x": cell.map(|(x, _)| x),
+                "z": cell.map(|(_, z)| z),
+            }),
+        )
     }
 }

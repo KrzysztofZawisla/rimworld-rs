@@ -165,6 +165,30 @@ pub(super) fn route<M: Mod>(module: &mut M, ctx: &mut Context, event: &str, valu
             }
             ok()
         }
+        "game_condition_started" => {
+            if let Some(info) = event_payload::<crate::GameConditionStarted>(ctx, value) {
+                module.on_game_condition_started(ctx, &info);
+            }
+            ok()
+        }
+        "game_condition_ended" => {
+            if let Some(info) = event_payload::<crate::GameConditionEnded>(ctx, value) {
+                module.on_game_condition_ended(ctx, &info);
+            }
+            ok()
+        }
+        "faction_relation_changed" => {
+            if let Some(info) = event_payload::<crate::FactionRelationChanged>(ctx, value) {
+                module.on_faction_relation_changed(ctx, &info);
+            }
+            ok()
+        }
+        "visitor_arrived" => {
+            if let Some(info) = event_payload::<crate::VisitorArrived>(ctx, value) {
+                module.on_visitor_arrived(ctx, &info);
+            }
+            ok()
+        }
         "patch" => {
             let call = PatchCall::from_value(&value);
             module.on_patch_call(ctx, &call).to_json()

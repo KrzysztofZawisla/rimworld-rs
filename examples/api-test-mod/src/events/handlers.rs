@@ -31,6 +31,15 @@ impl Mod for ApiTest {
         }
     }
 
+    fn on_visitor_arrived(&mut self, _ctx: &mut Context, info: &VisitorArrived) {
+        self.events.visitor_arrived += 1;
+        if self.events.visitor_label.is_none() {
+            self.events.visitor_label = info.label.clone();
+            self.events.visitor_faction = info.faction.clone();
+            self.events.visitor_trader_kind = info.trader_kind.clone();
+        }
+    }
+
     fn on_pawn_spawned(&mut self, _ctx: &Context, pawn: &Pawn<'_>, _respawning_after_load: bool) {
         self.events.pawn_spawned += 1;
         if self.events.spawned_label.is_none() {

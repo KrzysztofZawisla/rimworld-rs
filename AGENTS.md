@@ -134,14 +134,19 @@ RimWorld mods in Rust:
   `~/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios/Logs/Player.log` (the tooling also checks
   the folder itself).
 - Verified on Windows (1.7.4995 rev309, WaylithCLR .NET 10, x86-64): `doctor`, the offline suite
-  (`cargo xtask test`; contract 674/674, event hooks 19/19, def names 9/9, patch xpaths 4/4),
+  (`cargo xtask test`; contract 761/761, event hooks 22/22, def names 9/9, patch xpaths 4/4,
+  proof 301/302 with 0 pending, 1 harness),
   `build --all-targets` from Windows (native `win-x64` PE32+ plus `linux-x64` ELF, `osx-x64` and
   `osx-arm64` Mach-O through `cargo-zigbuild`), `package --all-targets` (one zip with the bridge and
-  all four libraries) and `smoke` (153 passed, 0 failed, 30 skipped; the Harmony checks SKIP because
-  `-mod=` resolves only the local `Mods` folder). The bridge loaded `hello_rust_mod.dll` from
+  all four libraries), `smoke` and `smoke --harmony` (212 passed, 0 failed, 0 skipped; the Workshop
+  Harmony was copied into `Mods`, so every event hook, the bill events and the scenario checks ran).
+  On a machine without Harmony in `Mods`, the plain `smoke` reports those checks as SKIP; `--harmony`
+  copies it there first.
+  The bridge loaded `hello_rust_mod.dll` from
   `Rust/win-x64/`. The macOS link warns about a missing `MacOSX.sdk`; harmless for these pure-Rust
-  cdylibs. The smoke wait is 180 s of real time and the suite is tick-driven: leave the quicktest
-  unpaused, because a paused game reaches the summary long after the command has timed out.
+  cdylibs. The smoke wait is 300 s of real time (the deferred checks pause the tick) and the suite is
+  tick-driven: leave the quicktest unpaused, because a paused game reaches the summary long after the
+  command has timed out.
 - Cross builds from Linux: `cargo xtask build --all-targets` produced `win-x64` (PE32+ DLL), `linux-x64`
   (ELF), `osx-x64` and `osx-arm64` (Mach-O), and every library exports the five `rwrs_*` symbols;
   `cargo xtask package --all-targets` wrote a zip with the bridge, the XML and the four libraries. The
@@ -187,7 +192,8 @@ exactly how they were verified.
 
 ```powershell
 cargo xtask test                 # every check that does not need the game (fmt, clippy, tests, ABI, contract)
-cargo xtask smoke                # install both example mods, run -quicktest with -mod=, fail on [selftest] FAIL
+cargo xtask smoke [--harmony]    # install both examples, run -quicktest with -mod=, fail on [selftest] FAIL;
+                                 # --harmony requires Harmony in Mods and fails on a Harmony-dependent SKIP
                                  # (leave the game unpaused: the suite is tick-driven and the wait is 180 s)
 cargo xtask fmt [--fix]          # check (or fix) Rust formatting; nightly rustfmt, see rustfmt.toml
 cargo xtask lint                 # clippy -D warnings, plus dotnet format where the game is installed
@@ -201,7 +207,7 @@ cargo xtask install [<mod>] [--path <DIR>] [--target <triple>] [--all-targets]
                                  # builds and copies the mod into the game's Mods folder
 cargo xtask package [<mod>] [--path <DIR>] [--target <triple>] [--all-targets]
                                  # builds and zips the mod into dist/<ModName>-<version>.zip
-cargo xtask new <Name> [--path <DIR>] [--comp] [--job] [--itab]
+cargo xtask new <Name> [--path <DIR>] [--comp] [--job] [--itab] [--think] [--lordjob] [--worldobject] [--graphic]
                                  # scaffolds mods/<Name>/ (or an external --path project) + samples
 cargo xtask remove <mod>         # delete a mod under mods/ (folder + workspace entry)
 cargo xtask gen-defs [<mod>] [--path <DIR>] # writes <ModDir>/src/generated_defs/ from the installed game
@@ -223,6 +229,7 @@ dotnet run --project tools/abi-smoke -- build/ApiTestMod/Rust/<rid>/api_test_mod
 dotnet run --project tools/abi-smoke -- target/release/<host-native-library> --fixture
 dotnet run --project tools/abi-smoke -- --contract game-refs             # bridge contract check
 dotnet run --project tools/abi-smoke -- --op-parity .                    # SDK op names <-> HostOps, names.json keys <-> the SDK
+dotnet run --project tools/abi-smoke -- --proof .                        # every op has an in-game check or an allowlist line
 ```
 
 `cargo xtask test` also runs on a machine **without** RimWorld: stages that need game files print a SKIP with the
@@ -316,11 +323,16 @@ The same suite also checks the generated output and the documentation: `gen-subs
 `crates/rimworld-rs/src/subsystems_extra/` in memory and fails on a missing, changed or extra file; the def
 modules are checked for the 500-line / 396-constant generator limits; `cargo xtask layout --check` also
 verifies the module tree (every `mod.rs` declares every file and module directory next to it, and every
-declaration has a file); and every local Markdown link and every `crates/`/`examples/`/`docs/`/`bridge/`/
-`tools/`/`skills/` path in inline code must resolve. `cargo xtask smoke` is the in-game counterpart: it
+declaration has a file); every local Markdown link and every `crates/`/`examples/`/`docs/`/`bridge/`/
+`tools/`/`skills/` path in inline code must resolve; and `abi-smoke --proof` fails when a host operation
+is neither called by the in-game self-test nor listed in `tools/abi-smoke/proof-allowlist.txt` with a
+reason (the summary counts the `pending` lines, so the proof gap is a number), and
+`abi-smoke --coverage-audit` re-renders the per-family table in `docs/coverage.md` from the same
+facts, so the document cannot drift from the code. `cargo xtask smoke` is the in-game counterpart: it
 installs both example mods, launches `-quicktest -mod=brrainz.harmony,rimworld.rs.hello,rimworld.rs.apitest`
 (the game resolves those ids in its local `Mods` folder only, so a Workshop-installed Harmony is dropped
-and the self-test then reports those checks as SKIP), and fails on `[selftest] FAIL` or a summary with a
+and the self-test then reports those checks as SKIP; `smoke --harmony` copies it into `Mods` first and
+fails on any such SKIP), and fails on `[selftest] FAIL` or a summary with a
 non-zero failed count. The `-mod=` argument gives the run its own mod list, so a fresh installation works
 without editing `ModsConfig.xml`.
 
@@ -375,9 +387,10 @@ without it both commands print a SKIP with the reason.
   resolve the wrong assembly (`InvalidCastException: [A]RustBridge.RustModSettings cannot be cast to
   [B]RustBridge.RustModSettings` on save load). Never hand-write a settings class for a binding:
   go through the factory.
-- **The scaffolded samples are compile-checked.** `cargo xtask new [--path <DIR>] --comp --job --itab` writes
-  `ThingComp`, `JobDriver` and `ITab` samples whose game members are all in the contract list, so a
-  new sample (or a change to one) needs its members added there too.
+- **The scaffolded samples are compile-checked.** `cargo xtask new [--path <DIR>] --comp --job --itab --think --lordjob --worldobject --graphic` writes
+  `ThingComp`, `JobDriver`, `ITab`, `ThinkNode_JobGiver`, `LordJob`, `WorldObject` and `Graphic` samples
+  whose game members are all in the contract list, so a new sample (or a change to one) needs its members
+  added there too.
 - Keep the Rust SDK free of game-specific assumptions beyond the documented host operations; new
   commands mean: an op in `HostOps` (or a per-area file like `PawnOps`/`ThingOps`/`WorldOps`), a
   method on `Context` (plus a wrapper method when it belongs to `Thing`/`Map`/`Pawn`), a row in

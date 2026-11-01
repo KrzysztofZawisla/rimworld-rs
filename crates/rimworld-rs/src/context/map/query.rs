@@ -148,3 +148,62 @@ impl Context {
         read(host::call("map_haulables", json!({ "mapId": map_id, "limit": limit }))?)
     }
 }
+
+impl Context {
+    /// The path a pawn would take to a cell, through the game's own `PathFinder.FindPathNow`. The pawn
+    /// decides what the path may cross; a path the game cannot find answers `found: false` rather than an
+    /// error, because "there is no way" is an answer.
+    pub fn map_path(&self, map_id: i32, pawn: &ObjRef, x: i32, z: i32) -> Result<MapPath> {
+        read(host::call("map_path", json!({ "mapId": map_id, "pawn": pawn.id, "x": x, "z": z }))?)
+    }
+}
+
+impl Context {
+    /// The storage groups a map keeps, through the game's own `StorageGroupManager`: what each group is
+    /// called, how many cells and members it has, and what it holds.
+    pub fn map_storage_groups(&self, map_id: i32) -> Result<Vec<StorageGroupInfo>> {
+        read(host::call("map_storage_groups", json!({ "mapId": map_id }))?)
+    }
+}
+
+impl Context {
+    /// The animal pens a map has, through the game's own `AnimalPenManager`: the pen's name, whether the
+    /// game considers it enclosed, the regions it covers and how many animals the marker accepts.
+    pub fn map_pens(&self, map_id: i32) -> Result<Vec<PenInfo>> {
+        read(host::call("map_pens", json!({ "mapId": map_id }))?)
+    }
+}
+
+impl Context {
+    /// How much cover a target cell gives against a shooter at another cell, from the game's own
+    /// `CoverUtility.CalculateOverallBlockChance`, with every cover giver it counted.
+    pub fn map_cover(
+        &self,
+        map_id: i32,
+        shooter_x: i32,
+        shooter_z: i32,
+        target_x: i32,
+        target_z: i32,
+    ) -> Result<CoverSnapshot> {
+        read(host::call(
+            "map_cover",
+            json!({
+                "mapId": map_id,
+                "x": shooter_x,
+                "z": shooter_z,
+                "targetX": target_x,
+                "targetZ": target_z,
+            }),
+        )?)
+    }
+}
+
+impl Context {
+    /// The same cover question asked about a live thing (a pawn behind a wall, a turret in the open).
+    pub fn map_cover_of(&self, map_id: i32, shooter_x: i32, shooter_z: i32, target: &ObjRef) -> Result<CoverSnapshot> {
+        read(host::call(
+            "map_cover",
+            json!({ "mapId": map_id, "x": shooter_x, "z": shooter_z, "targetRef": target.id }),
+        )?)
+    }
+}

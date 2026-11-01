@@ -221,9 +221,6 @@ internal static partial class Program
 
 
 
-    /// <summary>Kept alive for the process so the metadata reader stays valid.</summary>
-    private static FileStream openAssemblyStream;
-    private static PEReader openAssemblyReader;
 
 
 

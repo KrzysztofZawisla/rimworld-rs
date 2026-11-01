@@ -84,7 +84,7 @@ impl ApiTest {
         })();
 
         if let Err(error) = caravan {
-            self.report.fail(ctx, "the caravan paths work", &error);
+            self.report.check(ctx, "the caravan paths work", Err(error));
         }
     }
 }

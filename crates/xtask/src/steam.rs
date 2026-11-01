@@ -11,7 +11,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::*;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+use crate::game::home_dir;
 
 /// Every Steam folder this platform may have installed Steam in.
 pub(crate) fn steam_roots() -> Vec<PathBuf> {
@@ -55,7 +56,7 @@ pub(crate) fn steam_roots() -> Vec<PathBuf> {
 }
 
 /// The `RimWorld` folder of every Steam library this machine may have, in discovery order. The first
-/// candidate that is a real installation wins in [`game_dir`].
+/// candidate that is a real installation wins in [`crate::game_dir`].
 pub(crate) fn rimworld_dirs() -> Vec<PathBuf> {
     rimworld_dirs_from_roots(steam_roots())
 }

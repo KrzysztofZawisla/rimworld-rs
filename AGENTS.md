@@ -91,7 +91,7 @@ RimWorld mods in Rust:
 
 - `crates/rimworld-rs` — the Rust-facing SDK: `Mod` trait, events, host commands, FFI ABI.
 - `bridge/` — the C# bridge loaded by RimWorld as a normal mod assembly. It loads the native Rust
-  cdylib from `<mod>/Rust/` (exactly one regular file, path confined to the mod root, no
+  cdylib from `<mod>/Rust/<rid>/` (exactly one regular file, path confined to the mod root, no
   symlink/junction), forwards game lifecycle events into Rust and executes the commands Rust asks
   for (logging, defs, spawning, letters, settings, Harmony patches, object reflection).
 - `crates/xtask` — build/install/scaffold tooling (`cargo xtask ...`).
@@ -133,6 +133,15 @@ RimWorld mods in Rust:
   in this build; the log is
   `~/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios/Logs/Player.log` (the tooling also checks
   the folder itself).
+- Verified on Windows (1.7.4995 rev309, WaylithCLR .NET 10, x86-64): `doctor`, the offline suite
+  (`cargo xtask test`; contract 674/674, event hooks 19/19, def names 9/9, patch xpaths 4/4),
+  `build --all-targets` from Windows (native `win-x64` PE32+ plus `linux-x64` ELF, `osx-x64` and
+  `osx-arm64` Mach-O through `cargo-zigbuild`), `package --all-targets` (one zip with the bridge and
+  all four libraries) and `smoke` (153 passed, 0 failed, 30 skipped; the Harmony checks SKIP because
+  `-mod=` resolves only the local `Mods` folder). The bridge loaded `hello_rust_mod.dll` from
+  `Rust/win-x64/`. The macOS link warns about a missing `MacOSX.sdk`; harmless for these pure-Rust
+  cdylibs. The smoke wait is 180 s of real time and the suite is tick-driven: leave the quicktest
+  unpaused, because a paused game reaches the summary long after the command has timed out.
 - Cross builds from Linux: `cargo xtask build --all-targets` produced `win-x64` (PE32+ DLL), `linux-x64`
   (ELF), `osx-x64` and `osx-arm64` (Mach-O), and every library exports the five `rwrs_*` symbols;
   `cargo xtask package --all-targets` wrote a zip with the bridge, the XML and the four libraries. The
@@ -142,8 +151,8 @@ RimWorld mods in Rust:
   the five `rwrs_*` exports each, `cargo-xwin` for `win-x64` and `cargo-zigbuild` for `linux-x64`. With
   Homebrew's keg-only `llvm@22`/`lld@22` on `PATH`, `cargo-xwin` finds `clang-cl`, `lld-link` and
   `llvm-lib` (`cargo xtask doctor` names the missing one otherwise).
-- Version: `1.7.4982 rev1280` on the Windows build and `1.7.4995 rev309` verified on macOS and Linux,
-  running on **WaylithCLR** (`.NET 10` fork) with the RocketWerkz "Brutal" engine. No Unity runtime;
+- Version: `1.7.4995 rev309` verified on Windows, macOS and Linux, running on **WaylithCLR**
+  (`.NET 10` fork) with the RocketWerkz "Brutal" engine. No Unity runtime;
   `UnityStubs.dll` emulates Unity APIs.
 - World creation, colony start and map generation run in the **engine**, not in the managed code: the `Verse`
   page classes, `Game.InitNewGame` and `MapGenerator.GenerateMap` install as Harmony patches and are then never
@@ -159,9 +168,12 @@ RimWorld mods in Rust:
   Workshop mods: `<steam>/steamapps/workshop/content/294100/<workshopId>`.
 - Harmony is not shipped with the game. `brrainz.harmony` (Workshop) provides `0Harmony.dll`
   version 3.0; the bridge binds it purely through reflection and degrades gracefully without it.
-- Toolchain on this machine: Rust nightly (1.101), .NET SDK 9.0.123, Zig 0.17, cargo-zigbuild 0.24,
-  cargo-xwin 0.23, and LLVM/LLD 22 from Homebrew (`llvm@22`/`lld@22`, keg-only: their `bin` folders must
-  be on `PATH` for `clang-cl`, `lld-link` and `llvm-lib`).
+- Toolchain on the macOS build machine: Rust nightly (1.101), .NET SDK 9.0.123, Zig 0.17,
+  cargo-zigbuild 0.24, cargo-xwin 0.23, and LLVM/LLD 22 from Homebrew (`llvm@22`/`lld@22`, keg-only:
+  their `bin` folders must be on `PATH` for `clang-cl`, `lld-link` and `llvm-lib`).
+- Toolchain on the Windows build machine: Rust nightly (1.101), .NET SDK 9.0.301, Zig 0.15.2 and
+  cargo-zigbuild 0.23.4; `cargo-xwin` is not installed because the native MSVC target needs no cross
+  linker.
 - The game runtime is .NET 10 but the local SDK is 9.x: **the bridge compiles with
   `DisableImplicitFrameworkReferences` + `NoStdLib` against the game's own framework assemblies**
   (`<game>/*.dll`). Do not "fix" this back to a normal TFM reference — that produces CS1705. Both
@@ -176,6 +188,7 @@ exactly how they were verified.
 ```powershell
 cargo xtask test                 # every check that does not need the game (fmt, clippy, tests, ABI, contract)
 cargo xtask smoke                # install both example mods, run -quicktest with -mod=, fail on [selftest] FAIL
+                                 # (leave the game unpaused: the suite is tick-driven and the wait is 180 s)
 cargo xtask fmt [--fix]          # check (or fix) Rust formatting; nightly rustfmt, see rustfmt.toml
 cargo xtask lint                 # clippy -D warnings, plus dotnet format where the game is installed
 cargo build --release            # builds the SDK, the fixture and the example mod cdylib

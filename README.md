@@ -165,6 +165,7 @@ cargo xtask remove MyFirstMod                    # delete mods/MyFirstMod + its 
 
 # repository maintainers:
 cargo xtask smoke                   # install both examples, run -quicktest with them via -mod=
+                                    # (leave the game unpaused; the summary wait is 180 s)
 cargo xtask gen-subsystems --check  # verify the tracked generated wrappers match the generator
 ```
 

@@ -3,6 +3,15 @@ use crate::*;
 impl ApiTest {
     pub(crate) fn check_harmony(&mut self, ctx: &mut Context, map: &MapInfo) {
         let _ = map;
+        if !self.harmony_ready {
+            self.report.skip(
+                ctx,
+                "a patch is listed and can be taken off again, and the bridge's bookkeeping follows",
+                "Harmony is not available",
+            );
+            return;
+        }
+
         let harmony_round = (|| -> Result<(), String> {
             let before = ctx.harmony_patches().map_err(|error| error.to_string())?;
             if !before.mine.iter().any(|patch| patch.target.contains("get_MaxHitPoints")) {

@@ -71,6 +71,19 @@ Instructions for AI agents working in this repository.
    paths and secrets belong only in a gitignored local note, never in a tracked file. A local note
    (`MODLOG.md`) may name a path when a finding needs it, but never a secret.
 
+9. **A change and its documentation are one change.**
+   Whenever behaviour, a command, a path, an API, a rule, a gate or the tooling changes, update every
+   document that describes it in the same pass: `README.md`, `docs/`, `AGENTS.md`, `skills/` and any
+   built-in help text. Documentation that contradicts the code is a defect, not a follow-up; do not
+   finish a task leaving a document out of date.
+
+10. **Never lower a version in the documentation.**
+    When a document already names a version — Rust, .NET, the game build, a tool, a dependency — and a
+    change touches that fact, compare the two and keep the higher one. Never replace a newer version
+    with an older one; when the newer version is the one installed or verified, update every stale
+    lower mention to it in the same pass. A version is a claim the documentation makes, so a silent
+    downgrade turns it into a false statement.
+
 ## What this project is
 
 A Rust SDK (`rimworld-rs`) plus a thin C# bridge and build tooling that lets people write
@@ -78,7 +91,7 @@ RimWorld mods in Rust:
 
 - `crates/rimworld-rs` — the Rust-facing SDK: `Mod` trait, events, host commands, FFI ABI.
 - `bridge/` — the C# bridge loaded by RimWorld as a normal mod assembly. It loads the native Rust
-  cdylib from `<mod>/Rust/` (exactly one regular file, path confined to the mod root, no
+  cdylib from `<mod>/Rust/<rid>/` (exactly one regular file, path confined to the mod root, no
   symlink/junction), forwards game lifecycle events into Rust and executes the commands Rust asks
   for (logging, defs, spawning, letters, settings, Harmony patches, object reflection).
 - `crates/xtask` — build/install/scaffold tooling (`cargo xtask ...`).
@@ -95,10 +108,52 @@ RimWorld mods in Rust:
 
 ## Target environment (verified on this machine)
 
-- Game root: the Steam installation of RimWorld. The tooling tries the usual Steam paths first and
-  `RIMWORLD_DIR` names the folder when the game lives somewhere else.
-- Version: `1.7.4982 rev1280`, running on **WaylithCLR** (`.NET 10` fork) with the
-  RocketWerkz "Brutal" engine. No Unity runtime; `UnityStubs.dll` emulates Unity APIs.
+- Game root: the Steam installation of RimWorld. The tooling tries the usual Steam paths of the
+  platform and every library registered in `steamapps/libraryfolders.vdf`, so a game on a second drive
+  is found without configuration; `RIMWORLD_DIR` names the folder when the game lives somewhere else.
+- Platform layouts the tooling handles: Windows keeps the assemblies at the game root next to `Data/`;
+  Linux keeps the defs in `<game>/Data` and, on this 1.7 build, the assemblies at the game root as well
+  (older Linux builds use `<game>/*_Data/Managed`); macOS is a `RimWorld.app` bundle inside `<game>`,
+  with the defs in `<game>/Data` and the assemblies in `<game>/RimWorld.app/Contents/MacOS`. Local
+  mods go to `<game>/Mods` on every platform, and `cargo xtask doctor` prints the roots it resolved.
+- Verified on macOS (1.7.4995 rev309, WaylithCLR .NET 10, Apple Silicon): `setup`, `doctor`, `build`
+  (native `osx-arm64`, `osx-x64` and `--all-targets`, the bridge and a companion), `install`, `run`, the
+  offline suite (`cargo xtask test`, contract/defs/patches included), a plain `-quicktest` with the
+  player's mod list (187 passed, 0 failed, 2 skipped, Harmony included: `harmony_patch` patched
+  `Verse.Map.MapUpdate` in-game) and `smoke` (153 passed, 0 failed, 30 skipped). Earlier on 1.7.4990
+  `watch-log`, `defs`, `targets` and `coverage` were verified too.
+- `-mod=` resolves its package ids in the game's **local `Mods` folder only**: a Workshop-installed
+  Harmony is dropped from the smoke run, so its Harmony checks report SKIP. With Harmony in `Mods`, or in
+  a plain `cargo xtask run -- -quicktest` that uses the player's `ModsConfig.xml`, they PASS. The log is
+  `~/Library/Application Support/Ludeon Studios/RimWorld by Ludeon Studios/Logs/Player.log`.
+- Verified on Linux (1.7.4995 rev309, WaylithCLR .NET 10, x86-64): `setup`, `doctor`, `build` (native
+  `linux-x64`, the bridge and the companion), `install`, `run`, `smoke` (0 failed; the Harmony checks
+  report SKIP without Harmony), `watch-log`, `defs`, `targets`, `coverage`, `--contract`, `--defs`,
+  `--patches` and the offline suite (`cargo xtask test`). The game's assemblies are at the install root
+  in this build; the log is
+  `~/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios/Logs/Player.log` (the tooling also checks
+  the folder itself).
+- Verified on Windows (1.7.4995 rev309, WaylithCLR .NET 10, x86-64): `doctor`, the offline suite
+  (`cargo xtask test`; contract 674/674, event hooks 19/19, def names 9/9, patch xpaths 4/4),
+  `build --all-targets` from Windows (native `win-x64` PE32+ plus `linux-x64` ELF, `osx-x64` and
+  `osx-arm64` Mach-O through `cargo-zigbuild`), `package --all-targets` (one zip with the bridge and
+  all four libraries) and `smoke` (153 passed, 0 failed, 30 skipped; the Harmony checks SKIP because
+  `-mod=` resolves only the local `Mods` folder). The bridge loaded `hello_rust_mod.dll` from
+  `Rust/win-x64/`. The macOS link warns about a missing `MacOSX.sdk`; harmless for these pure-Rust
+  cdylibs. The smoke wait is 180 s of real time and the suite is tick-driven: leave the quicktest
+  unpaused, because a paused game reaches the summary long after the command has timed out.
+- Cross builds from Linux: `cargo xtask build --all-targets` produced `win-x64` (PE32+ DLL), `linux-x64`
+  (ELF), `osx-x64` and `osx-arm64` (Mach-O), and every library exports the five `rwrs_*` symbols;
+  `cargo xtask package --all-targets` wrote a zip with the bridge, the XML and the four libraries. The
+  macOS link warns about a missing `MacOSX.sdk`; that is harmless for these pure-Rust cdylibs (they link
+  `libSystem.B.dylib`), and `SDKROOT` removes it when a dependency uses Apple frameworks.
+- Cross builds from macOS: the same `cargo xtask build --all-targets` produced the four libraries with
+  the five `rwrs_*` exports each, `cargo-xwin` for `win-x64` and `cargo-zigbuild` for `linux-x64`. With
+  Homebrew's keg-only `llvm@22`/`lld@22` on `PATH`, `cargo-xwin` finds `clang-cl`, `lld-link` and
+  `llvm-lib` (`cargo xtask doctor` names the missing one otherwise).
+- Version: `1.7.4995 rev309` verified on Windows, macOS and Linux, running on **WaylithCLR**
+  (`.NET 10` fork) with the RocketWerkz "Brutal" engine. No Unity runtime;
+  `UnityStubs.dll` emulates Unity APIs.
 - World creation, colony start and map generation run in the **engine**, not in the managed code: the `Verse`
   page classes, `Game.InitNewGame` and `MapGenerator.GenerateMap` install as Harmony patches and are then never
   called (six in-game runs, with `Verse.Log.Message` as the positive control - MODLOG). A mod cannot hook the
@@ -113,7 +168,12 @@ RimWorld mods in Rust:
   Workshop mods: `<steam>/steamapps/workshop/content/294100/<workshopId>`.
 - Harmony is not shipped with the game. `brrainz.harmony` (Workshop) provides `0Harmony.dll`
   version 3.0; the bridge binds it purely through reflection and degrades gracefully without it.
-- Toolchain on this machine: Rust nightly (1.94), .NET SDK 9.0.301.
+- Toolchain on the macOS build machine: Rust nightly (1.101), .NET SDK 9.0.123, Zig 0.17,
+  cargo-zigbuild 0.24, cargo-xwin 0.23, and LLVM/LLD 22 from Homebrew (`llvm@22`/`lld@22`, keg-only:
+  their `bin` folders must be on `PATH` for `clang-cl`, `lld-link` and `llvm-lib`).
+- Toolchain on the Windows build machine: Rust nightly (1.101), .NET SDK 9.0.301, Zig 0.15.2 and
+  cargo-zigbuild 0.23.4; `cargo-xwin` is not installed because the native MSVC target needs no cross
+  linker.
 - The game runtime is .NET 10 but the local SDK is 9.x: **the bridge compiles with
   `DisableImplicitFrameworkReferences` + `NoStdLib` against the game's own framework assemblies**
   (`<game>/*.dll`). Do not "fix" this back to a normal TFM reference — that produces CS1705. Both
@@ -127,16 +187,20 @@ exactly how they were verified.
 
 ```powershell
 cargo xtask test                 # every check that does not need the game (fmt, clippy, tests, ABI, contract)
-cargo xtask smoke                # install both example mods, run -quicktest, fail on [selftest] FAIL
+cargo xtask smoke                # install both example mods, run -quicktest with -mod=, fail on [selftest] FAIL
+                                 # (leave the game unpaused: the suite is tick-driven and the wait is 180 s)
 cargo xtask fmt [--fix]          # check (or fix) Rust formatting; nightly rustfmt, see rustfmt.toml
 cargo xtask lint                 # clippy -D warnings, plus dotnet format where the game is installed
 cargo build --release            # builds the SDK, the fixture and the example mod cdylib
 cargo test                       # Rust unit tests (event routing, protocol, outcomes, xtask)
 cargo xtask doctor               # checks game paths, tools and Harmony availability
 cargo xtask setup                # copies the game's reference assemblies into game-refs/
-cargo xtask build [<mod>] [--path <DIR>]   # bridge + companion + Rust into build/<ModName> (or <ModDir>/build)
-cargo xtask install [<mod>] [--path <DIR>] # builds and copies the mod into the game's Mods folder
-cargo xtask package [<mod>] [--path <DIR>] # zips the mod into <ModDir>/dist/<ModName>-<version>.zip
+cargo xtask build [<mod>] [--path <DIR>] [--target <triple>] [--all-targets]
+                                 # bridge + companion + one native library per target into build/<ModName>
+cargo xtask install [<mod>] [--path <DIR>] [--target <triple>] [--all-targets]
+                                 # builds and copies the mod into the game's Mods folder
+cargo xtask package [<mod>] [--path <DIR>] [--target <triple>] [--all-targets]
+                                 # builds and zips the mod into dist/<ModName>-<version>.zip
 cargo xtask new <Name> [--path <DIR>] [--comp] [--job] [--itab]
                                  # scaffolds mods/<Name>/ (or an external --path project) + samples
 cargo xtask remove <mod>         # delete a mod under mods/ (folder + workspace entry)
@@ -155,8 +219,8 @@ cargo xtask coverage Verse.Pawn  # what has a typed operation behind it and what
 
 # individual checks, no game required:
 dotnet run --project tools/abi-smoke                                     # marshaling self-test
-dotnet run --project tools/abi-smoke -- build/ApiTestMod/Rust/api_test_mod.dll
-dotnet run --project tools/abi-smoke -- target/release/rimworld_rs_testmod.dll --fixture
+dotnet run --project tools/abi-smoke -- build/ApiTestMod/Rust/<rid>/api_test_mod.dll
+dotnet run --project tools/abi-smoke -- target/release/<host-native-library> --fixture
 dotnet run --project tools/abi-smoke -- --contract game-refs             # bridge contract check
 dotnet run --project tools/abi-smoke -- --op-parity .                    # SDK op names <-> HostOps, names.json keys <-> the SDK
 ```
@@ -254,8 +318,11 @@ modules are checked for the 500-line / 396-constant generator limits; `cargo xta
 verifies the module tree (every `mod.rs` declares every file and module directory next to it, and every
 declaration has a file); and every local Markdown link and every `crates/`/`examples/`/`docs/`/`bridge/`/
 `tools/`/`skills/` path in inline code must resolve. `cargo xtask smoke` is the in-game counterpart: it
-installs both example mods, launches `-quicktest`, and fails on `[selftest] FAIL` or a summary with a non-zero
-failed count.
+installs both example mods, launches `-quicktest -mod=brrainz.harmony,rimworld.rs.hello,rimworld.rs.apitest`
+(the game resolves those ids in its local `Mods` folder only, so a Workshop-installed Harmony is dropped
+and the self-test then reports those checks as SKIP), and fails on `[selftest] FAIL` or a summary with a
+non-zero failed count. The `-mod=` argument gives the run its own mod list, so a fresh installation works
+without editing `ModsConfig.xml`.
 
 `git config core.hooksPath .githooks` once per clone enables the pre-commit hook, which runs the three gates
 cheap enough for every commit (`cargo xtask fmt`, which checks rather than fixes, `cargo xtask layout --check`,
@@ -328,6 +395,16 @@ without it both commands print a SKIP with the reason.
   generated `RustBridge.RustThingCompProperties_<Mod>`), with spawn/despawn/tick/gizmos/inspect
   callbacks and per-thing state (`comp_state_*`), so a mod that only needs per-thing behaviour stays
   Rust-only.
+- **The native library is per platform; the bridge is not.** A Rust cdylib is machine code, so
+  `cargo xtask build` writes `<mod>/Rust/<rid>/<lib>` (`win-x64`, `linux-x64`, `osx-x64`,
+  `osx-arm64`, ...) and `bridge/src/NativeHost.cs` selects the folder for the running game. One mod
+  folder (and one Steam Workshop item) therefore carries every platform. The C# bridge stays a
+  single managed assembly because the game loads `Assemblies/*.dll` flat — never split it per
+  platform. A new platform means a target in `SHIPPING_TARGETS`/`NativeTarget::for_triple` in
+  `crates/xtask`, the matching identifier in `NativeHost.cs`, and a doc row. Cross-OS targets use
+  `cargo zigbuild` automatically when `cargo-zigbuild` is installed; the MSVC Windows target is not
+  a zig target, so it uses `cargo xwin build` when `cargo-xwin` is installed and plain cargo (a
+  linker configured on the machine) otherwise.
 - **A type the XML or the save file names is generated per mod, never shared.** The bridge ships one copy per mod
   and the game resolves a patch's `Class` - and a save's component - across *every* loaded assembly by load order,
   so naming a shared bridge class (settings, `RustThingCompProperties`, `RustGizmoCompProperties`, the game and map

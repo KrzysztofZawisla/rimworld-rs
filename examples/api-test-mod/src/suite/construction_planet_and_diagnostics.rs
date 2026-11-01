@@ -306,7 +306,7 @@ impl ApiTest {
         if self.harmony_ready {
             let cell = colony_cell(ctx, map.id);
             match cell {
-                Err(error) => self.report.fail(ctx, "spawning with patches registered", &error),
+                Err(error) => self.report.check(ctx, "spawning with patches registered", Err(error)),
                 Ok((x, z)) => match ctx.spawn_thing(thing_def::STEEL, map.id, x, z) {
                     Ok(steel) => {
                         self.report.check(
@@ -320,7 +320,7 @@ impl ApiTest {
                         );
                         let _ = steel.call("Destroy", Vec::new());
                     }
-                    Err(error) => self.report.fail(ctx, "spawning with patches registered", &error.to_string()),
+                    Err(error) => self.report.check(ctx, "spawning with patches registered", Err(error.to_string())),
                 },
             }
         }

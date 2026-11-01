@@ -85,6 +85,56 @@ internal sealed class RustHost
         }
     }
 
+    /// <summary>
+    /// The .NET runtime identifier of the running game (`win-x64`, `linux-x64`, `osx-arm64`, ...).
+    /// A Rust cdylib is native machine code, so it cannot be shared between operating systems or
+    /// architectures the way the managed bridge is; the build puts one library per identifier under
+    /// `Rust/` and this picks the one the game can load.
+    /// </summary>
+    private static string NativeRuntimeIdentifier(string modName)
+    {
+        string os;
+        if (OperatingSystem.IsWindows())
+        {
+            os = "win";
+        }
+        else if (OperatingSystem.IsLinux())
+        {
+            os = "linux";
+        }
+        else if (OperatingSystem.IsMacOS())
+        {
+            os = "osx";
+        }
+        else
+        {
+            Log.Error($"[Rust] {modName}: Rust mods run on Windows, Linux and macOS only");
+            return null;
+        }
+
+        string arch;
+        switch (RuntimeInformation.ProcessArchitecture)
+        {
+            case Architecture.X64:
+                arch = "x64";
+                break;
+            case Architecture.Arm64:
+                arch = "arm64";
+                break;
+            case Architecture.X86:
+                arch = "x86";
+                break;
+            case Architecture.Arm:
+                arch = "arm";
+                break;
+            default:
+                Log.Error($"[Rust] {modName}: unsupported processor architecture {RuntimeInformation.ProcessArchitecture}");
+                return null;
+        }
+
+        return $"{os}-{arch}";
+    }
+
     private static RustHost Create(string modName, string rootDir)
     {
         string nativePath = ResolveNativeLibrary(modName, rootDir);
@@ -166,9 +216,9 @@ internal sealed class RustHost
 
     /// <summary>
     /// Resolves the one native library of this mod and refuses anything that is not a regular file inside
-    /// the mod's own `Rust/` folder: a `..` or an absolute path, a symlink/junction, or a second DLL. A
-    /// library outside `<mod>/Rust` would let a path mistake load a file from somewhere else on the
-    /// machine; the game already trusts a mod's code, so this is about keeping the load where the mod
+    /// the mod's own `Rust/<rid>/` folder: a `..` or an absolute path, a symlink/junction, or a second
+    /// library. A library outside `<mod>/Rust/<rid>` would let a path mistake load a file from somewhere else
+    /// on the machine; the game already trusts a mod's code, so this is about keeping the load where the mod
     /// says it is, not a sandbox.
     /// </summary>
     private static string ResolveNativeLibrary(string modName, string rootDir)
@@ -198,17 +248,52 @@ internal sealed class RustHost
             return null;
         }
 
-        string[] files = Directory.GetFiles(rustDir, "*.dll");
+        string rid = NativeRuntimeIdentifier(modName);
+        if (rid == null)
+        {
+            return null;
+        }
+
+        string platformDir = Path.GetFullPath(Path.Combine(rustDir, rid));
+        string platformPrefix = platformDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+        if (!platformDir.StartsWith(rustPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            Log.Error($"[Rust] {modName}: the platform folder {platformDir} is outside {rustDir}; refusing to load it");
+            return null;
+        }
+
+        if (!Directory.Exists(platformDir))
+        {
+            string[] shipped = Directory.GetDirectories(rustDir);
+            for (int i = 0; i < shipped.Length; i++)
+            {
+                shipped[i] = Path.GetFileName(shipped[i]);
+            }
+
+            Array.Sort(shipped, StringComparer.Ordinal);
+            string also = shipped.Length == 0 ? "the mod ships no platform folders" : $"it ships: {string.Join(", ", shipped)}";
+            Log.Error($"[Rust] {modName}: no native library for this platform ({rid}); expected {platformDir}; {also}");
+            return null;
+        }
+
+        if ((File.GetAttributes(platformDir) & FileAttributes.ReparsePoint) != 0)
+        {
+            Log.Error($"[Rust] {modName}: the platform folder is a symlink or junction ({platformDir}); refusing to load it");
+            return null;
+        }
+
+        string[] files = Directory.GetFiles(platformDir);
         if (files.Length != 1)
         {
-            Log.Error($"[Rust] {modName}: expected exactly one native library in {rustDir}, found {files.Length}");
+            Log.Error($"[Rust] {modName}: expected exactly one native library in {platformDir}, found {files.Length}");
             return null;
         }
 
         string nativePath = Path.GetFullPath(files[0]);
-        if (!nativePath.StartsWith(rustPrefix, StringComparison.OrdinalIgnoreCase))
+        if (!nativePath.StartsWith(platformPrefix, StringComparison.OrdinalIgnoreCase))
         {
-            Log.Error($"[Rust] {modName}: the native library {nativePath} is outside {rustDir}; refusing to load it");
+            Log.Error($"[Rust] {modName}: the native library {nativePath} is outside {platformDir}; refusing to load it");
             return null;
         }
 

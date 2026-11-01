@@ -73,7 +73,11 @@ pub(crate) fn checked_mod_name(name: &str) -> Result<String> {
 /// be redirected even if a caller ever passes a value that `checked_mod_name` did not see.
 pub(crate) fn joined_within(root: &Path, name: &str) -> Result<PathBuf> {
     let joined = root.join(name);
-    let inside = Path::new(name).components().all(|component| matches!(component, Component::Normal(_)))
+    // A name is one path segment on every platform a mod ships to, so Windows syntax is refused even
+    // where this host would accept `C:\Windows` or `a\b` as a single file name.
+    let windows_path = name.contains('\\') || name.as_bytes().get(1) == Some(&b':');
+    let inside = !windows_path
+        && Path::new(name).components().all(|component| matches!(component, Component::Normal(_)))
         && joined.starts_with(root);
     if !inside {
         return Err(missing(format!("'{}' would write outside {}", name, root.display())));

@@ -8,10 +8,12 @@ mod gen_defs;
 mod gen_subsystems;
 mod introspect;
 mod layout;
+mod native_targets;
 mod packaging;
 mod scaffold;
 mod secrets;
 mod smoke;
+mod steam;
 mod watch_log;
 mod workspace;
 
@@ -24,10 +26,12 @@ pub(crate) use gates::*;
 pub(crate) use gen_defs::*;
 pub(crate) use gen_subsystems::*;
 pub(crate) use introspect::*;
+pub(crate) use native_targets::*;
 pub(crate) use packaging::*;
 pub(crate) use scaffold::*;
 pub(crate) use secrets::*;
 pub(crate) use smoke::*;
+pub(crate) use steam::*;
 pub(crate) use watch_log::*;
 pub(crate) use workspace::*;
 
@@ -67,7 +71,7 @@ enum Task {
         #[arg(long)]
         staged: bool,
     },
-    /// install both example mods, launch `-quicktest`, and fail on a selftest FAIL
+    /// install both example mods, launch `-quicktest` with them via `-mod=`, and fail on a selftest FAIL
     Smoke,
     /// check the game installation, toolchain and mod folders
     Doctor,
@@ -139,6 +143,12 @@ enum Task {
         /// the mod package/workspace directory of a separate project
         #[arg(long, value_name = "DIR")]
         path: Option<PathBuf>,
+        /// build the native library for this target triple too (repeatable), e.g. `aarch64-apple-darwin`
+        #[arg(long, value_name = "TRIPLE")]
+        target: Vec<String>,
+        /// build every platform the game ships on: Windows x64, Linux x64 and macOS (Intel and Apple Silicon)
+        #[arg(long)]
+        all_targets: bool,
         mod_name: Option<String>,
     },
     /// build and copy the mod into the game's Mods folder
@@ -146,6 +156,12 @@ enum Task {
         /// the mod package/workspace directory of a separate project
         #[arg(long, value_name = "DIR")]
         path: Option<PathBuf>,
+        /// build the native library for this target triple too (repeatable)
+        #[arg(long, value_name = "TRIPLE")]
+        target: Vec<String>,
+        /// build every platform the game ships on
+        #[arg(long)]
+        all_targets: bool,
         mod_name: Option<String>,
     },
     /// build and zip the mod into `dist/<ModName>-<version>.zip`
@@ -153,6 +169,12 @@ enum Task {
         /// the mod package/workspace directory of a separate project
         #[arg(long, value_name = "DIR")]
         path: Option<PathBuf>,
+        /// build the native library for this target triple too (repeatable)
+        #[arg(long, value_name = "TRIPLE")]
+        target: Vec<String>,
+        /// build every platform the game ships on
+        #[arg(long)]
+        all_targets: bool,
         mod_name: Option<String>,
     },
     /// scaffold a new Rust mod under `mods/<Name>/` (or in `--path <DIR>` outside this repository)
@@ -244,9 +266,15 @@ fn main() -> ExitCode {
         Task::Defs { types, filter } => list_defs(types.as_deref(), filter.as_deref()),
         Task::GenDefs { types, path, mod_name } => gen_defs(mod_name.as_deref(), path.as_deref(), types),
         Task::GenSubsystems { check } => gen_subsystems(check),
-        Task::Build { path, mod_name } => build(mod_name.as_deref(), path.as_deref(), Mode::Build),
-        Task::Install { path, mod_name } => build(mod_name.as_deref(), path.as_deref(), Mode::Install),
-        Task::Package { path, mod_name } => package(mod_name.as_deref(), path.as_deref()),
+        Task::Build { path, target, all_targets, mod_name } => {
+            build(mod_name.as_deref(), path.as_deref(), Mode::Build, &target, all_targets)
+        }
+        Task::Install { path, target, all_targets, mod_name } => {
+            build(mod_name.as_deref(), path.as_deref(), Mode::Install, &target, all_targets)
+        }
+        Task::Package { path, target, all_targets, mod_name } => {
+            package(mod_name.as_deref(), path.as_deref(), &target, all_targets)
+        }
         Task::New { name, path, comp, job, itab } => scaffold(&name, path.as_deref(), comp, job, itab),
         Task::Remove { mod_name } => remove(&mod_name),
         Task::WatchLog { all, errors, grep, tail, once, no_color } => {

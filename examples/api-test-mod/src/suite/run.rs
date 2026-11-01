@@ -31,10 +31,9 @@ impl ApiTest {
     /// ancient danger still keeps in its cryptosleep caskets: the quicktest map can generate one next to
     /// the colony, and its pawns would otherwise fight the colony and invalidate the checks.
     fn clear_hostiles(&mut self, ctx: &mut Context, map: &MapInfo) {
-        let player = ctx
-            .factions()
-            .ok()
-            .and_then(|factions| factions.into_iter().find(|faction| faction.player).and_then(|faction| faction.def_name));
+        let player = ctx.factions().ok().and_then(|factions| {
+            factions.into_iter().find(|faction| faction.player).and_then(|faction| faction.def_name)
+        });
 
         let mut cleared = 0;
         if let Ok(pawns) = ctx.map_pawns(map.id).and_then(|pawns| pawns.all()) {

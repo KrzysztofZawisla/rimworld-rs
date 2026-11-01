@@ -1,4 +1,7 @@
-use std::{env, fs, path::PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use crate::*;
 
@@ -85,18 +88,48 @@ pub(crate) fn newest_log(candidates: Vec<PathBuf>) -> Option<PathBuf> {
 
 pub(crate) fn log_paths() -> Vec<PathBuf> {
     let mut paths = Vec::new();
-    if let Ok(profile) = env::var("USERPROFILE") {
-        let base = PathBuf::from(profile)
-            .join("AppData")
-            .join("LocalLow")
-            .join("Ludeon Studios")
-            .join("RimWorld by Ludeon Studios");
-        paths.push(base.join("Player.log"));
-        paths.push(base.join("Logs").join("Player.log"));
-        paths.push(base.join("Player-prev.log"));
+    let Some(home) = home_dir() else {
+        return paths;
+    };
+
+    #[cfg(windows)]
+    {
+        let base = home.join("AppData").join("LocalLow").join("Ludeon Studios").join("RimWorld by Ludeon Studios");
+        push_log_paths(&mut paths, &base);
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let config = std::env::var_os("XDG_CONFIG_HOME").map(PathBuf::from).unwrap_or_else(|| home.join(".config"));
+        push_log_paths(&mut paths, &config.join("unity3d").join("Ludeon Studios").join("RimWorld by Ludeon Studios"));
+        push_log_paths(&mut paths, &config.join("RimWorld"));
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        // Unity and RimWorld have used more than one log location on macOS; the newest existing
+        // candidate wins, so listing them all is safer than picking one. This build writes
+        // `Application Support/Ludeon Studios/RimWorld by Ludeon Studios/Logs/Player.log`.
+        push_log_paths(
+            &mut paths,
+            &home.join("Library").join("Application Support").join("Ludeon Studios").join("RimWorld by Ludeon Studios"),
+        );
+        push_log_paths(&mut paths, &home.join("Library").join("Logs").join("RimWorld"));
+        push_log_paths(
+            &mut paths,
+            &home.join("Library").join("Logs").join("Ludeon Studios").join("RimWorld by Ludeon Studios"),
+        );
+        push_log_paths(&mut paths, &home.join("Library").join("Application Support").join("RimWorld"));
+        push_log_paths(&mut paths, &home.join("Library").join("Application Support").join("RimWorld").join("Logs"));
     }
 
     paths
+}
+
+fn push_log_paths(paths: &mut Vec<PathBuf>, base: &Path) {
+    paths.push(base.join("Player.log"));
+    paths.push(base.join("Logs").join("Player.log"));
+    paths.push(base.join("Player-prev.log"));
 }
 
 /// Reads from `position` and returns the matching lines, with a tail window applied.

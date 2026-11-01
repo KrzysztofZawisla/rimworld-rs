@@ -21,6 +21,45 @@ internal static partial class Program
 {
 
     /// <summary>
+    /// The game's managed assembly, wherever this platform keeps it: at the install root on Windows,
+    /// inside the macOS bundle, or in a `*_Data/Managed` folder on the older Linux layout.
+    /// </summary>
+    internal static string FindGameAssembly(string gameDirectory)
+    {
+        string direct = Path.Combine(gameDirectory, "Assembly-CSharp.dll");
+        if (File.Exists(direct))
+        {
+            return direct;
+        }
+
+        foreach (string app in Directory.EnumerateDirectories(gameDirectory, "*.app"))
+        {
+            string inBundle = Path.Combine(app, "Contents", "MacOS", "Assembly-CSharp.dll");
+            if (File.Exists(inBundle))
+            {
+                return inBundle;
+            }
+
+            string inManaged = Path.Combine(app, "Contents", "Resources", "Data", "Managed", "Assembly-CSharp.dll");
+            if (File.Exists(inManaged))
+            {
+                return inManaged;
+            }
+        }
+
+        foreach (string data in Directory.EnumerateDirectories(gameDirectory, "*_Data"))
+        {
+            string managed = Path.Combine(data, "Managed", "Assembly-CSharp.dll");
+            if (File.Exists(managed))
+            {
+                return managed;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// Checks the xpaths of every `Patches/*.xml` in the repository against the installed game.
     ///
     /// RimWorld only logs a terse "Patch operation ... failed" when an xpath matches nothing, so a
@@ -113,8 +152,8 @@ internal static partial class Program
         // stops the def from loading, and the game then resets the mod list - so the check resolves
         // the names instead of trusting the XML.
         var types = new Dictionary<string, string>(StringComparer.Ordinal);
-        var gameAssembly = Path.Combine(gameDirectory, "Assembly-CSharp.dll");
-        if (File.Exists(gameAssembly))
+        string gameAssembly = FindGameAssembly(gameDirectory);
+        if (gameAssembly != null)
         {
             CollectTypes(gameAssembly, types, out _);
         }

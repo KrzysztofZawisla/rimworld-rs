@@ -7,7 +7,7 @@ impl ApiTest {
         }
 
         let patches_resolved = !self.harmony_ready || (self.map_instance_checked && self.interval_checked);
-        if !patches_resolved {
+        if !patches_resolved || !self.events_checked {
             return;
         }
 

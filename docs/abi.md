@@ -441,6 +441,7 @@ thing def (or the other way around) is refused with a message that names the rig
 
 | `op` | Request fields | Result |
 | --- | --- | --- |
+| `dlc_dashboard` | — | `{capabilities, defRegistry, royalty, ideology, biotech, anomaly, odyssey}` — the active expansions, the def registry the bridge sees and each expansion's section (`null` when it is not active) |
 | `pawn_titles` | `ref` | `{titles:[{defName, label, factionDefName, factionName}], seniorDefName, hasRoyalty}` |
 | `pawn_set_title` | `ref`, `title` | `{title, has}` (the player's faction, no rewards, no letter) |
 | `pawn_psyfocus` | `ref` | `{psyfocus, target, band, needsPsyfocus}` |
@@ -634,9 +635,9 @@ Def names looked up by the bridge at runtime (letters, messages) come from `brid
 `gizmos`, `comp_gizmos`, `comp_inspect` and `companion_event` are **requests**: the bridge waits for
 the response and uses the `result` field, so their handlers must not take long.
 
-The six game-state events (`pawn_spawned` … `incident_fired`) are **notifications** and all of them go
-through the queueing dispatch (`SendWithPayload`), because the game raises them inside its own tick,
-during map generation, and inside host calls the mod itself made (`spawn_thing`, `pawn_kill`,
+The eighteen game-state events (`pawn_spawned` … `mental_state_ended`) are **notifications** and all of
+them go through the queueing dispatch (`SendWithPayload`), because the game raises them inside its own
+tick, during map generation, and inside host calls the mod itself made (`spawn_thing`, `pawn_kill`,
 `research_finish`) — the payload may hold handles. They do not come from a mod's patch: the **bridge**
 patches the game for them (`bridge/src/GameEvents.cs`) through the same Harmony path as
 `harmony_patch`, so they need the brrainz.harmony mod. Without it they never fire and the bridge logs

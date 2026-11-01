@@ -157,9 +157,9 @@ internal static partial class Program
         ("Verse.GenDraw", "DrawRadiusRing"),
         ("Verse.GenDraw", "DrawFieldEdges"),
 
-        // The bridge's own patches for the game-state events (pawn_spawned, pawn_died,
-        // thing_destroyed, research_finished, letter_shown, incident_fired). A member that moves in a
-        // game update must fail this check, not silently drop the event.
+        // The bridge's own patches for the game-state events around spawning, destruction, research,
+        // letters and incidents. A member that moves in a game update must fail this check, not
+        // silently drop the event.
         ("Verse.Thing", "SpawnSetup"),
         ("Verse.Thing", "PositionHeld"),
         ("Verse.Thing", "MapHeld"),
@@ -220,7 +220,7 @@ internal static partial class Program
         ("RimWorld.TradeUtility", "GetPricePlayerSell"),
         ("RimWorld.TraderKindDef", ""),
 
-        // Hauling, and the last three game-state events (quest, message, mental state).
+        // Hauling, and the game-state events for quests, messages and mental states.
         ("Verse.Map", "listerHaulables"),
         ("RimWorld.ListerHaulables", ""),
         ("RimWorld.ListerHaulables", "ThingsPotentiallyNeedingHauling"),

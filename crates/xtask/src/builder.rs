@@ -10,7 +10,13 @@ pub(crate) const BRIDGE_PROJECT: &str = "bridge/RimWorld.Rust.Bridge.csproj";
 
 pub(crate) const BRIDGE_ASSEMBLY_PREFIX: &str = "RimWorldRustBridge";
 
-pub(crate) fn build(query: Option<&str>, path: Option<&Path>, mode: Mode) -> Result<()> {
+pub(crate) fn build(
+    query: Option<&str>,
+    path: Option<&Path>,
+    mode: Mode,
+    targets: &[String],
+    all_targets: bool,
+) -> Result<()> {
     let info = find_mod(query, path)?;
     let root = repo_root();
 
@@ -23,16 +29,29 @@ pub(crate) fn build(query: Option<&str>, path: Option<&Path>, mode: Mode) -> Res
     println!("==> building {} (package {})", info.mod_name, info.package);
     println!("    source: {}", info.dir.display());
 
-    run(Command::new("cargo")
-        .args(["build", "--release", "--manifest-path"])
-        .arg(info.dir.join("Cargo.toml"))
-        .args(["-p", &info.package])
-        .current_dir(&info.workspace_root))?;
-
     let library = info.package.replace('-', "_");
-    let native = info.target_dir.join("release").join(format!("{library}.dll"));
-    if !native.exists() {
-        return Err(missing(format!("{} was not produced; is the crate a cdylib?", native.display())));
+    let natives = native_targets(targets, all_targets, &library)?;
+    for native in &natives {
+        let tool = native.cross_tool();
+        let mut command = Command::new("cargo");
+        command.args(tool.cargo_args());
+        command.args(["--release", "--manifest-path"]).arg(info.dir.join("Cargo.toml")).args(["-p", &info.package]);
+        if let Some(triple) = &native.triple {
+            ensure_target_installed(triple)?;
+            command.args(["--target", triple]);
+        }
+
+        println!("==> compiling the native library for {}{}", native.rid, tool.label());
+        run(command.current_dir(&info.workspace_root))?;
+
+        let produced = native.output_dir(&info.target_dir).join(&native.file_name);
+        if !produced.exists() {
+            let target = native.triple.as_deref().unwrap_or("the host");
+            return Err(missing(format!(
+                "{} was not produced for {target}; is the crate a cdylib?",
+                produced.display()
+            )));
+        }
     }
 
     let output = joined_within(&info.output_root.join("build"), &info.mod_name)?;
@@ -112,9 +131,11 @@ pub(crate) fn build(query: Option<&str>, path: Option<&Path>, mode: Mode) -> Res
         }
     }
 
-    let rust_dir = output.join("Rust");
-    fs::create_dir_all(&rust_dir)?;
-    fs::copy(&native, rust_dir.join(format!("{library}.dll")))?;
+    for native in &natives {
+        let platform_dir = joined_within(&output.join("Rust"), &native.rid)?;
+        fs::create_dir_all(&platform_dir)?;
+        fs::copy(native.output_dir(&info.target_dir).join(&native.file_name), platform_dir.join(&native.file_name))?;
+    }
 
     check_no_game_assemblies(&output)?;
     println!("==> built {}", output.display());
@@ -187,20 +208,31 @@ pub(crate) fn companion_project(mod_dir: &Path) -> Result<Option<PathBuf>> {
 
 pub(crate) fn run_game(extra: &[String]) -> Result<()> {
     let game = game_dir()?;
-    let executable = game.join("RimWorld.exe");
-    if !executable.exists() {
-        return Err(missing(format!("{} was not found", executable.display())));
-    }
+    let mut command = game_command(&game, extra)?;
+    command.current_dir(launch_directory(&game));
 
-    let mut command = Command::new(&executable);
-    command.current_dir(&game);
-    for arg in extra.iter().filter(|arg| arg.as_str() != "--") {
-        command.arg(arg);
-    }
-
-    println!("==> launching {}", executable.display());
+    println!("==> launching the game from {}", game.display());
     command.spawn()?;
     Ok(())
+}
+
+/// The game process of this platform: the executable in the install folder on Windows and Linux, the
+/// bundle's own executable on macOS.
+fn game_command(game: &Path, extra: &[String]) -> Result<Command> {
+    let arguments: Vec<&str> = extra.iter().map(String::as_str).filter(|argument| *argument != "--").collect();
+    let executable = game_executable(game)
+        .ok_or_else(|| missing(format!("no RimWorld executable was found in {}", game.display())))?;
+    let mut command = Command::new(executable);
+    command.args(&arguments);
+    Ok(command)
+}
+
+/// The folder the game resolves its files from: next to the executable, which on macOS is the bundle's
+/// `Contents/MacOS`.
+fn launch_directory(game: &Path) -> PathBuf {
+    game_executable(game)
+        .and_then(|executable| executable.parent().map(Path::to_path_buf))
+        .unwrap_or_else(|| game.to_path_buf())
 }
 
 pub(crate) fn clean(path: Option<&Path>) -> Result<()> {

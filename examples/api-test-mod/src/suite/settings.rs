@@ -173,7 +173,11 @@ impl ApiTest {
 
             Ok(())
         })();
-        self.report.check(ctx, "harmony_redirect points a call at another method", redirect);
+        if self.harmony_ready {
+            self.report.check(ctx, "harmony_redirect points a call at another method", redirect);
+        } else {
+            self.report.skip(ctx, "harmony_redirect points a call at another method", "Harmony is not available");
+        }
 
         match ctx.harmony_replace(
             &MethodRef::with_params("ApiTestCompanion.Bridge", "AddThroughReplace", &[]),

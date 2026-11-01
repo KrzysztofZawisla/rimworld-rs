@@ -43,8 +43,7 @@ internal static class GameEvents
 
         if (!HarmonyBridge.IsAvailable)
         {
-            Log.Warning(
-                "[Rust] Harmony is not loaded, so the bridge's game-state events (pawn_spawned, pawn_died, thing_destroyed, research_finished, letter_shown, incident_fired) are disabled");
+            Log.Warning("[Rust] Harmony is not loaded, so the bridge's game-state events are disabled");
             return;
         }
 

@@ -182,11 +182,11 @@ impl ApiTest {
             .and_then(|(x, z)| ctx.spawn_thing(thing_def::SILVER, map.id, x, z).map_err(|error| error.to_string()))
         {
             Ok(thing) => {
-                self.report.pass(ctx, "spawn_thing returns an object handle");
+                self.report.check(ctx, "spawn_thing returns an object handle", Ok(()));
                 thing
             }
             Err(error) => {
-                self.report.fail(ctx, "spawn_thing returns an object handle", &error);
+                self.report.check(ctx, "spawn_thing returns an object handle", Err(error));
                 return;
             }
         };

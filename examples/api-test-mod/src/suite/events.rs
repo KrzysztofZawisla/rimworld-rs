@@ -4,6 +4,10 @@ use crate::*;
 /// the colony needs that long when its first pawn is busy with the suite's other jobs.
 const BILL_WAIT_TICKS: u32 = 22_000;
 
+/// The game-state events are raised by Harmony patches the bridge installs, so without Harmony a zero
+/// counter says nothing about the event route: every one of these checks reports SKIP with this reason.
+const EVENTS_NEED_HARMONY: &str = "Harmony is not available, so the bridge's game-state event hooks are disabled";
+
 impl ApiTest {
     pub(crate) fn check_game_events(&mut self, ctx: &mut Context) {
         if self.events_checked {
@@ -11,6 +15,31 @@ impl ApiTest {
         }
 
         self.events_checked = true;
+
+        if !self.harmony_ready {
+            for what in [
+                "pawn_spawned arrives with a readable pawn",
+                "pawn_died arrives with the dead pawn's label",
+                "thing_destroyed arrives with the destroyed def",
+                "research_finished arrives with the finished project",
+                "research_started arrives with the project the colony began",
+                "building_completed arrives with the finished def",
+                "pawn_down arrives with the pawn as a handle",
+                "pawn_damaged arrives with the damage that caused it",
+                "letter_shown arrives with the letter's label",
+                "incident_fired arrives with the incident's def",
+                "message_shown arrives with the message text",
+                "raid_started arrives with the job the group is doing",
+                "lord_destroyed arrives with the job the group was doing",
+                "quest_ended arrives with the quest's name",
+                "mental_state_started arrives with the pawn",
+                "mental_state_ended arrives",
+            ] {
+                self.report.skip(ctx, what, EVENTS_NEED_HARMONY);
+            }
+
+            return;
+        }
 
         let events = std::mem::take(&mut self.events);
         self.report.check(
@@ -226,6 +255,12 @@ impl ApiTest {
     }
 
     pub(crate) fn note_bill_events(&mut self, ctx: &mut Context) {
+        if !self.harmony_ready {
+            self.bill_checked = true;
+            self.report.skip(ctx, "bill_completed and bill_started arrive", EVENTS_NEED_HARMONY);
+            return;
+        }
+
         if !self.bill_armed {
             self.bill_armed = true;
             self.bill_wait = BILL_WAIT_TICKS;

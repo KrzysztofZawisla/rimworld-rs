@@ -2,10 +2,12 @@ use std::{fs, path::Path};
 
 use crate::*;
 
-/// Builds a mod and zips it for distribution (Steam Workshop or a manual install).
-pub(crate) fn package(query: Option<&str>, path: Option<&Path>) -> Result<()> {
+/// Builds a mod and zips it for distribution (Steam Workshop or a manual install). One archive
+/// carries every native target that was built: Steam Workshop items are platform-neutral, so the
+/// mod folder itself is what decides which library the running game loads.
+pub(crate) fn package(query: Option<&str>, path: Option<&Path>, targets: &[String], all_targets: bool) -> Result<()> {
     let info = find_mod(query, path)?;
-    build(query, path, Mode::Build)?;
+    build(query, path, Mode::Build, targets, all_targets)?;
 
     let output = joined_within(&info.output_root.join("build"), &info.mod_name)?;
     let version = info.version.clone();
@@ -17,7 +19,7 @@ pub(crate) fn package(query: Option<&str>, path: Option<&Path>) -> Result<()> {
     write_zip(&zip, &entries)?;
 
     println!("==> packaged {} ({} files, {} KB)", zip.display(), entries.len(), file_size(&zip)? / 1024);
-    println!("    the zip contains only the mod: About/, Assemblies/, Rust/ and the mod's XML");
+    println!("    the zip contains only the mod: About/, Assemblies/, Rust/<platform>/ and the mod's XML");
     Ok(())
 }
 

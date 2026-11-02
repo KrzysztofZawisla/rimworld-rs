@@ -16,7 +16,7 @@ namespace RustBridge;
 /// </summary>
 internal static partial class HostOps
 {
-    private static object DefInfo(JsonElement request)
+    private static Dictionary<string, object> DefInfo(JsonElement request)
     {
         Type defType = FindDefType(JsonArgs.GetString(request, "defType"));
         Def def = GetDef(defType, JsonArgs.GetString(request, "defName"));
@@ -144,7 +144,25 @@ internal static partial class HostOps
 
         throw new BridgeException($"unknown Def type '{name}'");
     }
+    private static readonly Dictionary<Type, Func<string, Def>> DefGetters = new();
+
+    private static readonly Dictionary<Type, Type> DatabaseTypes = new();
+
     private static Def GetDef(Type defType, string defName)
+    {
+        // Every lookup used to build the closed database type, find the method by name and parameter type,
+        // box the name into an `object[]` and invoke it through reflection. None of that can change, so the
+        // method becomes a delegate once per def type and the call is a plain one afterwards.
+        if (!DefGetters.TryGetValue(defType, out Func<string, Def> getter))
+        {
+            getter = BuildDefGetter(defType);
+            DefGetters[defType] = getter;
+        }
+
+        return getter(defName);
+    }
+
+    private static Func<string, Def> BuildDefGetter(Type defType)
     {
         MethodInfo getter = DefDatabaseType(defType).GetMethod(
             "GetNamedSilentFail",
@@ -157,11 +175,17 @@ internal static partial class HostOps
             throw new BridgeException($"DefDatabase<{defType.Name}> has no GetNamedSilentFail(string)");
         }
 
-        return (Def)getter.Invoke(null, new object[] { defName });
+        return getter.CreateDelegate<Func<string, Def>>();
     }
+
     private static Type DefDatabaseType(Type defType)
     {
-        Type database = typeof(DefDatabase<>).MakeGenericType(defType);
+        if (!DatabaseTypes.TryGetValue(defType, out Type database))
+        {
+            database = typeof(DefDatabase<>).MakeGenericType(defType);
+            DatabaseTypes[defType] = database;
+        }
+
         return database;
     }
 }

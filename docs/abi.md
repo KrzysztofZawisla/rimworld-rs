@@ -48,7 +48,7 @@ Every call is one JSON object with an `op` field; the response is
 
 | `op` | Request fields | Result |
 | --- | --- | --- |
-| `log` | `level` (`info`/`warn`/`error`), `message` | `null` |
+| `log` | `level` (`info`/`warn`/`error`), `message` | `null` — identical lines are throttled (3 per 10 s per level and text, with the count reported on the next written line); a line starting with `[selftest]`, `[Rust]` or `[RustBridge]` is never throttled |
 | `game_info` | — | `{hasGame, tick, programState, currentMapId, maps:[{id, biome, tile, sizeX, sizeZ, colonists, isPlayerHome}]}` |
 | `def_info` | `defType`, `defName` | `{defName, defType, label, description, modName}` or `null` |
 | `def_names` | `defType` | `["Steel", ...]` |

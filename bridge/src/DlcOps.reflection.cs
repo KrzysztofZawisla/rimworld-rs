@@ -132,7 +132,7 @@ internal static partial class DlcOps
         }
 
         return words.Any(word => !string.IsNullOrEmpty(word)
-            && value.IndexOf(word, StringComparison.OrdinalIgnoreCase) >= 0);
+            && value.Contains(word, StringComparison.OrdinalIgnoreCase));
     }
 
     private static string Label(Def def)

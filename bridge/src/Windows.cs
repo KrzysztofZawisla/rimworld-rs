@@ -212,7 +212,7 @@ internal sealed class RustWindow : Window
         }
     }
 
-    private void Report(Widget widget, object value)
+    private static void Report(Widget widget, object value)
     {
         if (string.IsNullOrEmpty(widget.Handler))
         {

@@ -18,6 +18,8 @@
          count, parameter type names, aliases). -->
     <Compile Include="..\..\bridge\src\JsonUtil.cs" Link="JsonUtil.cs" />
     <Compile Include="..\..\bridge\src\MemberAccess.cs" Link="MemberAccess.cs" />
+    <Compile Include="..\..\bridge\src\MemberCache.cs" Link="MemberCache.cs" />
+    <Compile Include="..\..\bridge\src\LogThrottle.cs" Link="LogThrottle.cs" />
     <Compile Include="..\..\bridge\src\MethodSelection.cs" Link="MethodSelection.cs" />
     <Compile Include="..\..\bridge\src\InstructionRewriting.cs" Link="InstructionRewriting.cs" />
   </ItemGroup>

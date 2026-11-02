@@ -148,6 +148,10 @@ struct ApiTest {
     interval_ticks: u32,
     interval_checked: bool,
     ui_done: bool,
+    /// Whether the host-call cost report has been written, and how many ticks it waits after the suite: the
+    /// measurement must run on a live map, where `Map.IsPlayerHome` does not fall back to the grav-engine scan.
+    cost_reported: bool,
+    cost_wait: u32,
     /// Ticks to wait before the game-state event counters are read: events raised inside host calls
     /// are queued and delivered when the current dispatch ends, which is after this handler.
     events_wait: u32,
@@ -229,6 +233,8 @@ struct ApiTest {
     // gas the game applies on its next grid tick, and the trader the incident brings
     gas_pending: Option<(i32, i32, i32)>,
     gas_checked: bool,
+    /// How many ticks the gas check has waited for the grid to hold the write.
+    gas_wait: u32,
     trade_armed: bool,
     trade_deadline: i64,
 }

@@ -32,6 +32,10 @@ internal static class GameEvents
     private static string lastMessageKey;
     private static int lastMessageTick = -1;
 
+    // The parameter lists stay literal: `abi-smoke --contract` reads this table from the source and verifies
+    // every type and method against the game assembly. CA1861's premise - a method called repeatedly that
+    // would allocate a fresh array per call - does not hold for a table installed once per bridge.
+#pragma warning disable CA1861
     public static void Install()
     {
         if (installed)
@@ -101,7 +105,7 @@ internal static class GameEvents
 
         // The moment a pawn goes down. `Notify_Downed` is the game's own virtual call for it, so a wound, a
         // mental break or a mod all arrive here; the payload carries the pawn itself as a handle.
-        Add("Verse.Pawn", "Notify_Downed", new string[0], nameof(PawnDown));
+        Add("Verse.Pawn", "Notify_Downed", Array.Empty<string>(), nameof(PawnDown));
 
         // A construction finishes: `Frame.CompleteConstruction` is the one method every finished building
         // goes through, whoever did the work. Hooked as a **prefix** on purpose — the method despawns the
@@ -138,7 +142,7 @@ internal static class GameEvents
                 "Verse.Pawn", "System.Boolean", "System.Boolean", "System.Boolean",
             },
             nameof(MentalStateStarted));
-        Add("Verse.AI.MentalStateHandler", "ClearMentalStateDirect", new string[0], nameof(MentalStateEnded));
+        Add("Verse.AI.MentalStateHandler", "ClearMentalStateDirect", Array.Empty<string>(), nameof(MentalStateEnded));
 
         // A game condition begins and ends. `RegisterCondition` is the one entry every condition goes
         // through; `OnConditionEnd` is the game's own removal, and it also runs for an expired condition.
@@ -153,6 +157,7 @@ internal static class GameEvents
             new[] { "RimWorld.Faction", "RimWorld.FactionRelationKind", "System.Boolean", "System.String", "Nullable<GlobalTargetInfo>" },
             nameof(FactionRelationChanged));
     }
+#pragma warning restore CA1861
 
     private static void Add(string typeName, string methodName, string[] paramTypes, string postfixName)
     {

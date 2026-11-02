@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using RimWorld;
@@ -67,7 +68,7 @@ internal static partial class WorldOps
         if (!Enum.TryParse(wanted, ignoreCase: true, out QuestEndOutcome outcome))
         {
             throw new BridgeException(
-                $"unknown quest outcome '{wanted}' (expected one of {string.Join(", ", Enum.GetNames(typeof(QuestEndOutcome)))})");
+                $"unknown quest outcome '{wanted}' (expected one of {string.Join(", ", Enum.GetNames<QuestEndOutcome>())})");
         }
 
         quest.End(outcome, sendLetter: true, playSound: true);
@@ -139,8 +140,8 @@ internal static partial class WorldOps
         Quest found = Find.QuestManager?.QuestsListForReading?.FirstOrDefault(candidate => candidate.id == id);
         if (found == null)
         {
-            var known = Find.QuestManager?.QuestsListForReading?.Select(candidate => candidate.id.ToString())
-                ?? Enumerable.Empty<string>();
+            var known = Find.QuestManager?.QuestsListForReading
+                ?.Select(candidate => candidate.id.ToString(CultureInfo.InvariantCulture)) ?? Enumerable.Empty<string>();
             throw new BridgeException($"there is no quest {id} (the game has: {string.Join(", ", known)})");
         }
 

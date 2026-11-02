@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text.Json;
 using Verse;
@@ -244,6 +245,10 @@ internal static class XmlCompOwner
 public class RustThingCompProperties : CompProperties
 {
     /// <summary>The name Rust sees for this comp; empty means "use the def name".</summary>
+    [SuppressMessage(
+        "Design",
+        "CA1051:Do not declare visible instance fields",
+        Justification = "RimWorld's XML loader binds a comp property by its field name.")]
     public string key;
 
     public RustThingCompProperties()

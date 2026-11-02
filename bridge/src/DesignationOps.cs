@@ -238,7 +238,7 @@ internal static class DesignationOps
         if (!Enum.TryParse(wanted, ignoreCase: true, out StoragePriority priority))
         {
             throw new BridgeException(
-                $"unknown storage priority '{wanted}' (expected one of {string.Join(", ", Enum.GetNames(typeof(StoragePriority)))})");
+                $"unknown storage priority '{wanted}' (expected one of {string.Join(", ", Enum.GetNames<StoragePriority>())})");
         }
 
         StoragePriority before = settings.Priority;
@@ -303,7 +303,7 @@ internal static class DesignationOps
         if (!Enum.TryParse(presetName, ignoreCase: true, out StorageSettingsPreset preset))
         {
             throw new BridgeException(
-                $"unknown StorageSettingsPreset '{presetName}' (expected one of {string.Join(", ", Enum.GetNames(typeof(StorageSettingsPreset)))})");
+                $"unknown StorageSettingsPreset '{presetName}' (expected one of {string.Join(", ", Enum.GetNames<StorageSettingsPreset>())})");
         }
 
         Zone existing = map.zoneManager.ZoneAt(cell);
@@ -431,7 +431,7 @@ internal static class DesignationOps
         return area;
     }
 
-    private static Dictionary<string, object> AreaEntry(Area area, Map map)
+    private static Dictionary<string, object> AreaEntry(Area_Allowed area, Map map)
     {
         return new Dictionary<string, object>
         {

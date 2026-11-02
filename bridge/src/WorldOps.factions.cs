@@ -66,7 +66,7 @@ internal static partial class WorldOps
         if (!Enum.TryParse(wanted, ignoreCase: true, out FactionRelationKind kind))
         {
             throw new BridgeException(
-                $"unknown relation kind '{wanted}' (expected one of {string.Join(", ", Enum.GetNames(typeof(FactionRelationKind)))})");
+                $"unknown relation kind '{wanted}' (expected one of {string.Join(", ", Enum.GetNames<FactionRelationKind>())})");
         }
 
         FactionRelationKind before = a.RelationKindWith(b);

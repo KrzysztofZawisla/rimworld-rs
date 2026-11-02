@@ -234,11 +234,17 @@ impl ApiTest {
                 ));
                 self.report.check(ctx, "map_start_fire lights a fire, map_fires sees it and it dies", outcome);
             }
-            None => self.report.check(
-                ctx,
-                "map_start_fire lights a fire",
-                Err(format!("the game refused a fire at every tested cell: {}", fire_refusals.join("; "))),
-            ),
+            None => {
+                let reason = format!("the game refused a fire at every tested cell: {}", fire_refusals.join("; "));
+                if fire_refusals.iter().all(|refusal| refusal.contains("does not burn")) {
+                    // `FireUtility.TerrainFlammableNow` is the game's own rule (the terrain's Flammability
+                    // stat, or its foundation's); a map whose cells carry none cannot light a fire at all,
+                    // and that is a property of the generated map, not a defect of the bridge.
+                    self.report.skip(ctx, "map_start_fire lights a fire", &reason);
+                } else {
+                    self.report.check(ctx, "map_start_fire lights a fire", Err(reason));
+                }
+            }
         }
 
         // Filth: the game has its own rules for where it may lie, and bare rock or sand may refuse it — so

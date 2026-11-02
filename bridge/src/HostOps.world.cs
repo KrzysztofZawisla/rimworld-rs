@@ -55,7 +55,10 @@ internal static partial class HostOps
         info["tile"] = map.TileInfo.tile.tileId;
         info["sizeX"] = map.Size.x;
         info["sizeZ"] = map.Size.z;
-        info["colonists"] = map.mapPawns?.FreeColonists?.Count ?? 0;
+        info["colonists"] = map.mapPawns?.FreeColonistsCount ?? 0;
+        // `IsPlayerHome` is the game's own answer and is kept on purpose: its other branches (a map spawned
+        // by a gravship landing, a parent def that cannot be a player home, and the grav-engine fallback that
+        // scans every world object) cannot be reproduced with a cheaper expression.
         info["isPlayerHome"] = map.IsPlayerHome;
         return info;
     }

@@ -1,7 +1,4 @@
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use std::{fs, path::Path};
 
 use heck::{ToSnakeCase, ToTitleCase};
 
@@ -80,50 +77,27 @@ fn picks_the_cross_linker_for_each_target() {
 }
 
 #[test]
-fn reads_the_steam_libraries_a_game_can_live_in() {
-    // The current format: one object per library, with the folder under "path".
-    let modern = r#"
-"libraryfolders"
-{
-    "0"
-    {
-        "path" "/opt/Steam"
-        "label" ""
-    }
-    "1"
-    {
-        "path" "/mnt/games/SteamLibrary"
-    }
-}
-"#;
-    assert_eq!(
-        parse_library_folders(modern),
-        vec![PathBuf::from("/opt/Steam"), PathBuf::from("/mnt/games/SteamLibrary")]
-    );
+fn maps_the_32_bit_and_arm_triples_to_their_runtime_identifiers() {
+    // The triple is parsed into its parts; `i686` and `armv7` are not prefixes this tool has to know.
+    assert_eq!(NativeTarget::for_triple("i686-pc-windows-msvc", "my_mod").expect("x86").rid, "win-x86");
+    assert_eq!(NativeTarget::for_triple("armv7-unknown-linux-gnueabihf", "my_mod").expect("arm").rid, "linux-arm");
+    assert_eq!(NativeTarget::for_triple("aarch64-unknown-linux-gnu", "my_mod").expect("arm64").rid, "linux-arm64");
 
-    // The old format used the numbered key itself, next to bookkeeping values that are not paths.
-    let legacy =
-        "\"LibraryFolders\"\n{\n\t\"TimeNextStatsReport\" \"123\"\n\t\"ContentStatsID\" \"456\"\n\t\"1\" \"D:\\\\Games\\\\Steam\"\n}\n";
-    assert_eq!(parse_library_folders(legacy), vec![PathBuf::from(r"D:\Games\Steam")]);
+    let malformed =
+        NativeTarget::for_triple("not-a-triple", "my_mod").err().expect("a triple starts with an architecture");
+    assert!(malformed.to_string().contains("is not a target triple"), "{malformed}");
 }
 
 #[test]
-fn finds_a_game_in_a_secondary_steam_library() {
-    let directory = tempfile::tempdir().expect("temp dir");
-    let steam = directory.path().join("Steam");
-    let library = directory.path().join("Steam Library");
-    fs::create_dir_all(steam.join("steamapps")).expect("steam");
-    fs::create_dir_all(library.join("steamapps").join("common")).expect("library");
-    let vdf = format!(
-        "\"libraryfolders\"\n{{\n\t\"0\"\n\t{{\n\t\t\"path\" \"{}\"\n\t}}\n\t\"1\"\n\t{{\n\t\t\"path\" \"{}\"\n\t}}\n}}\n",
-        steam.display().to_string().replace('\\', "\\\\"),
-        library.display().to_string().replace('\\', "\\\\")
-    );
-    fs::write(steam.join("steamapps").join("libraryfolders.vdf"), vdf).expect("vdf");
+fn reads_the_mod_id_out_of_an_about_file() {
+    // quick-xml owns the comments, the case of the element name and the whitespace around the value, so a
+    // commented-out id is not this mod's id and a value on its own line still arrives whole.
+    let about = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<ModMetadata>\n  <!-- <packageId>rimworld.rs.commented</packageId> -->\n  <packageId>\n    rimworld.rs.apitest\n  </packageId>\n</ModMetadata>\n";
+    assert_eq!(package_id(about).as_deref(), Some("rimworld.rs.apitest"));
 
-    let dirs = rimworld_dirs_from_roots(vec![steam.clone()]);
-    assert!(dirs.contains(&steam.join("steamapps").join("common").join("RimWorld")));
-    assert!(dirs.contains(&library.join("steamapps").join("common").join("RimWorld")));
+    assert_eq!(package_id("<ModMetadata><packageid>lower</packageid></ModMetadata>").as_deref(), Some("lower"));
+    assert_eq!(package_id("<ModMetadata><name>a mod</name></ModMetadata>"), None);
+    assert_eq!(package_id("<ModMetadata><packageId>  </packageId></ModMetadata>"), None);
 }
 
 #[test]

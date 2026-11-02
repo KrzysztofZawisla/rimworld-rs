@@ -682,13 +682,22 @@ internal sealed class RustHost
         byte[] response;
         try
         {
-            string request = requestLen > 0
-                ? Encoding.UTF8.GetString(Read(requestPtr, requestLen))
-                : "{}";
-            response = Encoding.UTF8.GetBytes(HostOps.Handle(request));
+            // Both sides speak UTF-8; the request is parsed from the bytes instead of a string decoded
+            // from them, and the answer is written as bytes instead of string-then-bytes. The request
+            // bytes are copied into one reusable buffer per thread, not a fresh array per call.
+            ReadOnlyMemory<byte> request = requestLen > 0 ? Read(requestPtr, requestLen) : EmptyJsonObject;
+            response = HostOps.Handle(request);
         }
         catch (Exception ex)
         {
+            // The wire keeps the game's own message. The full trace is the mod author's extra detail and is
+            // written only when the bridge option asks for it: a failing call in a hot path would otherwise
+            // repeat a stack trace every tick.
+            if (BridgeOptions.VerboseErrors)
+            {
+                Log.Error($"[Rust] host call failed: {ex}");
+            }
+
             string escaped = JsonSerializer.Serialize(ex.Message);
             response = Encoding.UTF8.GetBytes($"{{\"ok\":false,\"error\":{escaped}}}");
         }
@@ -705,47 +714,63 @@ internal sealed class RustHost
         }
     }
 
-    private static byte[] Read(IntPtr pointer, int length)
+    private static readonly byte[] EmptyJsonObject = Encoding.UTF8.GetBytes("{}");
+
+    [ThreadStatic] private static byte[] requestBytes;
+
+    private static ReadOnlyMemory<byte> Read(IntPtr pointer, int length)
     {
-        var bytes = new byte[length];
-        Marshal.Copy(pointer, bytes, 0, length);
-        return bytes;
+        if (requestBytes == null || requestBytes.Length < length)
+        {
+            requestBytes = new byte[Math.Max(length, 512)];
+        }
+
+        Marshal.Copy(pointer, requestBytes, 0, length);
+        return requestBytes.AsMemory(0, length);
     }
 }
 
 /// <summary>
 /// Host call responses are allocated by the bridge and are only guaranteed to stay alive until
-/// the next host call or the end of the current dispatch. The previous buffer is therefore
-/// released as soon as a new one is produced, and <see cref="Flush"/> releases the last one.
+/// the next host call or the end of the current dispatch — so the same native block can be reused for
+/// every answer inside one dispatch, and only grows when a bigger answer arrives. <see cref="Flush"/>
+/// releases it when the dispatch ends, so an idle game holds no native memory from this route.
 /// </summary>
 internal static class HostCallBuffers
 {
-    [ThreadStatic] private static IntPtr latest;
+    [ThreadStatic] private static IntPtr buffer;
+
+    [ThreadStatic] private static int capacity;
 
     public static void Publish(IntPtr responseOut, byte[] response)
     {
-        Flush();
-        IntPtr memory = Marshal.AllocHGlobal(response.Length);
-        try
+        if (capacity < response.Length)
         {
-            Marshal.Copy(response, 0, memory, response.Length);
-            Marshal.WriteIntPtr(responseOut, memory);
-            Marshal.WriteInt32(responseOut + IntPtr.Size, response.Length);
-            latest = memory;
+            if (buffer != IntPtr.Zero)
+            {
+                Marshal.FreeHGlobal(buffer);
+            }
+
+            buffer = Marshal.AllocHGlobal(response.Length);
+            capacity = response.Length;
         }
-        catch
+
+        if (response.Length > 0)
         {
-            Marshal.FreeHGlobal(memory);
-            throw;
+            Marshal.Copy(response, 0, buffer, response.Length);
         }
+
+        Marshal.WriteIntPtr(responseOut, buffer);
+        Marshal.WriteInt32(responseOut + IntPtr.Size, response.Length);
     }
 
     public static void Flush()
     {
-        if (latest != IntPtr.Zero)
+        if (buffer != IntPtr.Zero)
         {
-            Marshal.FreeHGlobal(latest);
-            latest = IntPtr.Zero;
+            Marshal.FreeHGlobal(buffer);
+            buffer = IntPtr.Zero;
+            capacity = 0;
         }
     }
 }

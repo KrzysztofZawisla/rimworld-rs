@@ -16,12 +16,14 @@ namespace RustBridge;
 /// </summary>
 internal static partial class HostOps
 {
-    public static string Handle(string requestJson)
+    public static byte[] Handle(ReadOnlyMemory<byte> requestJson)
     {
         string op = "?";
         Stopwatch watch = Stopwatch.StartNew();
         try
         {
+            // The request arrives as UTF-8 bytes; parsing them directly skips the string the old
+            // `Encoding.UTF8.GetString` allocated (and `JsonDocument.Parse(string)` transcoded again).
             using JsonDocument document = JsonDocument.Parse(requestJson);
             JsonElement request = document.RootElement;
             op = JsonArgs.GetStringOrNull(request, "op");
@@ -750,7 +752,7 @@ internal static partial class HostOps
                 throw new BridgeException($"unknown op '{op}'");
         }
     }
-    private static string BuildResponse(bool ok, string error, object result)
+    private static byte[] BuildResponse(bool ok, string error, object result)
     {
         using var stream = new System.IO.MemoryStream();
         using (var writer = new Utf8JsonWriter(stream))
@@ -770,6 +772,8 @@ internal static partial class HostOps
             writer.WriteEndObject();
         }
 
-        return Encoding.UTF8.GetString(stream.ToArray());
+        // The bytes go straight to the native side; the old answer was decoded into a string here and
+        // encoded again by the caller, so every response crossed UTF-8 three times and was copied twice.
+        return stream.ToArray();
     }
 }

@@ -25,7 +25,7 @@ internal static partial class WorldOps
             ["seed"] = world.info?.seedString,
             ["tileCount"] = Find.WorldGrid?.TilesCount ?? 0,
             ["planetCoverage"] = world.info?.planetCoverage ?? 0f,
-            ["settlementCount"] = world.worldObjects?.Settlements?.Count() ?? 0,
+            ["settlementCount"] = world.worldObjects?.Settlements?.Count ?? 0,
         };
     }
     public static object TileInfo(JsonElement request)
@@ -328,7 +328,7 @@ internal static partial class WorldOps
             ["feature"] = tile.feature?.def?.defName,
         };
     }
-    private static Tile ResolveTile(JsonElement request)
+    private static SurfaceTile ResolveTile(JsonElement request)
     {
         WorldGrid grid = Find.WorldGrid;
         if (grid == null)

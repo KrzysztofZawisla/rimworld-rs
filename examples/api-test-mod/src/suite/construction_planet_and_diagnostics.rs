@@ -326,3 +326,98 @@ impl ApiTest {
         }
     }
 }
+
+/// Reports what a host round trip costs in this run, so the claim in `docs/performance.md` can be checked
+/// against the machine it runs on: the same operation once per call, and the same operation batched.
+///
+/// This is a report, not a check: the microseconds depend on the machine, so nothing fails on them. The
+/// mock host is skipped — its timings would measure the harness, not the bridge. Each number is the median
+/// of `REPEATS` rounds after a warm-up, because a single round varies by tens of microseconds between runs.
+/// It runs from the tick handler a few ticks after the suite, not during map generation.
+pub(crate) fn report_host_cost(ctx: &Context) {
+    const ROUNDS: usize = 50;
+    const REPEATS: usize = 3;
+
+    let Ok(info) = ctx.game_info() else {
+        return;
+    };
+    if info.is_mock() {
+        return;
+    }
+
+    // The first calls pay for the JIT, the dispatch lock and the allocator's cold path.
+    for _ in 0..20 {
+        let _ = ctx.game_info();
+    }
+
+    // Reset the bridge's own per-operation counters, so the microseconds it reports below cover exactly the
+    // loops that follow and the two halves of the round trip can be compared.
+    let _ = ctx.stats(true);
+
+    let requests: Vec<(&str, Value)> =
+        (0..ROUNDS).map(|_| ("def_info", json!({ "defType": "ThingDef", "defName": thing_def::STEEL }))).collect();
+    let mut game_info = Vec::with_capacity(REPEATS);
+    let mut def_info = Vec::with_capacity(REPEATS);
+    let mut batched = Vec::with_capacity(REPEATS);
+    for _ in 0..REPEATS {
+        let started = std::time::Instant::now();
+        for _ in 0..ROUNDS {
+            let _ = ctx.game_info();
+        }
+        game_info.push(microseconds_per_call(started, ROUNDS));
+
+        let started = std::time::Instant::now();
+        for _ in 0..ROUNDS {
+            let _ = ctx.def_info("ThingDef", thing_def::STEEL);
+        }
+        def_info.push(microseconds_per_call(started, ROUNDS));
+
+        let started = std::time::Instant::now();
+        let answers = ctx.run_batch(&requests).map(|answers| answers.len()).unwrap_or(0);
+        batched.push(microseconds_per_call(started, ROUNDS));
+        if answers != ROUNDS {
+            ctx.log(format!("[selftest] INFO  the batch answered {answers} of {ROUNDS} requests"));
+            return;
+        }
+    }
+
+    let (game, game_low, game_high) = summarize(game_info);
+    let (def, def_low, def_high) = summarize(def_info);
+    let (batch, batch_low, batch_high) = summarize(batched);
+    ctx.log(format!(
+        "[selftest] INFO  host call cost in this run ({REPEATS} x {ROUNDS} calls, median and range): \
+         game_info {game:.1} us/call ({game_low:.1}..{game_high:.1}), \
+         def_info {def:.1} us/call ({def_low:.1}..{def_high:.1}), \
+         batched def_info {batch:.1} us/op ({batch_low:.1}..{batch_high:.1})"
+    ));
+
+    // The bridge times only what it owns (request parse, the operation, response encode); the difference to
+    // the numbers above is the C ABI call, the buffer copy and the Rust encode and parse.
+    if let Ok(stats) = ctx.stats(false) {
+        let per_call = |op: &str| -> Option<f64> {
+            let calls = stats.get("calls")?.get(op)?.as_f64()?;
+            let microseconds = stats.get("microseconds")?.get(op)?.as_f64()?;
+            (calls > 0.0).then(|| microseconds / calls)
+        };
+
+        if let (Some(game_bridge), Some(def_bridge)) = (per_call("game_info"), per_call("def_info")) {
+            ctx.log(format!(
+                "[selftest] INFO  of which the bridge did {game_bridge:.1} us of game_info ({:.0}%) and \
+                 {def_bridge:.1} us of def_info ({:.0}%)",
+                game_bridge / game * 100.0,
+                def_bridge / def * 100.0
+            ));
+        }
+    }
+}
+
+fn microseconds_per_call(started: std::time::Instant, rounds: usize) -> f64 {
+    started.elapsed().as_secs_f64() * 1_000_000.0 / rounds as f64
+}
+
+/// The median of the rounds, with the range they covered.
+fn summarize(mut samples: Vec<f64>) -> (f64, f64, f64) {
+    samples.sort_by(|left, right| left.partial_cmp(right).unwrap_or(std::cmp::Ordering::Equal));
+    let median = samples[samples.len() / 2];
+    (median, samples[0], samples[samples.len() - 1])
+}

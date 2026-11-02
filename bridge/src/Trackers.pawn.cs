@@ -292,7 +292,7 @@ internal static partial class Trackers
     }
     private static UnityEngine.Color ParseColor(string text)
     {
-        string hex = text.StartsWith("#", StringComparison.Ordinal) ? text.Substring(1) : text;
+        string hex = text.StartsWith('#') ? text.Substring(1) : text;
         if (hex.Length != 6
             || !int.TryParse(hex, System.Globalization.NumberStyles.HexNumber, System.Globalization.NumberFormatInfo.InvariantInfo, out int rgb))
         {
@@ -508,7 +508,7 @@ internal static partial class Trackers
         if (!Enum.TryParse(wanted, ignoreCase: true, out Passion passion))
         {
             throw new BridgeException(
-                $"unknown passion '{wanted}' (expected one of {string.Join(", ", Enum.GetNames(typeof(Passion)))})");
+                $"unknown passion '{wanted}' (expected one of {string.Join(", ", Enum.GetNames<Passion>())})");
         }
 
         record.passion = passion;

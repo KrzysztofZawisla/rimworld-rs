@@ -140,10 +140,13 @@ internal static class JsonValueBridge
     /// (for example <c>Verse.TaggedString</c>, returned by most labels and descriptions) as JSON
     /// strings instead of object handles. Keep this layer free of game references.
     /// </summary>
-    public static Func<object, string> StringLikeConverter = null;
+    // Assigned by the bridge's TypeHooks (Components.cs). The harness compiles this file without that
+    // game-side half, so it would report CS0649 for fields it never assigns.
+#pragma warning disable CS0649
+    public static Func<object, string> StringLikeConverter;
 
     /// <summary>Optional hook that converts a JSON string into such a game type on the way back.</summary>
-    public static Func<string, Type, object> StringLikeParser = null;
+    public static Func<string, Type, object> StringLikeParser;
 
     /// <summary>
     /// Optional hook that builds a value type out of an inline JSON object, for example <c>Verse.IntVec3</c> from
@@ -151,7 +154,8 @@ internal static class JsonValueBridge
     /// assigned to a value type - which is exactly what a patch handler does when it rewrites a struct argument
     /// (or a struct member) in the game.
     /// </summary>
-    public static Func<JsonElement, Type, object> StructParser = null;
+    public static Func<JsonElement, Type, object> StructParser;
+#pragma warning restore CS0649
 
     public static void Write(Utf8JsonWriter writer, object value, RefTable refs)
     {
@@ -332,6 +336,8 @@ internal static class JsonValueBridge
         }
     }
 
+    private static readonly Dictionary<string, Type> ResolvedTypes = new(StringComparer.Ordinal);
+
     public static Type ResolveType(string name)
     {
         if (string.IsNullOrEmpty(name))
@@ -339,30 +345,45 @@ internal static class JsonValueBridge
             return null;
         }
 
+        // A name is looked up on every `def_info`, `def_set` and patch-handler call, and a miss runs
+        // `Type.GetType` plus one `assembly.GetType` per loaded assembly (a modded game loads hundreds).
+        // The answer cannot change for the life of the process, so it is memoized - misses included, or a
+        // name that is not a type would rescan every assembly on every call.
+        lock (ResolvedTypes)
+        {
+            if (ResolvedTypes.TryGetValue(name, out Type cached))
+            {
+                return cached;
+            }
+        }
+
         Type found = Type.GetType(name);
-        if (found != null)
+        if (found == null)
         {
-            return found;
+            foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                try
+                {
+                    found = assembly.GetType(name);
+                }
+                catch (Exception)
+                {
+                    continue;
+                }
+
+                if (found != null)
+                {
+                    break;
+                }
+            }
         }
 
-        foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+        lock (ResolvedTypes)
         {
-            try
-            {
-                found = assembly.GetType(name);
-            }
-            catch (Exception)
-            {
-                continue;
-            }
-
-            if (found != null)
-            {
-                return found;
-            }
+            ResolvedTypes[name] = found;
         }
 
-        return null;
+        return found;
     }
 
     private static object ReadString(string text, Type target)

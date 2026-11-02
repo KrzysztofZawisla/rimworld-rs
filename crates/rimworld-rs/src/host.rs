@@ -83,16 +83,18 @@ pub(crate) fn call(op: &str, mut request: Value) -> Result<Value, Error> {
         return Err(Error::HostUnavailable(code));
     }
 
-    // The buffer stays valid until the next host call; copy it out immediately.
-    let text = String::from_utf8(unsafe { response.as_slice() }.to_vec())
-        .map_err(|error| Error::InvalidResponse(error.to_string()))?;
-    let value: Value = serde_json::from_str(&text)?;
+    // The buffer stays valid until the next host call, and this parse happens before one can arrive,
+    // so the answer is read in place: the copy into a `String` this used to make cost one allocation
+    // and one UTF-8 validation pass per call.
+    let mut value: Value = serde_json::from_slice(unsafe { response.as_slice() })?;
     if !value.get("ok").and_then(Value::as_bool).unwrap_or(false) {
         let message = value.get("error").and_then(Value::as_str).unwrap_or("unknown host error");
         return Err(Error::Host(message.to_string()));
     }
 
-    Ok(value.get("result").cloned().unwrap_or(Value::Null))
+    // `read::<T>` deserializes this subtree, so moving it out is enough; cloning it duplicated the whole
+    // answer first.
+    Ok(value.get_mut("result").map(Value::take).unwrap_or(Value::Null))
 }
 
 #[cfg(test)]

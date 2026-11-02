@@ -129,7 +129,7 @@ internal static partial class DlcOps
             .OfType<Dictionary<string, object>>()
             .Where(row => (Text(row.TryGetValue("label", out object label) ? label : null)
                            ?? Text(row.TryGetValue("defName", out object def) ? def : null)
-                           ?? "").IndexOf("slave", StringComparison.OrdinalIgnoreCase) >= 0)
+                           ?? "").Contains("slave", StringComparison.OrdinalIgnoreCase))
             .ToList();
 
         return new Dictionary<string, object>

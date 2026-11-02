@@ -19,16 +19,7 @@ internal static class MethodSelection
     /// </summary>
     public static MethodInfo Select(Type type, string typeName, string methodName, string[] paramTypes, int argumentCount = -1)
     {
-        var candidates = new List<MethodInfo>();
-        foreach (MethodInfo candidate in type.GetMethods(
-                     BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static))
-        {
-            if (candidate.Name == methodName)
-            {
-                candidates.Add(candidate);
-            }
-        }
-
+        List<MethodInfo> candidates = MemberCache.MethodsOf(type, methodName);
         if (candidates.Count == 0)
         {
             throw new BridgeException($"method not found: {typeName}.{methodName}{SuggestMethods(type, methodName)}");
@@ -172,7 +163,7 @@ internal static class MethodSelection
         string wanted = Alias(expected);
 
         string simple = type.Name;
-        int arity = simple.IndexOf('`');
+        int arity = simple.IndexOf('`', StringComparison.Ordinal);
         string withoutArity = arity >= 0 ? simple.Substring(0, arity) : simple;
         if (string.Equals(type.FullName, wanted, StringComparison.OrdinalIgnoreCase)
             || string.Equals(simple, wanted, StringComparison.OrdinalIgnoreCase)
@@ -181,8 +172,8 @@ internal static class MethodSelection
             return true;
         }
 
-        int open = wanted.IndexOf('<');
-        if (open < 0 || !wanted.EndsWith(">", StringComparison.Ordinal))
+        int open = wanted.IndexOf('<', StringComparison.Ordinal);
+        if (open < 0 || !wanted.EndsWith('>'))
         {
             return false;
         }

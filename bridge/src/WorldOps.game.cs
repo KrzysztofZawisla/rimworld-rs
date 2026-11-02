@@ -43,7 +43,7 @@ internal static partial class WorldOps
         string name = JsonArgs.GetString(request, "speed");
         if (!Enum.TryParse(name, ignoreCase: true, out TimeSpeed speed))
         {
-            string known = string.Join(", ", Enum.GetNames(typeof(TimeSpeed)));
+            string known = string.Join(", ", Enum.GetNames<TimeSpeed>());
             throw new BridgeException($"there is no game speed '{name}' (the game has: {known})");
         }
 

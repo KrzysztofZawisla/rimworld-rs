@@ -61,7 +61,7 @@ internal static partial class DlcOps
             }
 
             bool child = stage.Length > 0
-                && stage.IndexOf("Adult", StringComparison.OrdinalIgnoreCase) < 0;
+                && !stage.Contains("Adult", StringComparison.OrdinalIgnoreCase);
 
             var pawnPregnancy = new List<object>();
             var pawnDeathrest = false;
@@ -73,8 +73,8 @@ internal static partial class DlcOps
                 {
                     string defName = hediff.def?.defName ?? "";
                     string label = Label(hediff.def);
-                    if (defName.IndexOf("pregnan", StringComparison.OrdinalIgnoreCase) >= 0
-                        || label.IndexOf("pregnan", StringComparison.OrdinalIgnoreCase) >= 0)
+                    if (defName.Contains("pregnan", StringComparison.OrdinalIgnoreCase)
+                        || label.Contains("pregnan", StringComparison.OrdinalIgnoreCase))
                     {
                         pawnPregnancy.Add(new Dictionary<string, object>
                         {
@@ -84,14 +84,14 @@ internal static partial class DlcOps
                         });
                     }
 
-                    if (defName.IndexOf("deathrest", StringComparison.OrdinalIgnoreCase) >= 0
-                        || label.IndexOf("deathrest", StringComparison.OrdinalIgnoreCase) >= 0)
+                    if (defName.Contains("deathrest", StringComparison.OrdinalIgnoreCase)
+                        || label.Contains("deathrest", StringComparison.OrdinalIgnoreCase))
                     {
                         pawnDeathrest = true;
                     }
 
-                    if (defName.IndexOf("sanguo", StringComparison.OrdinalIgnoreCase) >= 0
-                        || label.IndexOf("sanguo", StringComparison.OrdinalIgnoreCase) >= 0)
+                    if (defName.Contains("sanguo", StringComparison.OrdinalIgnoreCase)
+                        || label.Contains("sanguo", StringComparison.OrdinalIgnoreCase))
                     {
                         pawnSanguophage = true;
                     }
@@ -107,7 +107,7 @@ internal static partial class DlcOps
                 foreach (Need need in pawn.needs?.AllNeeds ?? new List<Need>())
                 {
                     string defName = need.def?.defName ?? "";
-                    if (defName.IndexOf("hemogen", StringComparison.OrdinalIgnoreCase) >= 0)
+                    if (defName.Contains("hemogen", StringComparison.OrdinalIgnoreCase))
                     {
                         pawnHemogen = new Dictionary<string, object>
                         {
@@ -127,7 +127,7 @@ internal static partial class DlcOps
                 var dict = (Dictionary<string, object>)row;
                 string geneName = dict.TryGetValue("defName", out object value) ? Text(value) : null;
                 return geneName != null
-                    && geneName.IndexOf("sanguo", StringComparison.OrdinalIgnoreCase) >= 0;
+                    && geneName.Contains("sanguo", StringComparison.OrdinalIgnoreCase);
             });
             if (pawnSanguophage || geneSanguophage)
             {

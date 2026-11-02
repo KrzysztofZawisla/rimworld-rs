@@ -26,7 +26,21 @@ heck = "0.5.0"
 anstyle = "1.0.14"
 anstream = "1.0.0"
 which = "4.4.2"
+# XML (patch files, `About.xml`) is read by a parser, never by scanning for a tag.
 quick-xml = "0.42.0"
+# Documentation paths: CommonMark decides what a link is, so a `](` inside a code fence stays text and a
+# destination with parentheses stays one destination. No renderer is needed, hence no default features.
+pulldown-cmark = { version = "0.13.6", default-features = false }
+# Steam discovery (`libraryfolders.vdf`, the Flatpak/Snap prefixes, the Windows and macOS roots) is the
+# crate's job; this tool only turns its libraries into RimWorld candidates.
+steamlocate = "2.1.1"
+# The platform's own home folder (the Windows known folder, not only the environment variable).
+dirs = "7.0.0"
+# The process list without shelling out to `tasklist` or `pgrep`. Only `System` is needed, so the default
+# features (disks, network, GPUs, users) stay out.
+sysinfo = { version = "0.40.1", default-features = false, features = ["system"] }
+# A target triple is parsed into its parts instead of being substring-matched.
+target-lexicon = { version = "0.13.5", features = ["std"] }
 cargo_metadata = "0.23.1"
 
 [package.metadata.cargo-machete]

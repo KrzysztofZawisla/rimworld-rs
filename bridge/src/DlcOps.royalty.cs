@@ -93,8 +93,8 @@ internal static partial class DlcOps
         {
             string role = Text(Member(room, "Role", "role")) ?? "";
             string roleDef = Text(Member(Member(room, "Role", "role"), "defName")) ?? "";
-            if (role.IndexOf("throne", StringComparison.OrdinalIgnoreCase) < 0
-                && roleDef.IndexOf("throne", StringComparison.OrdinalIgnoreCase) < 0)
+            if (!role.Contains("throne", StringComparison.OrdinalIgnoreCase)
+                && !roleDef.Contains("throne", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }

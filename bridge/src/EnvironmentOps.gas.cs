@@ -61,7 +61,7 @@ internal static partial class EnvironmentOps
         if (!Enum.TryParse(name, ignoreCase: true, out GasType type))
         {
             throw new BridgeException(
-                $"unknown gas '{name}' (expected one of {string.Join(", ", Enum.GetNames(typeof(GasType)))})");
+                $"unknown gas '{name}' (expected one of {string.Join(", ", Enum.GetNames<GasType>())})");
         }
 
         return type;

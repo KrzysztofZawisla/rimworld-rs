@@ -394,6 +394,7 @@ repository's profile only covers the examples.
 - [`docs/architecture.md`](docs/architecture.md) — components, event flow, patching, safety.
 - [`docs/abi.md`](docs/abi.md) — the C ABI, host operations and payload formats.
 - [`docs/api.md`](docs/api.md) — the Rust API surface at a glance.
+- [`docs/performance.md`](docs/performance.md) — the bridge's cost model, batching, threads, measuring.
 - [`docs/companion.md`](docs/companion.md) — the companion C# assembly (ThingComp, JobDriver, ITab).
 - [`docs/coverage.md`](docs/coverage.md) — the honest map: what the SDK covers and what it does not.
 

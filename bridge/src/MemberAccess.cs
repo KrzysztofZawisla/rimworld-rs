@@ -13,83 +13,49 @@ namespace RustBridge;
 /// Members are looked up level by level, from the concrete type up through its base types: private
 /// fields, properties and methods declared on a base class (for example <c>Verse.Thing</c>) are not
 /// returned by a lookup on the derived type the game actually instantiated
-/// (<c>Verse.ThingWithComps</c>).
+/// (<c>Verse.ThingWithComps</c>). <see cref="MemberCache"/> remembers what the walk found, so a member is
+/// resolved once per type instead of once per access.
 /// </summary>
 internal static class MemberAccess
 {
-    private const BindingFlags Declared =
-        BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
-
     public static object Get(object target, string member)
     {
         Type type = target is Type self ? self : target.GetType();
         object instance = target is Type ? null : target;
 
-        foreach (Type level in Hierarchy(type))
+        MemberCache.Slot slot = MemberCache.ReadableSlot(type, member);
+        if (slot != null)
         {
-            FieldInfo field = level.GetField(member, Declared);
-            if (field != null)
-            {
-                return field.GetValue(instance);
-            }
-
-            PropertyInfo property = FindProperty(level, member);
-            if (property != null && property.CanRead && property.GetIndexParameters().Length == 0)
-            {
-                return property.GetValue(instance, null);
-            }
-
-            MethodInfo method = FindMethod(level, member, 0);
-            if (method != null)
-            {
-                return method.Invoke(instance, Array.Empty<object>());
-            }
+            return Read(slot, instance);
         }
 
         // A handle to a *type* also answers the members System.Type itself offers (FullName, Name,
         // IsEnum, ...): the members above are the statics of the represented type.
         if (target is Type represented)
         {
-            foreach (Type level in Hierarchy(typeof(Type)))
+            MemberCache.Slot own = MemberCache.ReadableSlot(typeof(Type), member);
+            if (own != null)
             {
-                FieldInfo field = level.GetField(member, Declared);
-                if (field != null)
-                {
-                    return field.GetValue(represented);
-                }
-
-                PropertyInfo property = FindProperty(level, member);
-                if (property != null && property.CanRead && property.GetIndexParameters().Length == 0)
-                {
-                    return property.GetValue(represented, null);
-                }
-
-                MethodInfo method = FindMethod(level, member, 0);
-                if (method != null)
-                {
-                    return method.Invoke(represented, Array.Empty<object>());
-                }
+                return Read(own, represented);
             }
         }
 
         throw new BridgeException($"{type.Name} has no readable member or method '{member}'{Suggest(type, member)}");
     }
 
-    /// <summary>
-    /// One property by name, without letting reflection's ambiguity get in the way: a type that declares
-    /// two indexers (`Item[Int32]` and `Item[Int32, Int32]`, `Verse.Area` has them) makes `GetProperty`
-    /// throw `AmbiguousMatchException`, while the route only ever wants *a* member of that name.
-    /// </summary>
-    private static PropertyInfo FindProperty(Type level, string name)
+    private static object Read(MemberCache.Slot slot, object instance)
     {
-        try
+        if (slot.Field != null)
         {
-            return level.GetProperty(name, Declared);
+            return slot.Field.GetValue(instance);
         }
-        catch (AmbiguousMatchException)
+
+        if (slot.Property != null)
         {
-            return level.GetProperties(Declared).FirstOrDefault(candidate => candidate.Name == name);
+            return slot.Property.GetValue(instance, null);
         }
+
+        return slot.Method.Invoke(instance, Array.Empty<object>());
     }
 
     public static void Set(object target, string member, JsonElement value, RefTable refs)
@@ -97,24 +63,19 @@ internal static class MemberAccess
         Type type = target is Type self ? self : target.GetType();
         object instance = target is Type ? null : target;
 
-        foreach (Type level in Hierarchy(type))
+        MemberCache.Slot slot = MemberCache.WritableSlot(type, member);
+        if (slot == null)
         {
-            FieldInfo field = level.GetField(member, Declared);
-            if (field != null)
-            {
-                field.SetValue(instance, JsonValueBridge.Read(value, field.FieldType, refs));
-                return;
-            }
-
-            PropertyInfo property = FindProperty(level, member);
-            if (property != null && property.CanWrite && property.GetIndexParameters().Length == 0)
-            {
-                property.SetValue(instance, JsonValueBridge.Read(value, property.PropertyType, refs), null);
-                return;
-            }
+            throw new BridgeException($"{type.Name} has no writable member '{member}'{Suggest(type, member)}");
         }
 
-        throw new BridgeException($"{type.Name} has no writable member '{member}'{Suggest(type, member)}");
+        if (slot.Field != null)
+        {
+            slot.Field.SetValue(instance, JsonValueBridge.Read(value, slot.Field.FieldType, refs));
+            return;
+        }
+
+        slot.Property.SetValue(instance, JsonValueBridge.Read(value, slot.Property.PropertyType, refs), null);
     }
 
     public static object Call(object target, string method, object[] args)
@@ -122,18 +83,7 @@ internal static class MemberAccess
         Type type = target is Type self ? self : target.GetType();
         object instance = target is Type ? null : target;
 
-        var candidates = new List<MethodInfo>();
-        foreach (Type level in Hierarchy(type))
-        {
-            foreach (MethodInfo candidate in level.GetMethods(Declared))
-            {
-                if (candidate.Name == method && CanAccept(candidate, args.Length))
-                {
-                    candidates.Add(candidate);
-                }
-            }
-        }
-
+        List<MethodInfo> candidates = MemberCache.CallCandidates(type, method, args.Length);
         if (candidates.Count == 0)
         {
             throw new BridgeException(
@@ -156,15 +106,6 @@ internal static class MemberAccess
         throw new BridgeException($"{type.Name}.{method} failed: {lastError?.Message}");
     }
 
-    /// <summary>The type itself, then every base type (private members are not inherited).</summary>
-    private static IEnumerable<Type> Hierarchy(Type type)
-    {
-        for (Type current = type; current != null; current = current.BaseType)
-        {
-            yield return current;
-        }
-    }
-
     /// <summary>
     /// Lists near matches, so a typo or a wrong casing ("destroyed" instead of "Destroyed") is
     /// visible in the error instead of requiring a decompiler.
@@ -176,9 +117,9 @@ internal static class MemberAccess
             || member.Contains(name, StringComparison.OrdinalIgnoreCase);
 
         var suggestions = new List<string>();
-        foreach (Type level in Hierarchy(type))
+        foreach (Type level in MemberCache.Hierarchy(type))
         {
-            foreach (FieldInfo field in level.GetFields(Declared))
+            foreach (FieldInfo field in level.GetFields(MemberCache.Declared))
             {
                 if (matches(field.Name))
                 {
@@ -186,7 +127,7 @@ internal static class MemberAccess
                 }
             }
 
-            foreach (PropertyInfo property in level.GetProperties(Declared))
+            foreach (PropertyInfo property in level.GetProperties(MemberCache.Declared))
             {
                 if (matches(property.Name))
                 {
@@ -194,7 +135,7 @@ internal static class MemberAccess
                 }
             }
 
-            foreach (MethodInfo method in level.GetMethods(Declared))
+            foreach (MethodInfo method in level.GetMethods(MemberCache.Declared))
             {
                 if (matches(method.Name))
                 {
@@ -213,27 +154,6 @@ internal static class MemberAccess
             : " (did you mean: " + string.Join(", ", suggestions.Take(8)) + "?)";
     }
 
-    /// <summary>A method matches when it takes exactly the arguments, or can default the rest.</summary>
-    private static bool CanAccept(MethodInfo method, int argumentCount)
-    {
-        ParameterInfo[] parameters = method.GetParameters();
-        if (parameters.Length < argumentCount)
-        {
-            return false;
-        }
-
-        for (int i = argumentCount; i < parameters.Length; i++)
-        {
-            // A `ref`/`out` parameter has no default to fall back on: the caller has to name the slot.
-            if (!parameters[i].HasDefaultValue || parameters[i].ParameterType.IsByRef)
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
     /// <summary>
     /// The declared members of one type, in the order the lookup walks them (the type itself, then every
     /// base type). Exposed so the bridge can *show* a type's surface (`type_members`) and *prove* the
@@ -241,19 +161,19 @@ internal static class MemberAccess
     /// </summary>
     public static IEnumerable<(Type Level, MemberInfo Member)> DeclaredMembers(Type type)
     {
-        foreach (Type level in Hierarchy(type))
+        foreach (Type level in MemberCache.Hierarchy(type))
         {
-            foreach (FieldInfo field in level.GetFields(Declared))
+            foreach (FieldInfo field in level.GetFields(MemberCache.Declared))
             {
                 yield return (level, field);
             }
 
-            foreach (PropertyInfo property in level.GetProperties(Declared))
+            foreach (PropertyInfo property in level.GetProperties(MemberCache.Declared))
             {
                 yield return (level, property);
             }
 
-            foreach (MethodInfo method in level.GetMethods(Declared))
+            foreach (MethodInfo method in level.GetMethods(MemberCache.Declared))
             {
                 yield return (level, method);
             }
@@ -270,29 +190,16 @@ internal static class MemberAccess
         switch (member)
         {
             case FieldInfo field:
-                return level.GetField(field.Name, Declared) != null;
+                return level.GetField(field.Name, MemberCache.Declared) != null;
             case PropertyInfo property:
-                return FindProperty(level, property.Name) != null;
+                return MemberCache.FindProperty(level, property.Name) != null;
             case MethodInfo method:
                 // The exact-arity call is the one a mod can always make (defaults only make fewer
                 // arguments possible, they are not needed).
-                return FindMethod(level, method.Name, method.GetParameters().Length) != null;
+                return MemberCache.FindMethod(level, method.Name, method.GetParameters().Length) != null;
             default:
                 return false;
         }
-    }
-
-    private static MethodInfo FindMethod(Type level, string name, int argCount)
-    {
-        foreach (MethodInfo candidate in level.GetMethods(Declared))
-        {
-            if (candidate.Name == name && CanAccept(candidate, argCount))
-            {
-                return candidate;
-            }
-        }
-
-        return null;
     }
 
     internal static object[] ConvertArguments(MethodInfo method, object[] args)

@@ -27,7 +27,7 @@ internal static partial class HostOps
             OpMicroseconds[op] = OpMicroseconds.TryGetValue(op, out long total) ? total + microseconds : microseconds;
         }
     }
-    private static object Stats(JsonElement request)
+    private static Dictionary<string, object> Stats(JsonElement request)
     {
         var calls = new Dictionary<string, object>();
         var microseconds = new Dictionary<string, object>();

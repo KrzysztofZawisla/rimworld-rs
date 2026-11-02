@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -616,7 +617,7 @@ internal static class HarmonyBridge
         return null;
     }
 
-    private static MethodBase FindTarget(string typeName, string methodName, string[] paramTypes)
+    private static MethodInfo FindTarget(string typeName, string methodName, string[] paramTypes)
     {
         // Constructors carry the metadata name `.ctor`, and this layer resolves members by their declared name
         // only, so the lookup ends in "method not found" and reads like a typo. Say what it is instead.
@@ -642,6 +643,10 @@ internal static class HarmonyBridge
 /// Harmony; <c>__args</c> carries (and writes back) the original arguments, <c>__result</c> the
 /// return value where the target and the Harmony version allow it.
 /// </summary>
+[SuppressMessage(
+    "Naming",
+    "CA1707:Identifiers should not contain underscores",
+    Justification = "Harmony injects these parameters by these exact names.")]
 public static class RustPatches
 {
     public static bool PrefixWithResult(MethodBase __originalMethod, object __instance, object[] __args, ref object __result)

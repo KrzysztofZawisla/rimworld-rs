@@ -103,7 +103,7 @@ internal static partial class HostOps
     /// `AlertsReadout.activeAlerts` is not public to the compiler, so it is read through the bridge's
     /// own reflection (the contract check verifies the name against the game's metadata).
     /// </summary>
-    private static object AlertsList()
+    private static List<Dictionary<string, object>> AlertsList()
     {
         var alerts = new List<Dictionary<string, object>>();
         AlertsReadout readout = Find.Alerts;

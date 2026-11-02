@@ -341,7 +341,7 @@ public abstract class RustGameComponent : GameComponent, ISavedDataHolder
         });
     }
 
-    private void Dispatch(string name)
+    private static void Dispatch(string name)
     {
         RustMod.Current?.Host?.DispatchVoid(name, null);
     }

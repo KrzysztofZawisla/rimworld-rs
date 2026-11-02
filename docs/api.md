@@ -88,6 +88,11 @@ host call also runs on the thread that dispatched the Rust event, and the bridge
 from outside a dispatch (for example from a background thread) with a clear error instead of
 touching game state concurrently.
 
+`ctx.log` writes through the game's own log. Identical lines are throttled to three per ten seconds
+(the count that followed is reported with the next line of the same text), because a log written from
+`on_tick` would otherwise emit a line every tick. A line that starts with `[selftest]`, `[Rust]` or
+`[RustBridge]` is never throttled: the gates and `cargo xtask watch-log` read those.
+
 ## Typed wrappers
 
 Handles are only valid inside the dispatch that produced them, so the wrappers borrow the `Context`
@@ -179,6 +184,9 @@ ctx.incident_fire("AmbrosiaSprout")?;        // storyteller first, incident work
 
 ### Diagnostics and batching
 
+One host call is one JSON round trip, so a loop that calls per item is the expensive shape; see
+[`docs/performance.md`](performance.md) for the cost model, batching and threads.
+
 ```rust
 let stats = ctx.stats(false)?;               // calls and microseconds per host op
 let answers = ctx.run_batch(&[
@@ -205,6 +213,10 @@ ctx.settings_register(&specs)?;      // defaults apply immediately, the page app
 
 `on_settings_changed(ctx, key, value)` fires while the player drags a slider; the config file is
 written when the window closes.
+
+The same window carries one switch of the bridge's own, above the settings the mod declared: **Log a
+stack trace when a bridge call fails** writes the full exception into `Player.log` when a call from Rust
+into the game throws. It is off by default, and the error the mod receives stays the game's own message.
 
 
 ## Saved data (inside the save file)

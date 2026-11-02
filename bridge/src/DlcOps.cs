@@ -74,9 +74,10 @@ internal static partial class DlcOps
 
     private static bool ExpansionActive(string key)
     {
+        string upperFirst = string.Concat(char.ToUpperInvariant(key[0]).ToString(), key.AsSpan(1));
         foreach (string propertyName in new[]
                  {
-                     key.Substring(0, 1).ToUpperInvariant() + key.Substring(1) + "Active",
+                     upperFirst + "Active",
                      key + "Active",
                  })
         {
@@ -119,7 +120,7 @@ internal static partial class DlcOps
         return rows;
     }
 
-    private static object Section(
+    private static Dictionary<string, object> Section(
         Dictionary<string, object> capabilities,
         string key,
         Func<Dictionary<string, object>> build)

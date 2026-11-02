@@ -193,7 +193,7 @@ internal static partial class ThingOps
             {
                 // Name the values the game really has: a caller learns them from the game's own enum, not
                 // from a guess — the same rule every other refusal here follows.
-                string known = string.Join(", ", Enum.GetNames(typeof(BedOwnerType)));
+                string known = string.Join(", ", Enum.GetNames<BedOwnerType>());
                 throw new BridgeException($"there is no bed owner type '{ownerType}' (the game has: {known})");
             }
 

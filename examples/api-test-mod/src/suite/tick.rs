@@ -101,6 +101,17 @@ impl ApiTest {
             }
         }
 
+        if self.suite_ran && !self.cost_reported {
+            // Measure on a live map, and last: the suite runs during map generation, and only once the map is
+            // attached to the world does `Map.IsPlayerHome` take its cheap branch instead of the grav-engine
+            // scan. A few ticks of margin, and the measurement itself does not delay the checks above.
+            self.cost_wait = self.cost_wait.saturating_add(1);
+            if self.cost_wait >= 30 {
+                self.cost_reported = true;
+                super::construction_planet_and_diagnostics::report_host_cost(ctx);
+            }
+        }
+
         self.maybe_finish(ctx);
     }
 

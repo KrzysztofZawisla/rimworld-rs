@@ -19,3 +19,17 @@ internal enum Sample
     Alpha,
     Beta,
 }
+
+/// <summary>
+/// A member that exists on both a base type and its subclass: the cache is keyed by the type the lookup
+/// starts at, so each type has to answer with its own member after the other was cached.
+/// </summary>
+internal class CacheParent
+{
+    public string Value => "parent";
+}
+
+internal sealed class CacheChild : CacheParent
+{
+    public new string Value => "child";
+}

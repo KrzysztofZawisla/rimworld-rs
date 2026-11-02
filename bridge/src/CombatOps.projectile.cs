@@ -43,7 +43,7 @@ internal static partial class CombatOps
             && !Enum.TryParse(wanted, ignoreCase: true, out flags))
         {
             throw new BridgeException(
-                $"unknown hit flags '{wanted}' (expected one of {string.Join(", ", Enum.GetNames(typeof(ProjectileHitFlags)))})");
+                $"unknown hit flags '{wanted}' (expected one of {string.Join(", ", Enum.GetNames<ProjectileHitFlags>())})");
         }
 
         GenSpawn.Spawn(projectile, origin, map, WipeMode.Vanish);

@@ -138,7 +138,7 @@ internal static partial class ThingOps
         if (!Enum.TryParse(wanted, ignoreCase: true, out QualityCategory category))
         {
             throw new BridgeException(
-                $"unknown quality '{wanted}' (expected one of {string.Join(", ", Enum.GetNames(typeof(QualityCategory)))})");
+                $"unknown quality '{wanted}' (expected one of {string.Join(", ", Enum.GetNames<QualityCategory>())})");
         }
 
         comp.SetQuality(category, null);

@@ -29,9 +29,9 @@ internal static partial class DlcOps
                 foreach (ThingComp comp in (thing as ThingWithComps)?.AllComps ?? new List<ThingComp>())
                 {
                     string typeName = comp.GetType().Name;
-                    if (typeName.IndexOf("Entity", StringComparison.OrdinalIgnoreCase) < 0
-                        && typeName.IndexOf("Contain", StringComparison.OrdinalIgnoreCase) < 0
-                        && typeName.IndexOf("Study", StringComparison.OrdinalIgnoreCase) < 0)
+                    if (!typeName.Contains("Entity", StringComparison.OrdinalIgnoreCase)
+                        && !typeName.Contains("Contain", StringComparison.OrdinalIgnoreCase)
+                        && !typeName.Contains("Study", StringComparison.OrdinalIgnoreCase))
                     {
                         continue;
                     }
@@ -59,8 +59,8 @@ internal static partial class DlcOps
             {
                 string label = Label(project);
                 string defName = project.defName ?? "";
-                if (label.IndexOf("void", StringComparison.OrdinalIgnoreCase) < 0
-                    && defName.IndexOf("void", StringComparison.OrdinalIgnoreCase) < 0)
+                if (!label.Contains("void", StringComparison.OrdinalIgnoreCase)
+                    && !defName.Contains("void", StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
@@ -108,8 +108,8 @@ internal static partial class DlcOps
                              ?? Enumerable.Empty<Precept_Ritual>())
                 {
                     string label = Label(ritual.def);
-                    if (label.IndexOf("psychic", StringComparison.OrdinalIgnoreCase) < 0
-                        && label.IndexOf("void", StringComparison.OrdinalIgnoreCase) < 0)
+                    if (!label.Contains("psychic", StringComparison.OrdinalIgnoreCase)
+                        && !label.Contains("void", StringComparison.OrdinalIgnoreCase))
                     {
                         continue;
                     }

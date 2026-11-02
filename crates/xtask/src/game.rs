@@ -8,17 +8,10 @@ use crate::*;
 
 pub(crate) const WORKSHOP_APP_ID: &str = "294100";
 
-/// The player's home directory: `USERPROFILE` on Windows, `HOME` elsewhere.
+/// The player's home directory, from the platform's own API: `dirs` asks for the Windows known folder
+/// instead of trusting `%USERPROFILE%`, which a shell or a service may not export.
 pub(crate) fn home_dir() -> Option<PathBuf> {
-    #[cfg(windows)]
-    {
-        env::var_os("USERPROFILE").map(PathBuf::from)
-    }
-
-    #[cfg(not(windows))]
-    {
-        env::var_os("HOME").map(PathBuf::from)
-    }
+    dirs::home_dir()
 }
 
 /// The usual Steam locations of the game on the platforms it runs on, including every library Steam
@@ -271,11 +264,31 @@ pub(crate) fn find_harmony(game: &Path) -> Option<(PathBuf, String)> {
 }
 
 /// The `<packageId>` of a mod's `About.xml`, trimmed; compared case-insensitively by the caller.
+///
+/// Read with `quick-xml`, which owns the declaration, the comments and the escaping: a `<packageId>` written
+/// inside a comment is not this mod's id, the element name keeps its case, and a value split over two lines
+/// still arrives as one id.
 pub(crate) fn package_id(about: &str) -> Option<String> {
-    let lower = about.to_ascii_lowercase();
-    let start = lower.find("<packageid>")? + "<packageid>".len();
-    let end = lower[start..].find("</packageid>")? + start;
-    Some(about[start..end].trim().to_string())
+    let mut reader = quick_xml::Reader::from_str(about.trim_start_matches('\u{feff}'));
+    loop {
+        match reader.read_event() {
+            Ok(quick_xml::events::Event::Start(element)) => {
+                if !element.name().as_ref().eq_ignore_ascii_case("packageId") {
+                    continue;
+                }
+
+                let raw = reader.read_text(element.name()).ok()?.into_inner();
+                let text = match quick_xml::escape::unescape(&raw) {
+                    Ok(unescaped) => unescaped,
+                    Err(_) => raw,
+                };
+                let id = text.trim();
+                return (!id.is_empty()).then(|| id.to_string());
+            }
+            Ok(quick_xml::events::Event::Eof) | Err(_) => return None,
+            Ok(_) => {}
+        }
+    }
 }
 
 pub(crate) fn assembly_name(path: &Path) -> Option<String> {

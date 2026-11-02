@@ -9,18 +9,18 @@ namespace RustBridge;
 /// <summary>One setting a Rust mod declares for the mod options window.</summary>
 public sealed class SettingField
 {
-    public string Key;
+    public string Key { get; set; }
 
-    public string Label;
+    public string Label { get; set; }
 
     /// <summary>One of <c>bool</c>, <c>int</c>, <c>float</c>, <c>string</c>, <c>token</c>.</summary>
-    public string Kind;
+    public string Kind { get; set; }
 
-    public string Default;
+    public string Default { get; set; }
 
-    public float Min;
+    public float Min { get; set; }
 
-    public float Max;
+    public float Max { get; set; }
 }
 
 /// <summary>
@@ -52,6 +52,7 @@ internal static class SettingsWindow
     {
         var listing = new Listing_Standard();
         listing.Begin(rect);
+        DrawBridgeOptions(listing);
         RustModSettings settings = mod.Settings;
         foreach (SettingField field in mod.SettingFields)
         {
@@ -150,6 +151,26 @@ internal static class SettingsWindow
         }
 
         listing.End();
+    }
+
+    /// <summary>
+    /// The bridge's own options, above the ones Rust declared. They write silently: Rust never declared
+    /// these keys, so a `settings_changed` event about one would be a lie about the mod's own settings.
+    /// </summary>
+    private static void DrawBridgeOptions(Listing_Standard listing)
+    {
+        bool verbose = BridgeOptions.VerboseErrors;
+        bool before = verbose;
+        listing.CheckboxLabeled(
+            "Log a stack trace when a bridge call fails",
+            ref verbose,
+            "Writes the full exception into Player.log when a call from Rust into the game fails.");
+        if (verbose != before)
+        {
+            BridgeOptions.SetVerboseErrors(verbose);
+        }
+
+        listing.Gap(6f);
     }
 
     /// <summary>

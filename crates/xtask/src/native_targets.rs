@@ -7,6 +7,8 @@ use std::{
     process::Command,
 };
 
+use target_lexicon::{Architecture, OperatingSystem, Triple};
+
 use crate::*;
 
 /// The native targets a release carries by default: the 64-bit builds of the game. A Rust cdylib is
@@ -33,22 +35,19 @@ impl NativeTarget {
     /// A library for an explicit triple. The runtime identifier must be one the bridge looks for:
     /// `win-x64`, `linux-x64`, `osx-x64`, `osx-arm64`, ...
     pub(crate) fn for_triple(triple: &str, library: &str) -> Result<Self> {
-        let os = target_os(triple);
+        let parsed = parse_triple(triple)?;
+        let os = runtime_os(&parsed).ok_or_else(|| {
+            missing(format!("target '{triple}' is not Windows, Linux or macOS; the game runs on those only"))
+        })?;
         let (prefix, suffix) = match os {
             "win" => ("", ".dll"),
             "osx" => ("lib", ".dylib"),
-            "linux" => ("lib", ".so"),
-            _ => {
-                return Err(missing(format!(
-                    "target '{triple}' is not Windows, Linux or macOS; the game runs on those only"
-                )));
-            }
+            // Linux is the third and last family `runtime_os` answers.
+            _ => ("lib", ".so"),
         };
 
-        let arch = target_arch(triple);
-        if arch.is_empty() {
-            return Err(missing(format!("target '{triple}' has an architecture the game does not run on")));
-        }
+        let arch = runtime_arch(&parsed)
+            .ok_or_else(|| missing(format!("target '{triple}' has an architecture the game does not run on")))?;
 
         Ok(Self {
             triple: Some(triple.to_string()),
@@ -99,11 +98,17 @@ pub(crate) enum CrossTool {
 impl CrossTool {
     /// The decision without asking the machine, so the matrix is testable.
     pub(crate) fn pick(triple: &str, host_os: &str, host_arch: &str, zigbuild: bool, xwin: bool) -> Self {
-        let target_os = target_os(triple);
+        let Ok(parsed) = parse_triple(triple) else {
+            return Self::None;
+        };
+        let Some(target_os) = runtime_os(&parsed) else {
+            return Self::None;
+        };
+
         if target_os == host_os {
             // Apple's toolchain and the MSVC one carry the other architecture of their own system;
             // Linux's does not, so a different architecture there is a cross build like any other.
-            if target_arch(triple) == host_arch || host_os != "linux" {
+            if runtime_arch(&parsed) == Some(host_arch) || host_os != "linux" {
                 return Self::None;
             }
 
@@ -143,31 +148,30 @@ impl CrossTool {
     }
 }
 
-/// The processor family of a target triple, in the runtime identifier's words.
-pub(crate) fn target_arch(triple: &str) -> &'static str {
-    if triple.starts_with("x86_64-") {
-        "x64"
-    } else if triple.starts_with("aarch64-") {
-        "arm64"
-    } else if triple.starts_with("i686-") {
-        "x86"
-    } else if triple.starts_with("armv7") || triple.starts_with("arm-") {
-        "arm"
-    } else {
-        ""
+/// A triple as its parts, instead of as three hyphen-separated strings this tool guesses at.
+fn parse_triple(triple: &str) -> Result<Triple> {
+    triple.parse().map_err(|error| missing(format!("'{triple}' is not a target triple: {error}")))
+}
+
+/// The operating-system family of a parsed triple, in the words the bridge uses.
+fn runtime_os(triple: &Triple) -> Option<&'static str> {
+    match triple.operating_system {
+        OperatingSystem::Windows => Some("win"),
+        // `apple-darwin` is the rustc spelling of macOS; `MacOSX` is the same system written the other way.
+        OperatingSystem::Darwin(_) | OperatingSystem::MacOSX(_) => Some("osx"),
+        OperatingSystem::Linux => Some("linux"),
+        _ => None,
     }
 }
 
-/// The operating-system family of a target triple, in the same words the bridge uses.
-pub(crate) fn target_os(triple: &str) -> &'static str {
-    if triple.contains("windows") {
-        "win"
-    } else if triple.contains("apple-darwin") {
-        "osx"
-    } else if triple.contains("linux") {
-        "linux"
-    } else {
-        ""
+/// The processor family of a parsed triple, in the runtime identifier's words.
+fn runtime_arch(triple: &Triple) -> Option<&'static str> {
+    match triple.architecture {
+        Architecture::X86_64 => Some("x64"),
+        Architecture::Aarch64(_) => Some("arm64"),
+        Architecture::X86_32(_) => Some("x86"),
+        Architecture::Arm(_) => Some("arm"),
+        _ => None,
     }
 }
 

@@ -276,6 +276,63 @@ internal static partial class Program
                 "unknown members produce a helpful error");
         }
 
+        // The member walk is memoized (MemberCache): the *member* is remembered and the *value* is read every
+        // time, so a write through the cached slot still lands in the live object.
+        Expect(
+            ReferenceEquals(
+                MemberCache.ReadableSlot(typeof(DerivedSample), "secret"),
+                MemberCache.ReadableSlot(typeof(DerivedSample), "secret")),
+            "the same member answers the same memoized slot");
+        MemberAccess.Set(sample, "secret", Json("11"), new RefTable());
+        Expect(Equals(MemberAccess.Get(sample, "secret"), 11), "a memoized field read still reads the value");
+        MemberAccess.Set(sample, "secret", Json("12"), new RefTable());
+        Expect(Equals(MemberAccess.Get(sample, "secret"), 12), "a second write reuses the memoized member");
+        Expect(
+            Equals(MemberAccess.Call(sample, "Describe", Array.Empty<object>()), "secret=12"),
+            "a memoized method call still runs the method");
+        Expect(MemberCache.ReadableSlot(typeof(LogThrottle), "missing") == null, "a missing member is remembered as missing");
+        Expect(MemberCache.ReadableSlot(typeof(LogThrottle), "missing") == null, "and stays missing without another walk");
+
+        // A member name can exist on a base type and on the type in front of it. The cache is keyed by the type
+        // the walk starts at, so caching the base answer must not hand it to the derived instance.
+        var cacheParent = new CacheParent();
+        var cacheChild = new CacheChild();
+        Expect(Equals(MemberAccess.Get(cacheParent, "Value"), "parent"), "a base type answers its own member");
+        Expect(
+            Equals(MemberAccess.Get(cacheChild, "Value"), "child"),
+            "a derived type answers its shadowing member after the base was cached");
+        Expect(
+            Equals(MemberAccess.Get(cacheParent, "Value"), "parent"),
+            "the base type still answers its own after the derived was cached");
+        Expect(Equals(MemberAccess.Get(cacheChild, "Value"), "child"), "the derived answer stays the derived one");
+
+        // A handle to a *type* shares one cached `System.Type` member between different represented types: the
+        // member is memoized, the instance is the handle that asked.
+        Expect(Equals(MemberAccess.Get(typeof(CacheChild), "Name"), "CacheChild"), "a type handle answers the members of System.Type");
+        Expect(
+            Equals(MemberAccess.Get(typeof(CacheParent), "Name"), "CacheParent"),
+            "the memoized System.Type member answers for another type handle");
+
+        // Log throttling: an identical line passes `perWindow` times per window, and the number that followed is
+        // reported with the next written line of that key.
+        var throttle = new LogThrottle(TimeSpan.FromSeconds(10), 2);
+        DateTime window = new DateTime(2026, 1, 1, 12, 0, 0, DateTimeKind.Utc);
+        int held = 0;
+        Expect(throttle.ShouldWrite("warn\u0000same", window, out _), "the first identical line is written");
+        Expect(throttle.ShouldWrite("warn\u0000same", window.AddSeconds(1), out _), "the second identical line is written");
+        Expect(
+            !throttle.ShouldWrite("warn\u0000same", window.AddSeconds(2), out held),
+            "a line past the budget in the same window is held back");
+        Expect(!throttle.ShouldWrite("warn\u0000same", window.AddSeconds(3), out held), "so is the next one");
+        Expect(held == 0, "a held line does not report the count itself");
+        Expect(
+            throttle.ShouldWrite("warn\u0000same", window.AddSeconds(11), out int suppressed),
+            "the first line of the next window is written");
+        Expect(suppressed == 2, "and it reports the two identical lines that were suppressed");
+        Expect(
+            throttle.ShouldWrite("warn\u0000other", window.AddSeconds(11), out _),
+            "a different line has its own budget");
+
         // Overload selection. Rust code writes "string" and "int" while reflection reports "String"
         // and "Int32", and a call without parameter types must still work when only one overload
         // can take that many arguments.

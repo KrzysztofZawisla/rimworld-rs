@@ -205,32 +205,23 @@ fn harmony_in(mods: &std::path::Path) -> bool {
     })
 }
 
+/// Whether the game is running, which would hold the mod's DLLs open.
+///
+/// The process list comes from `sysinfo`, one code path for every platform instead of `tasklist` on Windows
+/// and `pgrep` elsewhere. Only the name and pid are requested: nothing here needs memory, CPU or disks.
 fn game_is_running() -> bool {
-    #[cfg(windows)]
-    {
-        std::process::Command::new("tasklist")
-            .args(["/FI", "IMAGENAME eq RimWorld.exe", "/NH"])
-            .output()
-            .map(|output| String::from_utf8_lossy(&output.stdout).to_ascii_lowercase().contains("rimworld.exe"))
-            .unwrap_or(false)
-    }
+    let Ok(mut system) = sysinfo::System::new() else {
+        return false;
+    };
+    system.refresh_processes_specifics(sysinfo::ProcessesToUpdate::All, true, sysinfo::ProcessRefreshKind::nothing());
 
-    #[cfg(unix)]
-    {
-        // The macOS bundle and the Linux build both run a process named after the game.
-        ["RimWorld", "RimWorldLinux"].iter().any(|name| {
-            std::process::Command::new("pgrep")
-                .args(["-x", name])
-                .status()
-                .map(|status| status.success())
-                .unwrap_or(false)
-        })
-    }
+    system.processes().values().any(|process| is_game_process(process.name()))
+}
 
-    #[cfg(not(any(windows, unix)))]
-    {
-        false
-    }
+/// The executable name of this platform: `RimWorld.exe` on Windows, `RimWorld` in the macOS bundle and
+/// `RimWorldLinux` on Linux.
+fn is_game_process(name: &std::ffi::OsStr) -> bool {
+    matches!(name.to_string_lossy().to_ascii_lowercase().as_str(), "rimworld" | "rimworld.exe" | "rimworldlinux")
 }
 
 #[cfg(test)]
@@ -241,5 +232,16 @@ mod tests {
     fn parses_the_selftest_summary() {
         assert_eq!(summary("[selftest] 184 passed, 0 failed, 11 skipped"), Some((184, 0, 11)));
         assert_eq!(summary("not a summary"), None);
+    }
+
+    #[test]
+    fn recognises_the_game_process_on_every_platform() {
+        use std::ffi::OsStr;
+
+        for name in ["RimWorld.exe", "RimWorld", "RimWorldLinux"] {
+            assert!(is_game_process(OsStr::new(name)), "{name} is the game");
+        }
+        assert!(!is_game_process(OsStr::new("RimWorldServer")), "a prefix is not the game");
+        assert!(!is_game_process(OsStr::new("cargo")), "an unrelated process is not the game");
     }
 }

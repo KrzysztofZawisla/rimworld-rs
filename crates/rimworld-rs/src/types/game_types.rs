@@ -276,6 +276,8 @@ pub enum SettingKind {
     Float,
     String,
     Token,
+    Action,
+    Label,
 }
 
 /// One field of the mod options window. Values are stored as strings in the mod's config file.
@@ -350,6 +352,35 @@ impl SettingSpec {
             label: label.to_string(),
             kind: SettingKind::Token,
             default: default.to_string(),
+            min: None,
+            max: None,
+        }
+    }
+}
+
+impl SettingSpec {
+    /// A button in the mod options window. Clicks arrive in `Mod::on_ui_action` with
+    /// `handler == "settings_action"`, `id == key`, and `value == "clicked"`.
+    pub fn action(key: &str, label: &str) -> SettingSpec {
+        SettingSpec {
+            key: key.to_string(),
+            label: label.to_string(),
+            kind: SettingKind::Action,
+            default: String::new(),
+            min: None,
+            max: None,
+        }
+    }
+}
+
+impl SettingSpec {
+    /// A read-only line whose value is returned by the mod's `settings_label` companion event.
+    pub fn label(key: &str, label: &str) -> SettingSpec {
+        SettingSpec {
+            key: key.to_string(),
+            label: label.to_string(),
+            kind: SettingKind::Label,
+            default: String::new(),
             min: None,
             max: None,
         }

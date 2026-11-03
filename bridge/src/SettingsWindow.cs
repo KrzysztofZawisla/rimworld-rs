@@ -13,7 +13,8 @@ public sealed class SettingField
 
     public string Label { get; set; }
 
-    /// <summary>One of <c>bool</c>, <c>int</c>, <c>float</c>, <c>string</c>, <c>token</c>.</summary>
+    /// <summary>One of <c>bool</c>, <c>int</c>, <c>float</c>, <c>string</c>, <c>token</c>,
+    /// <c>action</c>, <c>label</c>.</summary>
     public string Kind { get; set; }
 
     public string Default { get; set; }
@@ -41,6 +42,10 @@ internal static class SettingsWindow
 
         foreach (SettingField field in fields)
         {
+            if (field.Kind == "action" || field.Kind == "label")
+            {
+                continue;
+            }
             if (settings.Get(field.Key) == null && field.Default != null)
             {
                 settings.SetSilent(field.Key, field.Default);
@@ -101,6 +106,29 @@ internal static class SettingsWindow
                             Changed(mod, field, slider.ToString("0.###", CultureInfo.InvariantCulture));
                         }
 
+                        break;
+                    }
+                case "action":
+                    {
+                        if (Widgets.ButtonText(listing.GetRect(30f), field.Label))
+                        {
+                            RustHost.Current?.DispatchVoid(
+                                "ui_action",
+                                new Dictionary<string, object>
+                                {
+                                    ["handler"] = "settings_action",
+                                    ["id"] = field.Key,
+                                    ["value"] = "clicked",
+                                });
+                        }
+
+                        listing.Gap(4f);
+                        break;
+                    }
+                case "label":
+                    {
+                        listing.Label($"{field.Label}: {LabelStatus(mod, field)}");
+                        listing.Gap(4f);
                         break;
                     }
                 case "token":
@@ -183,6 +211,36 @@ internal static class SettingsWindow
         RustHost.Current?.DispatchVoid(
             "settings_changed",
             new Dictionary<string, object> { ["key"] = field.Key, ["value"] = value });
+    }
+
+    private sealed class LabelCacheEntry
+    {
+        public string Value { get; set; }
+        public float At { get; set; }
+    }
+
+    private static readonly Dictionary<string, LabelCacheEntry> LabelCache = new();
+
+    /// <summary>
+    /// Labels are read live from Rust, throttled so a 60 FPS settings window does not flood the
+    /// bridge. The mod answers the `settings_label` companion event with a short status string.
+    /// </summary>
+    private static string LabelStatus(RustMod mod, SettingField field)
+    {
+        string source = mod.Content?.Name ?? "Rust";
+        string key = source + ":" + field.Key;
+        float now = Time.realtimeSinceStartup;
+        if (LabelCache.TryGetValue(key, out LabelCacheEntry cached) && now - cached.At < 0.25f)
+        {
+            return cached.Value;
+        }
+
+        string value = Companion.Request(
+            source,
+            "settings_label",
+            new Dictionary<string, object> { ["id"] = field.Key });
+        LabelCache[key] = new LabelCacheEntry { Value = value, At = now };
+        return value;
     }
 
     private static int ParseInt(string text, int fallback)

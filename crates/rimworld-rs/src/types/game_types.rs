@@ -278,6 +278,14 @@ pub enum SettingKind {
     Token,
     Action,
     Label,
+    Choice,
+}
+
+/// One entry of a [`SettingKind::Choice`] field: the stored value and the text the player sees.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SettingOption {
+    pub value: String,
+    pub label: String,
 }
 
 /// One field of the mod options window. Values are stored as strings in the mod's config file.
@@ -291,6 +299,8 @@ pub struct SettingSpec {
     pub min: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max: Option<f64>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub options: Vec<SettingOption>,
 }
 
 impl SettingSpec {
@@ -302,6 +312,7 @@ impl SettingSpec {
             default: default.to_string(),
             min: None,
             max: None,
+            options: Vec::new(),
         }
     }
 }
@@ -315,6 +326,7 @@ impl SettingSpec {
             default: default.to_string(),
             min: Some(min),
             max: Some(max),
+            options: Vec::new(),
         }
     }
 }
@@ -328,6 +340,7 @@ impl SettingSpec {
             default: default.to_string(),
             min: Some(min),
             max: Some(max),
+            options: Vec::new(),
         }
     }
 }
@@ -341,6 +354,7 @@ impl SettingSpec {
             default: default.to_string(),
             min: None,
             max: None,
+            options: Vec::new(),
         }
     }
 }
@@ -354,6 +368,7 @@ impl SettingSpec {
             default: default.to_string(),
             min: None,
             max: None,
+            options: Vec::new(),
         }
     }
 }
@@ -369,6 +384,7 @@ impl SettingSpec {
             default: String::new(),
             min: None,
             max: None,
+            options: Vec::new(),
         }
     }
 }
@@ -383,6 +399,26 @@ impl SettingSpec {
             default: String::new(),
             min: None,
             max: None,
+            options: Vec::new(),
+        }
+    }
+}
+
+impl SettingSpec {
+    /// A fixed list of choices drawn as a dropdown. `options` pairs each stored value with the
+    /// text the player reads; `default` is the value of the option selected first.
+    pub fn choice(key: &str, label: &str, default: &str, options: &[(&str, &str)]) -> SettingSpec {
+        SettingSpec {
+            key: key.to_string(),
+            label: label.to_string(),
+            kind: SettingKind::Choice,
+            default: default.to_string(),
+            min: None,
+            max: None,
+            options: options
+                .iter()
+                .map(|(value, label)| SettingOption { value: (*value).to_string(), label: (*label).to_string() })
+                .collect(),
         }
     }
 }

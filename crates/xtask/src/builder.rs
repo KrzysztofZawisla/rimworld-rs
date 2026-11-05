@@ -78,7 +78,7 @@ pub(crate) fn build(
             &format!("-p:RimWorldDir={}", references.display()),
             "-o",
         ])
-        .arg(&assemblies)
+        .arg(plain_path(&assemblies))
         .current_dir(&root))?;
 
     for entry in fs::read_dir(&assemblies)?.flatten() {
@@ -104,22 +104,16 @@ pub(crate) fn build(
 
     let companion = companion_project(&info.dir)?;
     if let Some(project) = companion {
+        let project = plain_path(&project);
         println!("==> building the companion assembly ({})", project.display());
         run(Command::new("dotnet")
-            .args([
-                "build",
-                &project.to_string_lossy(),
-                "-c",
-                "Release",
-                "-v",
-                "minimal",
-                "-nologo",
-                &format!("-p:RimWorldDir={}", references.display()),
-                &format!("-p:BridgeAssembly={bridge_name}"),
-                &format!("-p:BridgePath={}", assemblies.join(format!("{bridge_name}.dll")).display()),
-                "-o",
-            ])
-            .arg(&assemblies)
+            .args(["build", "-c", "Release", "-v", "minimal", "-nologo"])
+            .arg(&project)
+            .arg(format!("-p:RimWorldDir={}", references.display()))
+            .arg(format!("-p:BridgeAssembly={bridge_name}"))
+            .arg(format!("-p:BridgePath={}", plain_path(&assemblies).join(format!("{bridge_name}.dll")).display()))
+            .arg("-o")
+            .arg(plain_path(&assemblies))
             .current_dir(&root))?;
 
         // dotnet writes .deps.json/.pdb next to the assembly; the game loads *.dll only.
@@ -183,6 +177,22 @@ pub(crate) fn install_mod(source: &Path, target: &Path) -> Result<()> {
     fs::create_dir_all(target)?;
     copy_tree(source, target)?;
     Ok(())
+}
+
+/// MSBuild's wildcard import of `<project>.csproj.*.props` cannot read the verbatim `\\?\` prefix
+/// Windows adds when Rust canonicalizes a path, so every path handed to `dotnet` is plain.
+pub(crate) fn plain_path(path: &Path) -> PathBuf {
+    #[cfg(windows)]
+    {
+        let text = path.as_os_str().to_string_lossy();
+        if let Some(rest) = text.strip_prefix(r"\\?\UNC\") {
+            return PathBuf::from(format!(r"\\{rest}"));
+        }
+        if let Some(rest) = text.strip_prefix(r"\\?\") {
+            return PathBuf::from(rest);
+        }
+    }
+    path.to_path_buf()
 }
 
 /// The optional companion C# project of a mod (`<mod>/companion/*.csproj`).

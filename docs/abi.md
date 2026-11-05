@@ -81,7 +81,7 @@ Every call is one JSON object with an `op` field; the response is
 | `comp_tick_interval` | `key` (the comp's), `ticks` (`0` turns ticking off) | `null` |
 | `ui_message` | `kind` (`neutral`/`positive`/`negative`), `text` | `null` |
 | `ui_dialog` | `title`, `text`, `button`, `handler` | `null` |
-| `settings_define` | `fields: [{key, label, kind, default, min, max}]` | `null` (defaults are applied) |
+| `settings_define` | `fields: [{key, label, kind, default, min, max, options?}]` (`options: [{value, label}]` for `kind: "choice"`) | `null` (defaults are applied) |
 | `settings_schema` | — | the declared fields |
 | `companion_call` | `type`, `member`, `paramTypes?`, `args`, `ref?` (instance) | the member's result |
 | `harmony_redirect` | `target`, `from`, `to` (each `{typeName, method, paramTypes?}`) | `null` |

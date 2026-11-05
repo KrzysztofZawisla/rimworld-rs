@@ -1,10 +1,19 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using RimWorld;
 using UnityEngine;
 using Verse;
 
 namespace RustBridge;
+
+/// <summary>One entry of a <c>choice</c> setting: the stored value and the text the player sees.</summary>
+public sealed class SettingOption
+{
+    public string Value { get; set; }
+
+    public string Label { get; set; }
+}
 
 /// <summary>One setting a Rust mod declares for the mod options window.</summary>
 public sealed class SettingField
@@ -14,7 +23,7 @@ public sealed class SettingField
     public string Label { get; set; }
 
     /// <summary>One of <c>bool</c>, <c>int</c>, <c>float</c>, <c>string</c>, <c>token</c>,
-    /// <c>action</c>, <c>label</c>.</summary>
+    /// <c>action</c>, <c>label</c>, <c>choice</c>.</summary>
     public string Kind { get; set; }
 
     public string Default { get; set; }
@@ -22,6 +31,9 @@ public sealed class SettingField
     public float Min { get; set; }
 
     public float Max { get; set; }
+
+    /// <summary>Entries of a <c>choice</c> setting, in the order they appear in the dropdown.</summary>
+    public List<SettingOption> Options { get; set; } = new List<SettingOption>();
 }
 
 /// <summary>
@@ -128,6 +140,41 @@ internal static class SettingsWindow
                 case "label":
                     {
                         listing.Label($"{field.Label}: {LabelStatus(mod, field)}");
+                        listing.Gap(4f);
+                        break;
+                    }
+                case "choice":
+                    {
+                        string selected = current;
+                        foreach (SettingOption option in field.Options)
+                        {
+                            if (option.Value == current)
+                            {
+                                selected = option.Label;
+                                break;
+                            }
+                        }
+
+                        Rect row = listing.GetRect(30f);
+                        float labelWidth = Mathf.Min(160f, Mathf.Round(row.width * 0.45f));
+                        Widgets.Label(new Rect(row.x, row.y, labelWidth, row.height), field.Label);
+                        Rect buttonRect = new Rect(
+                            row.x + labelWidth,
+                            row.y,
+                            row.width - labelWidth,
+                            row.height);
+                        if (field.Options.Count > 0 && Widgets.ButtonText(buttonRect, selected))
+                        {
+                            var menu = new List<FloatMenuOption>();
+                            foreach (SettingOption option in field.Options)
+                            {
+                                SettingOption picked = option;
+                                menu.Add(new FloatMenuOption(picked.Label, () => Changed(mod, field, picked.Value)));
+                            }
+
+                            Find.WindowStack.Add(new FloatMenu(menu));
+                        }
+
                         listing.Gap(4f);
                         break;
                     }

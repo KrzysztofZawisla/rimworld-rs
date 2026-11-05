@@ -207,12 +207,18 @@ let specs = [
     SettingSpec::int("count", "Count", 3, 0.0, 10.0),
     SettingSpec::float("speed", "Speed", 1.5, 0.1, 5.0),
     SettingSpec::string("note", "Note", "hello"),
+    SettingSpec::choice("detail", "Detail", "normal", &[
+        ("simple", "Simple — the game picks the target"),
+        ("normal", "Normal — the mod picks the target"),
+        ("full", "Full — the mod picks both"),
+    ]),
 ];
 ctx.settings_register(&specs)?;      // defaults apply immediately, the page appears in the mod list
 ```
 
-`on_settings_changed(ctx, key, value)` fires while the player drags a slider; the config file is
-written when the window closes.
+`choice` draws a dropdown; the stored value is the first member of each pair and the label is what
+the player reads. `on_settings_changed(ctx, key, value)` fires while the player drags a slider or
+picks an option; the config file is written when the window closes.
 
 The same window carries one switch of the bridge's own, above the settings the mod declared: **Log a
 stack trace when a bridge call fails** writes the full exception into `Player.log` when a call from Rust

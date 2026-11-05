@@ -17,6 +17,16 @@ fn finds_the_mods_through_cargo() {
 }
 
 #[test]
+fn hands_dotnet_plain_paths() {
+    assert_eq!(plain_path(Path::new(r"mods\Thing")), std::path::PathBuf::from(r"mods\Thing"));
+    #[cfg(windows)]
+    {
+        assert_eq!(plain_path(Path::new(r"\\?\F:\Projekty\mod")), std::path::PathBuf::from(r"F:\Projekty\mod"));
+        assert_eq!(plain_path(Path::new(r"\\?\UNC\server\share\mod")), std::path::PathBuf::from(r"\\server\share\mod"));
+    }
+}
+
+#[test]
 fn maps_target_triples_to_the_platform_folders_the_bridge_loads() {
     let windows = NativeTarget::for_triple("x86_64-pc-windows-msvc", "my_mod").expect("windows");
     assert_eq!(windows.rid, "win-x64");

@@ -29,6 +29,19 @@ internal static partial class HostOps
         var parsed = new List<SettingField>();
         foreach (JsonElement field in fields.EnumerateArray())
         {
+            var options = new List<SettingOption>();
+            if (field.TryGetProperty("options", out JsonElement entries) && entries.ValueKind == JsonValueKind.Array)
+            {
+                foreach (JsonElement entry in entries.EnumerateArray())
+                {
+                    options.Add(new SettingOption
+                    {
+                        Value = JsonArgs.GetString(entry, "value"),
+                        Label = JsonArgs.GetStringOrNull(entry, "label") ?? JsonArgs.GetString(entry, "value"),
+                    });
+                }
+            }
+
             parsed.Add(new SettingField
             {
                 Key = JsonArgs.GetString(field, "key"),
@@ -37,6 +50,7 @@ internal static partial class HostOps
                 Default = JsonArgs.GetStringOrNull(field, "default"),
                 Min = (float)JsonArgs.GetDouble(field, "min", 0),
                 Max = (float)JsonArgs.GetDouble(field, "max", 1),
+                Options = options,
             });
         }
 
@@ -61,6 +75,11 @@ internal static partial class HostOps
                 ["default"] = field.Default,
                 ["min"] = field.Min,
                 ["max"] = field.Max,
+                ["options"] = field.Options.Select(option => new Dictionary<string, object>
+                {
+                    ["value"] = option.Value,
+                    ["label"] = option.Label,
+                }).ToList(),
             });
         }
 

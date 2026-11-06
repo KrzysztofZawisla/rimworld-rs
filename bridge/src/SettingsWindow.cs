@@ -67,8 +67,20 @@ internal static class SettingsWindow
 
     public static void Draw(RustMod mod, Rect rect)
     {
+        string key = mod.Content?.PackageId ?? mod.Content?.Name ?? "Rust";
+        if (!ScrollPositions.TryGetValue(key, out Vector2 scroll))
+        {
+            scroll = Vector2.zero;
+        }
+        if (!ContentHeights.TryGetValue(key, out float contentHeight))
+        {
+            contentHeight = rect.height;
+        }
+
+        Rect viewRect = new Rect(0f, 0f, Mathf.Max(0f, rect.width - 16f), contentHeight);
+        Widgets.BeginScrollView(rect, ref scroll, viewRect, true);
         var listing = new Listing_Standard();
-        listing.Begin(rect);
+        listing.Begin(new Rect(0f, 0f, viewRect.width, 10000f));
         DrawBridgeOptions(listing);
         RustModSettings settings = mod.Settings;
         foreach (SettingField field in mod.SettingFields)
@@ -225,8 +237,19 @@ internal static class SettingsWindow
             }
         }
 
+        float measuredHeight = listing.CurHeight;
         listing.End();
+        Widgets.EndScrollView();
+        if (Mathf.Abs(measuredHeight - contentHeight) > 1f)
+        {
+            Log.Message($"[Rust] settings '{key}': content {measuredHeight:0} px, view {rect.height:0} px");
+            ContentHeights[key] = Mathf.Max(rect.height, measuredHeight);
+        }
+        ScrollPositions[key] = scroll;
     }
+
+    private static readonly Dictionary<string, Vector2> ScrollPositions = new();
+    private static readonly Dictionary<string, float> ContentHeights = new();
 
     /// <summary>
     /// The bridge's own options, above the ones Rust declared. They write silently: Rust never declared

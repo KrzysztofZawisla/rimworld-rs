@@ -2,6 +2,13 @@ use crate::*;
 
 impl ApiTest {
     pub(crate) fn note_tick(&mut self, ctx: &mut Context) {
+        // `on_map_generated` runs inside `Game.InitNewGame`, before the bridge's postfix has written
+        // `World.info.initialMapSize`; the first tick after the new game is the earliest honest moment.
+        if self.suite_ran && self.map_size_applied && !self.map_size_initial_checked {
+            self.map_size_initial_checked = true;
+            self.check_world_initial_map_size(ctx);
+        }
+
         if self.suite_ran && !self.ui_done {
             self.ui_done = true;
             self.run_ui_checks(ctx);

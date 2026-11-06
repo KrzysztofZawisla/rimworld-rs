@@ -329,6 +329,9 @@ Every pawn operation takes `ref` (the pawn handle); the actions are listed in `C
 | `game_set_speed` | `speed` (one of the game's own `TimeSpeed` names) | `{speed?, paused}` — `TickManager.CurTimeSpeed`, the same values the player's buttons use; a name the game does not have is refused **with the ones it has** |
 | `game_toggle_pause` | — | `{speed?, paused}` — `TickManager.TogglePaused`, the same call the player's spacebar makes, answered with the state the game reports afterwards |
 | `game_save` | `file` | `{file, saved}` — `GameDataSaveLoader.SaveGame`; an empty name is refused, and the game's own failure is reported as the game reports it |
+| `new_game_map_size_set` | `width`, `height` (each 1..4096) | `{armed, width, height, lastApplied?}` — arms the size of the **next** new game's starting map, square or not. The bridge installs its own `Game.InitNewGame`/`MapGenerator.GenerateMap` prefixes (Harmony required): `InitNewGame` receives the larger side as a placeholder, `GenerateMap` swaps in the exact width x height, and the postfix stores it in `World.info.initialMapSize`. A loaded save is never resized, `map_generate_pocket` is left alone, and the size stays armed until a new game actually generates its map |
+| `new_game_map_size_get` | — | `{armed, width?, height?, lastApplied?}` — the size waiting for the next new game, and the size of the last starting map the bridge generated this way |
+| `new_game_map_size_clear` | — | `{cleared, armed, width?, height?, lastApplied?}` — disarms the next new game's size; `cleared` says whether one was armed |
 | `quest_parts` | `ref` (a quest) | `[string]` — `Quest.PartsListForReading` by type name (rewards, raids, spawned things, dialogues), the same shape `map_components` answers with. A read, so it is allowed while the game saves |
 | `research_set_current` | `project` (a `ResearchProjectDef`) | `{defName, label}` — `ResearchManager.SetCurrentProject`, the exact call the player's click makes, and the same facts the `research_started` event carries. A def the game does not have is refused by name |
 | `ui_jump_to` | `ref` **or** `mapId`, `x`, `z` | `{mapId, x, z}` — the game's own `CameraJumper`; a thing must be spawned to have somewhere to go |
@@ -521,8 +524,8 @@ body forwards the instruction list to `Redirects.Run`, which does the rewrite.
 
 While the game writes a save (`game_saving`, before the mod's own data is scribed), every operation
 that changes the game is refused with a clear error: `spawn_thing`, `send_letter`, `ui_message`,
-`ui_dialog`, `harmony_patch`, `harmony_redirect`, `harmony_replace`, `def_set`, `def_call`,
-`ref_set`, `ref_call`, `companion_call`, `draw_radius_ring`, `draw_cells`. Reads, logging and
+`ui_dialog`, `harmony_patch`, `new_game_map_size_set`, `harmony_redirect`, `harmony_replace`, `def_set`,
+`def_call`, `ref_set`, `ref_call`, `companion_call`, `draw_radius_ring`, `draw_cells`. Reads, logging and
 `save_*` stay available, so a handler can write data into the very save being written.
 
 ### Saved data

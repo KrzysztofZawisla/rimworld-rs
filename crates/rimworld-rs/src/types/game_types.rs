@@ -150,6 +150,28 @@ pub struct GameSpeed {
     pub paused: bool,
 }
 
+/// The size of a map, in cells.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct MapSize {
+    pub width: i32,
+    pub height: i32,
+}
+
+/// The custom size armed for the next new game's starting map, as the bridge reports it.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct NewGameMapSize {
+    /// Whether a size is waiting for the next new game.
+    pub armed: bool,
+    /// The armed width, when `armed`.
+    pub width: Option<i32>,
+    /// The armed height, when `armed`.
+    pub height: Option<i32>,
+    /// The size the last starting map was generated with, when the bridge applied one.
+    pub last_applied: Option<MapSize>,
+}
+
 /// A save the game wrote.
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase", default)]

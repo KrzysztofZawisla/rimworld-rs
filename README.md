@@ -74,6 +74,10 @@ nested calls, result access) and the tick throttle.
   incidents, finish research — plus Harmony prefix/postfix patches with argument and result access,
   and **call rewriting** inside another method (`harmony_redirect` to another method,
   `harmony_replace` into a Rust handler).
+- **Choose the next colony's map size**: `new_game_map_size_set(width, height)` arms any size (square
+  or not, 1..4096 a side) for the next new game's starting map. The bridge patches
+  `Game.InitNewGame` and `MapGenerator.GenerateMap` for it (Harmony required), a loaded save is never
+  resized, and `new_game_map_size_get`/`_clear` report and withdraw the armed size.
 - **Show a UI**: gizmos for selected things (declared from Rust, with tooltips, hotkeys and
   disabled state, clicks arrive as events), windows with labels/buttons/checkboxes/sliders/text
   fields, float menus, and map drawing (range rings, cells, lines, circles, floating text) from the

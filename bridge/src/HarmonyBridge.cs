@@ -235,7 +235,7 @@ internal static class HarmonyBridge
             return false;
         }
 
-        Log.Message($"[Rust] game event {(prefix ? "prefix" : "postfix")} on {Describe(target)}");
+        Log.Message($"[Rust] bridge {(prefix ? "prefix" : "postfix")} on {Describe(target)}");
         return true;
     }
 

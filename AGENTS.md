@@ -133,13 +133,15 @@ RimWorld mods in Rust:
   in this build; the log is
   `~/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios/Logs/Player.log` (the tooling also checks
   the folder itself).
-- Verified on Windows (1.7.4995 rev309, WaylithCLR .NET 10, x86-64): `doctor`, the offline suite
-  (`cargo xtask test`; contract 761/761, event hooks 22/22, def names 9/9, patch xpaths 4/4,
-  proof 301/302 with 0 pending, 1 harness),
+- Verified on Windows (1.7.5000 rev1275, WaylithCLR .NET 10, x86-64): `doctor`, the offline suite
+  (`cargo xtask test`; contract 776/776, bridge hooks 25/25, def names 9/9, patch xpaths 4/4,
+  proof 304/305 with 0 pending, 1 harness, coverage audit regenerated),
   `build --all-targets` from Windows (native `win-x64` PE32+ plus `linux-x64` ELF, `osx-x64` and
   `osx-arm64` Mach-O through `cargo-zigbuild`), `package --all-targets` (one zip with the bridge and
-  all four libraries), `smoke` and `smoke --harmony` (212 passed, 0 failed, 0 skipped; the Workshop
-  Harmony was copied into `Mods`, so every event hook, the bill events and the scenario checks ran).
+  all four libraries), `smoke` and `smoke --harmony` (218 passed, 0 failed, **0 skipped**; the Workshop
+  Harmony was copied into `Mods`, so every event hook, the bill events and the scenario checks ran, and
+  the self-test's `new_game_map_size_set` produced a real **260 x 600** starting map — a size the
+  square vanilla path (600 x 600) and a swapped-sides mistake (600 x 260) cannot produce).
   On a machine without Harmony in `Mods`, the plain `smoke` reports those checks as SKIP; `--harmony`
   copies it there first.
   The bridge loaded `hello_rust_mod.dll` from
@@ -156,14 +158,21 @@ RimWorld mods in Rust:
   the five `rwrs_*` exports each, `cargo-xwin` for `win-x64` and `cargo-zigbuild` for `linux-x64`. With
   Homebrew's keg-only `llvm@22`/`lld@22` on `PATH`, `cargo-xwin` finds `clang-cl`, `lld-link` and
   `llvm-lib` (`cargo xtask doctor` names the missing one otherwise).
-- Version: `1.7.4995 rev309` verified on Windows, macOS and Linux, running on **WaylithCLR**
+- Version: `1.7.5000 rev1275` verified on Windows, running on **WaylithCLR**
   (`.NET 10` fork) with the RocketWerkz "Brutal" engine. No Unity runtime;
-  `UnityStubs.dll` emulates Unity APIs.
-- World creation, colony start and map generation run in the **engine**, not in the managed code: the `Verse`
-  page classes, `Game.InitNewGame` and `MapGenerator.GenerateMap` install as Harmony patches and are then never
-  called (six in-game runs, with `Verse.Log.Message` as the positive control - MODLOG). A mod cannot hook the
-  colony-start flow or choose a map size on this build; everything that runs *inside* a game (host operations,
-  events, drawing, settings) is ordinary managed code as documented.
+  `UnityStubs.dll` emulates Unity APIs. `1.7.4995 rev309` was the version verified on Windows, macOS
+  and Linux before that.
+- World creation and colony start are ordinary **managed** code on this build: `Root_Play.Start` queues the
+  new-game long event, which calls `Game.InitNewGame`; that method builds
+  `new IntVec3(initData.mapSize, 1, initData.mapSize)` and calls `MapGenerator.GenerateMap`, then
+  `GameComponentUtility.StartedNewGame()`. `Page_CreateWorldParams.DoWindowContents` opens
+  `Dialog_AdvancedGameConfig`. Verified on `1.7.5000 rev1275` (Windows, 2026-11-06) with Better Map Sizes
+  (`madarauchiha.custommapsizes`) active: `Player.log` carries `Verse.Game.InitNewGame_Patch1` and
+  `Verse.MapGenerator.GenerateMap_Patch1`, its two patches, on a normal new game. An earlier note that the
+  page classes, `Game.InitNewGame` and `MapGenerator.GenerateMap` "are never called" (six runs, with
+  `Verse.Log.Message` as the positive control) does not reproduce and is withdrawn. A mod can hook the
+  colony-start flow and choose a map size the way Better Map Sizes does: rewrite `GameInitData.mapSize` in a
+  `Game.InitNewGame` prefix and the `IntVec3` argument in a `MapGenerator.GenerateMap` prefix.
 - Game code assembly: `Assembly-CSharp.dll` (managed, `.NETCoreApp v10.0`, 16k types).
   Engine/loader assembly: `RimWorld.dll`.
 - Mods are loaded as .NET assemblies from `<mod>/Assemblies/*.dll` via `Assembly.LoadFrom`.

@@ -9,6 +9,7 @@ impl ApiTest {
         }
 
         self.clear_hostiles(ctx, map);
+        self.check_new_game_map_size(ctx, map);
         self.check_handles(ctx, map);
         self.check_settings(ctx, map);
         self.check_pawns_planet(ctx, map);

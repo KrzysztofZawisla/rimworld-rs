@@ -23,6 +23,9 @@ internal static partial class Program
     /// <summary>Designations the mock remembers, so designating and undesignating read back.</summary>
     private static readonly Dictionary<string, (int X, int Z)> MockDesignations = new();
 
+    /// <summary>The size `new_game_map_size_set` armed; the mock never starts a new game to consume it.</summary>
+    private static (int Width, int Height)? MockNewGameMapSize;
+
     /// <summary>Fields declared with `settings_define`, in declaration order.</summary>
     private static readonly List<(string Key, string Kind, string Default)> SettingSchema = new();
 

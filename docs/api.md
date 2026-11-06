@@ -182,6 +182,21 @@ ctx.quests()?; ctx.settlements()?; ctx.world_tile_info(tile)?;
 ctx.incident_fire("AmbrosiaSprout")?;        // storyteller first, incident worker when it refuses
 ```
 
+### The next new game's starting map
+
+```rust
+// Arm it before the game starts (on_init / on_defs_loaded); Harmony is required.
+let state = ctx.new_game_map_size_set(240, 160)?; // width x height, each 1..=4096
+let state = ctx.new_game_map_size_get()?;          // { armed, width, height, last_applied }
+let was_armed = ctx.new_game_map_size_clear()?;    // false when nothing was armed
+```
+
+The bridge installs its own `Game.InitNewGame`/`MapGenerator.GenerateMap` prefixes: the game builds
+the starting map from one square number, so the bridge hands it the larger side and swaps in the
+exact size at `GenerateMap`. The size is consumed by the new game that generates its map, a loaded
+save is never resized, and `map_generate_pocket` is untouched. Arm again after a game if the next
+new colony should use it too.
+
 ### Diagnostics and batching
 
 One host call is one JSON round trip, so a loop that calls per item is the expensive shape; see

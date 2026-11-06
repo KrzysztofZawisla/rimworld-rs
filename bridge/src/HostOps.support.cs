@@ -147,6 +147,7 @@ internal static partial class HostOps
             case "ui_message":
             case "ui_dialog":
             case "harmony_patch":
+            case "new_game_map_size_set":
             case "harmony_redirect":
             case "harmony_replace":
             case "harmony_unpatch":

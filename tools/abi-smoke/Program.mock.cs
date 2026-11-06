@@ -27,6 +27,9 @@ internal static partial class Program
         {
             "log" => HandleLog(request),
             "game_info" => "{\"ok\":true,\"result\":{\"hasGame\":true,\"tick\":1234,\"programState\":\"Playing\",\"currentMapId\":1,\"harness\":\"mock\",\"maps\":[{\"id\":1,\"biome\":\"TemperateForest\",\"tile\":42,\"sizeX\":100,\"sizeZ\":100,\"colonists\":3,\"isPlayerHome\":true}]}}",
+            "new_game_map_size_set" => HandleNewGameMapSizeSet(request),
+            "new_game_map_size_get" => NewGameMapSizeJson(),
+            "new_game_map_size_clear" => HandleNewGameMapSizeClear(),
             "dlc_dashboard" => "{\"ok\":true,\"result\":{\"capabilities\":{\"base\":true,\"royalty\":false,\"ideology\":false,\"biotech\":false,\"anomaly\":false,\"odyssey\":false},\"defRegistry\":[],\"royalty\":null,\"ideology\":null,\"biotech\":null,\"anomaly\":null,\"odyssey\":null}}",
             "def_names" => "{\"ok\":true,\"result\":[\"Steel\",\"Silver\",\"WoodLog\"]}",
             "def_types" => "{\"ok\":true,\"result\":[\"HediffDef\",\"ThingDef\"]}",
@@ -345,6 +348,7 @@ internal static partial class Program
             case "ui_message":
             case "ui_dialog":
             case "harmony_patch":
+            case "new_game_map_size_set":
             case "harmony_redirect":
             case "harmony_replace":
             case "harmony_unpatch":

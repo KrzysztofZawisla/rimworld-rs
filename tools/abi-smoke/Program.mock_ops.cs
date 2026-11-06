@@ -422,4 +422,43 @@ internal static partial class Program
 
         return "{\"ok\":true,\"result\":null}";
     }
+
+    /// <summary>The mock remembers an armed size; it has no new game that could consume it.</summary>
+    private static string HandleNewGameMapSizeSet(JsonElement request)
+    {
+        int width = IntArg(request, "width");
+        int height = IntArg(request, "height");
+        if (width < 1 || width > 4096 || height < 1 || height > 4096)
+        {
+            return $"{{\"ok\":false,\"error\":\"the new game's map side must be between 1 and 4096 cells (got {width} x {height})\"}}";
+        }
+
+        MockNewGameMapSize = (width, height);
+        return NewGameMapSizeJson();
+    }
+
+    private static string HandleNewGameMapSizeClear()
+    {
+        bool cleared = MockNewGameMapSize.HasValue;
+        MockNewGameMapSize = null;
+        return NewGameMapSizeJson(cleared);
+    }
+
+    private static string NewGameMapSizeJson(bool? cleared = null)
+    {
+        string armed = MockNewGameMapSize.HasValue ? "true" : "false";
+        string width = MockNewGameMapSize?.Width.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "null";
+        string height = MockNewGameMapSize?.Height.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "null";
+        string clearedField = cleared.HasValue ? $",\"cleared\":{(cleared.Value ? "true" : "false")}" : string.Empty;
+        return $"{{\"ok\":true,\"result\":{{\"armed\":{armed},\"width\":{width},\"height\":{height},\"lastApplied\":null{clearedField}}}}}";
+    }
+
+    private static int IntArg(JsonElement request, string name)
+    {
+        return request.TryGetProperty(name, out JsonElement value)
+            && value.ValueKind == JsonValueKind.Number
+            && value.TryGetInt32(out int number)
+            ? number
+            : 0;
+    }
 }

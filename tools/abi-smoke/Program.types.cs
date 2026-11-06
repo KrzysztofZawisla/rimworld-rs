@@ -137,6 +137,17 @@ internal static partial class Program
     {
         string name = (typeName ?? string.Empty).Trim();
 
+        // A handler parameter may be written `ref IntVec3 mapSize`: the by-ref marker is a C# spelling,
+        // not part of the game's parameter type, so it is stripped before the comparison.
+        if (name.StartsWith("ref ", StringComparison.Ordinal) || name.StartsWith("out ", StringComparison.Ordinal))
+        {
+            name = name.Substring(4);
+        }
+        else if (name.StartsWith("in ", StringComparison.Ordinal))
+        {
+            name = name.Substring(3);
+        }
+
         // `DamageInfo?`, `Nullable<DamageInfo>` and `System.Nullable`1<Verse.DamageInfo>` are one
         // parameter; the short spellings are what the bridge's own patch lines use.
         if (name.EndsWith("?", StringComparison.Ordinal))

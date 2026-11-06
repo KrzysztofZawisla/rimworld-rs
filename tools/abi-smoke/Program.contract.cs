@@ -322,38 +322,47 @@ internal static partial class Program
     }
 
     /// <summary>
-    /// The bridge's game-state events (bridge/src/GameEvents.cs) are Harmony postfixes, and Harmony binds a
-    /// handler's parameters **by name**: a parameter called `newLord` receives the game's `newLord`, while a
-    /// guessed `lord` receives nothing and leaves the hook silently inactive — the only trace is the
-    /// bridge's own warning at load time. This reads the hooks out of the source and checks every handler
-    /// parameter against the target method's real parameters, so a guessed name fails here instead of in a
-    /// running game.
+    /// The bridge's own hooks (bridge/src/GameEvents.cs and bridge/src/MapSize.cs) are Harmony patches,
+    /// and Harmony binds a handler's parameters **by name**: a parameter called `newLord` receives the
+    /// game's `newLord`, while a guessed `lord` receives nothing and leaves the hook silently inactive —
+    /// the only trace is the bridge's own warning at load time. This reads the hooks out of the source and
+    /// checks every handler parameter against the target method's real parameters, so a guessed name
+    /// fails here instead of in a running game.
     /// </summary>
     private static int CheckEventHooks(MetadataReader reader, string repo)
     {
-        string source = Path.Combine(repo, "bridge", "src", "GameEvents.cs");
-        if (!File.Exists(source))
+        string[] sources =
         {
-            Console.Error.WriteLine($"no {Path.GetFullPath(source)}: the game-state event hooks cannot be checked");
+            Path.Combine(repo, "bridge", "src", "GameEvents.cs"),
+            Path.Combine(repo, "bridge", "src", "MapSize.cs"),
+        };
+        if (sources.FirstOrDefault(path => !File.Exists(path)) is string missing)
+        {
+            Console.Error.WriteLine($"no {Path.GetFullPath(missing)}: the bridge hooks cannot be checked");
             return 1;
         }
 
-        string text = File.ReadAllText(source);
         var handlers = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (Match match in Regex.Matches(
-                     text,
-                     @"private\s+static\s+void\s+(?<name>[A-Za-z_0-9]+)\s*\((?<params>[^)]*)\)",
-                     RegexOptions.Singleline))
+        var text = new System.Text.StringBuilder();
+        foreach (string source in sources)
         {
-            handlers[match.Groups["name"].Value] = match.Groups["params"].Value;
+            string content = File.ReadAllText(source);
+            text.AppendLine(content);
+            foreach (Match match in Regex.Matches(
+                         content,
+                         @"private\s+static\s+void\s+(?<name>[A-Za-z_0-9]+)\s*\((?<params>[^)]*)\)",
+                         RegexOptions.Singleline))
+            {
+                handlers[match.Groups["name"].Value] = match.Groups["params"].Value;
+            }
         }
 
         var provider = new TypeNameProvider(reader);
         int hooks = 0;
         int failures = 0;
         foreach (Match hook in Regex.Matches(
-                     text,
-                     @"Add(?:Prefix)?\(\s*""(?<type>[^""]+)""\s*,\s*""(?<method>[^""]+)""\s*,\s*(?<params>.*?),\s*nameof\((?<handler>[A-Za-z_0-9]+)\)\s*\)",
+                     text.ToString(),
+                     @"(?:Add(?:Prefix)?|HookPrefix|HookPostfix)\(\s*""(?<type>[^""]+)""\s*,\s*""(?<method>[^""]+)""\s*,\s*(?<params>.*?),\s*nameof\((?<handler>[A-Za-z_0-9]+)\)\s*\)",
                      RegexOptions.Singleline))
         {
             hooks++;
@@ -425,7 +434,7 @@ internal static partial class Program
 
             if (!handlers.TryGetValue(handlerName, out string handlerParameters))
             {
-                Console.WriteLine($"FAIL  {label}: {handlerName} is not declared in {source}, so its parameters are unchecked");
+                Console.WriteLine($"FAIL  {label}: {handlerName} is not declared in the bridge hook sources, so its parameters are unchecked");
                 failures++;
                 continue;
             }
@@ -484,7 +493,7 @@ internal static partial class Program
         }
 
         Console.WriteLine();
-        Console.WriteLine($"{hooks - failures}/{hooks} game-state event hooks bind");
+        Console.WriteLine($"{hooks - failures}/{hooks} bridge hooks bind");
         return failures;
     }
 }

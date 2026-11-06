@@ -66,6 +66,12 @@ internal static partial class HostOps
                 return null;
             case "game_info":
                 return GameInfo();
+            case "new_game_map_size_set":
+                return MapSize.Arm(request);
+            case "new_game_map_size_get":
+                return MapSize.Get();
+            case "new_game_map_size_clear":
+                return MapSize.Clear();
             case "def_info":
                 return DefInfo(request);
             case "def_names":

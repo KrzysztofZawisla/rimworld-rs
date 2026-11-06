@@ -38,6 +38,12 @@ struct Probe {
 /// Reported when this build has no `DesignationDef` that targets things (a SKIP, not a failure).
 pub(crate) const NO_THING_DESIGNATION: &str = "this build has no DesignationDef that targets things";
 
+/// The deliberately extreme non-square size the self-test arms for the next new game, then checks on its
+/// first map. A bridge that fell back to the square vanilla path could only produce 600 x 600, and one that
+/// swapped the sides 600 x 260, so neither mistake passes as "some rectangle".
+pub(crate) const TEST_MAP_WIDTH: i32 = 260;
+pub(crate) const TEST_MAP_HEIGHT: i32 = 600;
+
 /// Collects the results and prints them through the game log.
 #[derive(Default)]
 struct Report {
@@ -181,6 +187,16 @@ struct ApiTest {
     steel_tex_path: Option<String>,
     map_width: i32,
     map_depth: i32,
+
+    /// What `new_game_map_size_set` answered in `on_init`, and the startup checks around it.
+    map_size_armed: Option<NewGameMapSize>,
+    map_size_error: Option<String>,
+    map_size_refused: bool,
+    map_size_cleared_empty: bool,
+    /// Whether this run's starting map came out of the armed size, and whether the `initialMapSize`
+    /// postfix has been checked yet (it runs after `Game.InitNewGame`, so the first tick is the moment).
+    map_size_applied: bool,
+    map_size_initial_checked: bool,
 
     // the bridge's own thing component (RustThingComp), attached by SelfTest.xml
     comp_spawn_id: i32,

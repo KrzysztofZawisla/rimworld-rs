@@ -20,6 +20,7 @@ exercises the behaviour in a real game.
 | Pawns: expansions | genes and xenotypes (Biotech), titles and psyfocus (Royalty), ideoligion and precepts (Ideology) |
 | World | every world object listed (settlements, caravans, ruins, quest sites), routes between tiles from the game's own pathfinder, tile passability and movement cost, the world's own components, factions and goodwill, research, quests, settlements, world tiles, story incidents, caravans (list and send) |
 | Work | bills on anything that gives work: list, add, remove, clear |
+| New game | the next new game's starting map size, square or not (the bridge's own `InitNewGame`/`GenerateMap` prefixes; Harmony required) |
 | UI | windows with labels, buttons, checkboxes, sliders and text fields; messages, dialogs, letters; gizmos |
 | Drawing | map overlays: radius rings, cells, lines, circles, floating text and textures |
 | Sound | one-shots (at a cell or on the camera), sustained sounds, forced music tracks |
@@ -78,7 +79,7 @@ Counted from this installation: `Assembly-CSharp` holds ~16k types (`cargo xtask
 13 419 def names across 234 def types, 1 812 of them `ThingDef`s (`cargo xtask defs --types ThingDef`);
 and the running game's `DefDatabase<ThingDef>` holds 3 415 ThingDefs — the declared ones plus the defs
 the game generates for itself, which is the number `ctx.def_names("ThingDef")` returns in game. The
-SDK's whole surface is **302 host operations, 46 events and 761 game members** in the contract check.
+SDK's whole surface is **305 host operations, 46 events and 776 game members** in the contract check.
 So the table below is a map of the *families we have barely entered* — every row is still reachable
 through `ref_call`/`def_*`/a patch or a companion, which is what makes these gaps a matter of
 convenience and safety rather than of possibility.
@@ -153,6 +154,7 @@ dotnet run --project tools/abi-smoke -- --coverage-audit . --write
 | `member` | 1 | 1 | 0 |
 | `mote` | 1 | 1 | 0 |
 | `music` | 1 | 1 | 0 |
+| `new` | 3 | 3 | 0 |
 | `pawn` | 89 | 89 | 0 |
 | `plant` | 2 | 2 | 0 |
 | `projectile` | 1 | 1 | 0 |
@@ -180,7 +182,7 @@ dotnet run --project tools/abi-smoke -- --coverage-audit . --write
 | `value` | 1 | 1 | 0 |
 | `world` | 14 | 14 | 0 |
 | `zone` | 1 | 1 | 0 |
-| **total** | **302** | **301** | **1** |
+| **total** | **305** | **304** | **1** |
 <!-- coverage-audit:end -->
 
 ## Adding to this list

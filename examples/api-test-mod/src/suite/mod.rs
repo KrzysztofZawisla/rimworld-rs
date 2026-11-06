@@ -17,6 +17,7 @@ mod harmony;
 mod health_and_world_rules;
 mod health_items_and_policies;
 mod lords_training_and_records;
+mod map_size;
 mod pawn_look_and_camera;
 mod pawns_planet;
 mod plants_trade;

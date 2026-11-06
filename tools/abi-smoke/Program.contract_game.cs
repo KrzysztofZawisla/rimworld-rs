@@ -239,6 +239,21 @@ internal static partial class Program
         ("RimWorld.FiringIncident", ".ctor"),
         ("RimWorld.Storyteller", "TryFire"),
 
+        // The next new game's starting map size (bridge/src/MapSize.cs): the hooks and their parameter
+        // names are checked by the handler-binding pass; these are the members they read and write.
+        ("Verse.Game", ""),
+        ("Verse.Game", "InitNewGame"),
+        ("Verse.MapGenerator", ""),
+        ("Verse.MapGenerator", "GenerateMap"),
+        ("Verse.GameInitData", ""),
+        ("Verse.GameInitData", "mapSize"),
+        ("Verse.Find", "GameInitData"),
+        ("Verse.Find", "World"),
+        ("RimWorld.Planet.World", ""),
+        ("RimWorld.Planet.World", "info"),
+        ("RimWorld.Planet.WorldInfo", ""),
+        ("RimWorld.Planet.WorldInfo", "initialMapSize"),
+
         // Windows, widgets and drawing added for the UI layer.
         ("Verse.Window", ""),
         ("Verse.Window", "DoWindowContents"),

@@ -5,6 +5,7 @@ impl Mod for ApiTest {
         ctx.log("[selftest] registering patches and running the startup checks");
         self.register_patches(ctx);
         self.declare_settings(ctx);
+        self.arm_new_game_map_size(ctx);
     }
 
     fn on_map_generated(&mut self, ctx: &mut Context, map: &MapInfo) {
